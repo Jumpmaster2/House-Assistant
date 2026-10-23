@@ -1,0 +1,13 @@
+{
+  "domain": "house_assistant",
+  "name": "House Assistant",
+  "codeowners": ["@Jumpmaster2"],
+  "config_flow": true,
+  "documentation": "https://github.com/Jumpmaster2/House-Assistant",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/Jumpmaster2/House-Assistant/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}
