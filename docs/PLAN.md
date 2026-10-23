@@ -21,6 +21,7 @@ Probleme: Fenster werden doppelt erfasst (Heizung: Kontakte je Größe im Heizbe
 * Kein Import-Assistent in der Integration. Claude Code richtet die neue Integration nach der Umsetzung **genau wie die jetzige Installation** ein, **einschließlich aller gelernten Daten**. Dafür gibt es ein einmaliges Umzugs-Skript (Abschnitt 12): Home Assistant wird gestoppt, Entitäts- und Geräte-IDs bleiben gleich, also laufen Verlauf und Energie-Dashboard weiter. Alte Dienst- und Kartennamen bekommen keine Aliase; das Skript schreibt Automationen und Dashboards um.
 * **Gekippt** zählt für die Heizung wie offen, aber nur mit **25 % der Öffnungsfläche**.
 * **Querlüften und Luftzug** werden **automatisch** aus der Anordnung der Fenster abgeleitet: gegenüberliegende Wände **und** Wände über Eck. Jede Kombination lässt sich einzeln abschalten.
+* **Urlaubsmodus für das ganze Haus** mit eigenem Schalter, Abreise und Rückkehr; externe Quellen wie ein Kalender bleiben möglich. Dazu kommen Hitzeschutz der Rollos, eine ruhende Lüftungsempfehlung, die Meldung offener Fenster und eine Leckwarnung der Zähler (Abschnitt 7a).
 * Zusätzliche Schritte nach dem Umbau: **Rollos im Wärmemodell**, **heizungsgeführte Ablesung des Wärmezählers** (nur wenn geheizt wurde, beim Heizen alle 15 min, frisch vor KI-Prüfung und Mitternacht), **Zähler über Claude-Key**.
 
 ## 3. Zielbild
@@ -103,7 +104,7 @@ Im Panel unter **Haus > Hausplan**: Wählt man einen Raum, zeigt der Kompass sei
 | Außentemperatur | beide, jeweils mit Wetter als Ersatz | `core/sources.py`: eine Quelle (Sensor, sonst Wetter), Plausibilität −50…80 °C, Reparatur `outdoor_unavailable`. Ein Modul darf unter „Erweitert“ abweichen (falls beim Umzug verschieden). |
 | Außenfeuchte | Heizung | Kern (Ersatz: Feuchte aus dem Wetter) |
 | Wetter/Vorhersage | Heizung: täglich und stündlich, 10 s; Rollos: auto/täglich/zweimal täglich/stündlich, 30 s, Wiederholung nach 30 min | `ForecastService` mit Zwischenspeicher je Art; jedes Modul fragt mit eigenem Höchstalter und eigener Zeitgrenze, Verhalten wie bisher, weniger Abfragen. Reparatur `forecast_unsupported` bleibt. |
-| Urlaub | beide eigene Listen | Kern-Liste; ein Modul kann eine abweichende Liste haben. Rückkehr-Entität und Vorheiz-Reserve bleiben bei der Heizung. |
+| Urlaub | beide eigene Listen, Rückkehr nur bei der Heizung | **Urlaubsmodus für das ganze Haus** mit eigenem Schalter, Abreise und Rückkehr (Abschnitt 7a). Vorheiz-Reserve und Urlaubstemperatur bleiben bei der Heizung. |
 | Werktag, Wochenendtage | Rollos | Kern |
 | Sprache der Meldungen | Rollos (auto/de/en); Heizung: HA-Sprache | Kern-Option für alle Module, Standard „auto“ (verhält sich wie heute) |
 | Benachrichtigungen | Rollos: `notify.*`; Zähler: dauerhafte Benachrichtigung | `core/notify.py`. Beides bleibt, wie bisher je Modul. |
@@ -114,6 +115,34 @@ Im Panel unter **Haus > Hausplan**: Wählt man einen Raum, zeigt der Kompass sei
 | KI-Client, Budget, Kosten | Heizung (`ai_client.py`, `logic/ai_policy.py`) | `core/ai/`: API-Key, Modell, Effort, Preise, Monatsbudget, max. Tokens, Reauth. KI-spezifische Teile (Nachtlauf, Prüfintervalle, Grenzen, Anweisungen) bleiben bei der Heizung. |
 | Formulare, Panel-Grundlage | dreifach gleiche Hilfsfunktionen (`_number`, `_entity`, `_opt`, `_req`, `_clean`, `_flatten`, Spec-Serialisierung) | `core/schema.py` und `frontend/shared/*.js` |
 | Werkzeuge | `check_privacy.py` (dreimal identisch), `build_labels.py`/`gen_labels.py`, CI-Workflows (identisch) | einmal im neuen Repo |
+
+## 7a. Urlaubsmodus (für das ganze Haus)
+
+Ein Urlaub für alle Module, ohne eigene Helfer (`input_boolean`, `input_datetime`). Die Logik liegt in `core/vacation.py`, die Zeitregeln rein in `core/logic/vacation.py`.
+
+**Steuerung**
+* Schalter **Urlaub** am Hauptgerät, bleibt über Neustarts erhalten.
+* **Abreise** und **Rückkehr** als `datetime`-Entitäten, beide optional:
+  * Zur Abreise schaltet sich der Urlaub ein, zur Rückkehr aus; danach werden beide Zeitpunkte geleert.
+  * Ist nur die Rückkehr gesetzt, gilt der Urlaub ab sofort bis zur Rückkehr.
+  * Eine Rückkehr in der Vergangenheit wird ignoriert, wie bisher bei der Heizung: Dann gilt der Urlaub, bis der Schalter aus ist.
+  * Eine Abreise nach der Rückkehr wird abgelehnt.
+* **Externe Quellen bleiben möglich:** Urlaubs-Entitäten (`input_boolean`, `binary_sensor`, `switch`, `calendar`, `schedule`; „an“ heißt Urlaub) und eine Rückkehr-Entität (`input_datetime`, `datetime`, Zeitstempel-Sensor). Die eigene Rückkehr hat Vorrang. Ein Modul kann eine abweichende Liste haben, falls sie beim Umzug verschieden war.
+* Binärsensor **Urlaub aktiv**: an, wenn der Schalter an ist oder eine externe Quelle Urlaub meldet. Attribute: Quelle, Abreise, Rückkehr und der Beginn des Vorheizens.
+* Dienst `house_assistant.set_vacation` mit `departure`, `return` und `clear` für Automationen, Ereignis `house_assistant_vacation` mit `active` und `source`, Logbuch-Eintrag bei Beginn und Ende.
+
+**Wirkung je Modul**
+
+| Modul | Wirkung | |
+|---|---|---|
+| Heizung | Urlaubstemperatur für alle Räume. Vorheizen mit gelernter Aufheizrate und Vorheiz-Reserve, damit zur Rückkehr der normale Sollwert erreicht ist. Heiztag-Entscheidung und KI berücksichtigen den Urlaub wie bisher. | wie bisher |
+| Rollos | Urlaubssimulation: morgens und abends zufällige Zeit und Position, der Abendlauf ruht für teilnehmende Fenster. Sonnenschutz und Lüften laufen weiter. | wie bisher |
+| Rollos | **Hitzeschutz im Urlaub:** Der Sonnenschutz senkt ab, ohne auf Raumtemperatur, Klimaanlage oder Heizbedarf zu warten. Sommertag, Außentemperatur, Sonnensensoren, Haltezeiten und Sonnenbereich gelten weiter, im Winter wird also nicht abgesenkt. Der Sonnenschutz-Schalter des Fensters bleibt maßgeblich. Option, Standard an. | neu |
+| Lüftung | **Lüftungsempfehlung ruht:** neuer Zustand „Urlaub“, „Lüften empfohlen“ ist aus. Die Statistik der KI-Lüftungsprüfung zählt Urlaubsminuten nicht, und Urlaubstage gehen nicht ins Tagesprofil der Feuchte ein. Option, Standard an. | neu |
+| Haus | **Offene Fenster bei Abreise:** Zu Beginn des Urlaubs kommt eine Meldung mit allen offenen oder gekippten Fenstern; nicht verfügbare Kontakte werden als „unbekannt“ genannt. Während des Urlaubs gibt es sofort eine Meldung, wenn ein Fenster geöffnet oder gekippt wird (nur echte Meldungen, nach der Entprellung). Option, Standard an. | neu |
+| Zähler | **Leckwarnung:** Je Zähler gibt es „Im Urlaub warnen“ mit zwei Grenzen: einer Menge (Verbrauch seit Urlaubsbeginn, gemessen ab dem letzten gültigen Stand davor) und einem mittleren Durchfluss bzw. einer mittleren Leistung über der Grundlast. Standard: beim Wasser an mit 20 L bzw. 5 L/h, bei Gas und Strom aus (dort die Grundlast eintragen). Bei Überschreiten: Meldung, Logbuch, Ereignis `house_assistant_vacation_alert` und ein Attribut am Zähler, einmal je Urlaub und Fall. Der Wärmezähler ist ausgenommen; er wird ohnehin heizungsgeführt abgelesen. | neu |
+
+Die Meldungen gehen an die Benachrichtigungsdienste des Hauses. Ist dort keiner eingetragen, erscheinen sie als Benachrichtigung in Home Assistant.
 
 ## 8. Module und interne Verknüpfungen
 
@@ -128,7 +157,8 @@ Die Module werden zunächst **1:1 umgezogen** (`heating/`, `shutter/`, `meter/`,
 | Zähler „Bedingung“ (`condition_entity`) | Entität, nur `off` gilt | **Heiztag (intern)** als Auswahl. „Unbekannt“ zählt wie heute als Heiztag. Für den Wärmezähler kommt in Schritt 13 B der Zeitplan „Heizungsgeführt“ dazu. |
 | Heizung „Fenster“ | Kontaktlisten im Bereich | Fenster des Raums (Abschnitt 5) |
 | Heizung „Luftzug“ | 4 Kombinationen aus Kontakten | Fenster-Kombinationen und automatische Kombinationen (Abschnitt 6) |
-| Außen, Wetter, Urlaub, Werktag, Sprache | doppelt | Kern (Abschnitt 7) |
+| Außen, Wetter, Werktag, Sprache | doppelt | Kern (Abschnitt 7) |
+| Urlaub | zwei Listen, Rückkehr-Entität | Urlaubsmodus des Hauses (Abschnitt 7a) |
 
 **Modul-Neustart statt Neuladen des ganzen Eintrags:** Heute lädt jede Änderung die ganze Integration neu. Zusammengelegt würde das Bearbeiten eines Zählers die Heizung neu starten und Haltezeiten der Rollos zurücksetzen. Deshalb vergleicht der Update-Listener in `__init__.py` die Optionsabschnitte und Subentries nach Typ und startet **nur die betroffenen Module** neu. Jedes Modul trägt seine Entitäten über die gespeicherten `async_add_entities`-Rückrufe der Plattformen nach bzw. entfernt sie. Ändert sich ein Fenster, starten Heizung und Rollos neu. Der Store wird vorher gesichert, wie bisher beim Entladen.
 
@@ -138,10 +168,11 @@ Die Module werden zunächst **1:1 umgezogen** (`heating/`, `shutter/`, `meter/`,
 custom_components/house_assistant/
   __init__.py  manifest.json  const.py  config_flow.py  diagnostics.py  logbook.py
   services.py  services.yaml  icons.json  strings.json  translations/{de,en}.json  brand/
-  sensor.py binary_sensor.py climate.py switch.py select.py button.py camera.py   # sammeln die Entitäten der aktiven Module
-  core/   house.py sources.py forecast.py notify.py issues.py links.py schema.py store.py
+  sensor.py binary_sensor.py climate.py switch.py select.py button.py camera.py datetime.py
+                                                                                 # sammeln die Entitäten der aktiven Module
+  core/   house.py sources.py forecast.py vacation.py notify.py issues.py links.py schema.py store.py
           panel.py websocket.py ai/{client.py,policy.py}
-          logic/{contacts.py,geometry.py,units.py,sun.py}                         # rein, ohne HA
+          logic/{contacts.py,geometry.py,units.py,sun.py,vacation.py}             # rein, ohne HA
   heating/  coordinator.py entities.py services.py websocket.py messages.py logic/…  # aus ai_heating_assistant
   shutter/  engine.py entities.py services.py websocket.py messages.py logic/…      # aus shutter_assistant
   meter/    manager.py meter.py entities.py services.py websocket.py logic/…          # aus zaehler_ablesung
@@ -168,7 +199,7 @@ Die Migrationen der bisherigen Heizungs-Optionen (`async_migrate_entry`, Minor-V
 **Entitäten:** Das `unique_id`-Schema bleibt `{subentry_id oder entry_id}_{key}`. Ein Test stellt sicher, dass Schlüssel je Objektart über alle Module eindeutig sind. Gleiche Übersetzungsschlüssel werden getrennt, z. B. `status` in `room_status` und `window_status`; die Entitäts-ID ändert das nicht.
 
 Geräte:
-* Hauptgerät „House Assistant“.
+* Hauptgerät „House Assistant“, mit den Urlaubs-Entitäten (Schalter Urlaub, Abreise, Rückkehr, Binärsensor Urlaub aktiv).
 * Dienstgeräte „Heizung“ und „Rollos“ für die bisherigen globalen Entitäten.
 * Ein Gerät je Raum, je Fenster mit Rollo und je Zähler.
 
@@ -179,8 +210,9 @@ Geräte:
 | `ai_heating_assistant.export_parameters`, `import_parameters`, `reset_learned`, `run_ai_check`, `run_ai_ventilation_check`, `decide_heating_day` | gleicher Name |
 | `shutter_assistant.move`, `start_override`, `end_override`, `resume` | `move_cover`, `start_cover_override`, `end_cover_override`, `resume_cover` |
 | `zaehler_ablesung.read`, `set_reading` | `read_meter`, `set_meter_reading` |
+| (neu) | `set_vacation` (Abschnitt 7a) |
 
-**Ereignisse:** `house_assistant_cover_moved`, `house_assistant_cover_failed`, `house_assistant_protection`, `house_assistant_meter_reading`. Die Felder sind unverändert; Zähler-Ereignisse enthalten zusätzlich `meter_id`.
+**Ereignisse:** `house_assistant_cover_moved`, `house_assistant_cover_failed`, `house_assistant_protection`, `house_assistant_meter_reading`. Die Felder sind unverändert; Zähler-Ereignisse enthalten zusätzlich `meter_id`. Neu sind `house_assistant_vacation` und `house_assistant_vacation_alert`.
 
 **Karten:** Auch für Nicht-Admins weiterhin als Dashboard-Ressource eingetragen.
 
@@ -197,8 +229,8 @@ Geräte:
 
 Oben die Bereiche, darunter die bisherigen Reiter. Jede Karte wird für sich gespeichert, wie bisher.
 
-* **Übersicht:** je Modul eine Zusammenfassung (Heiztag und Phase, Räume mit Temperatur, Status und Lüftung, Rollos mit Automatik, Wetterschutz und Sonnenkompass, Zähler mit Stand und Status), KI-Kosten und gesammelte Hinweise.
-* **Haus:** Räume · Fenster · Himmelsrichtungen · Hausplan (Kompass mit Haus, Fenstern und Querlüft-Linien) · Allgemein (Außensensoren, Wetter, Urlaub, Werktag, Sprache, Benachrichtigungen, Module).
+* **Übersicht:** je Modul eine Zusammenfassung (Heiztag und Phase, Räume mit Temperatur, Status und Lüftung, Rollos mit Automatik, Wetterschutz und Sonnenkompass, Zähler mit Stand und Status), KI-Kosten und gesammelte Hinweise. Im Urlaub zeigt ein Banner Abreise, Rückkehr, den Beginn des Vorheizens, ob Simulation und Leckwarnung aktiv sind, und offene Fenster.
+* **Haus:** Räume · Fenster · Himmelsrichtungen · Hausplan (Kompass mit Haus, Fenstern und Querlüft-Linien) · **Urlaub** (Schalter, Abreise, Rückkehr, externe Quellen, die Optionen aus Abschnitt 7a) · Allgemein (Außensensoren, Wetter, Werktag, Sprache, Benachrichtigungen, Module).
   * Der Raum-Editor vereint den bisherigen Heizbereich-Editor und listet die Fenster des Raums mit Link.
   * Der Fenster-Editor zeigt zuerst die Grunddaten (Raum, Größe, Kontakte, Wand, Position, Himmelsrichtung, Rollo) und mit Rollo die bisherigen Karten des Shutter-Assistant-Editors mit Live-Check. „Duplizieren“ bleibt.
 * **Heizung:** Übersicht (Heiztag manuell, Wärme-Karte) · Lernwerte · Einstellungen (Heizperiode, Frost, Urlaubstemperatur, PV, Wärmezähler) · Notfall & Lüftung · Heiztag-Entscheidung.
@@ -216,6 +248,7 @@ Werkzeug `scripts/transfer_legacy.py` mit dem reinen Umwandler `scripts/legacy/c
    * **Räume** entstehen aus den Heizbereichen; der HA-Bereich kommt vom Gerät des Heizbereichs.
    * **Fenster** werden zusammengeführt: Steht ein Heizungskontakt auch in einem Rollo-Fenster, wird daraus ein gemeinsames Fenster mit der Größe aus der Heizung. Die übrigen Kontakte werden Fenster ohne Rollo. Der Raum eines Rollo-Fensters folgt aus gemeinsamen Kontakten oder aus `room_entity` = Thermostat des Bereichs, sonst wird gefragt.
    * Offen bleiben z. B. Wand und Position von Fenstern ohne Rollo und abweichende Werte von Außentemperatur oder Urlaub.
+   * **Urlaub:** Die bisherigen Urlaubs-Entitäten und die Rückkehr-Entität werden externe Quellen des Urlaubsmodus. Damit ändert sich nichts, bestehende Automationen auf diese Helfer laufen weiter. Auf Wunsch stellt Claude Code danach auf den eigenen Schalter mit Abreise und Rückkehr um.
 4. **HA stoppen**, dann `--apply transfer-plan.yaml`:
    * neuen Eintrag anlegen: Optionen geschachtelt, Subentries mit den alten IDs, Format nach dem Muster des bestehenden Heizungseintrags;
    * Stores übernehmen: `house_assistant.<entry>.heating|shutter|meter` mit Lernmodell, Sonnenskala, Heiztag-Verlauf, KI-Verlauf, Budget, Wärmezähler, Übersteuerungen, Markern und Zählerständen;
@@ -280,8 +313,13 @@ Jeder Schritt ist ein eigener PR mit grüner CI.
    * Kern-Optionen statt doppelter Einstellungen;
    * Panel-Bereich Haus mit Raum- und Fenster-Editor.
 7. **Querlüften automatisch** (Abschnitt 6) und gekippt mit 25 % (Abschnitt 5), mit Anzeige im Hausplan.
-8. **Umzugs-Skript** mit Probelauf auf der Kopie, `docs/transfer.md`, README de/en, CHANGELOG, Version 1.0.0b1. Danach der echte Umzug durch Claude Code, dann 1.0.0.
-9. **Zusätze A, B, C** (Abschnitt 13), jeder als eigener PR (1.1, 1.2, 1.3).
+8. **Urlaubsmodus** (Abschnitt 7a):
+   * Schalter, Abreise, Rückkehr, externe Quellen, Dienst und Ereignis;
+   * Anbindung von Heizung und Rollos;
+   * Hitzeschutz, ruhende Lüftungsempfehlung, Meldung offener Fenster, Leckwarnung der Zähler;
+   * Panel-Reiter Urlaub und Banner in der Übersicht.
+9. **Umzugs-Skript** mit Probelauf auf der Kopie, `docs/transfer.md`, README de/en, CHANGELOG, Version 1.0.0b1. Danach der echte Umzug durch Claude Code, dann 1.0.0.
+10. **Zusätze A, B, C** (Abschnitt 13), jeder als eigener PR (1.1, 1.2, 1.3).
 
 ## 15. Prüfung
 
@@ -289,6 +327,7 @@ Jeder Schritt ist ein eigener PR mit grüner CI.
   * `ruff check` und `ruff format --check`, `python scripts/build_labels.py --check`, `pytest -q`;
   * alle 568 portierten Tests plus neue: Fensterzustand je Modul, Geometrie mit Beispielhaus (Kinderzimmer + Bad lösen im Wohnbereich aus, Schlafzimmer + Bad nicht), gekippt 25 %, interne Verknüpfungen, Modul-Neustart lässt andere Module unberührt, eindeutige Schlüssel, Umwandler;
   * heizungsgeführte Ablesung: ohne Heizen keine Ablesung, beim Heizen alle 15 min, Schlussablesung nach dem Nachlauf, kein Ablesen vor KI-Prüfung oder um 23:55 Uhr ohne Heizen, Wiederholung nach Fehler, Neustart mit offenem „geheizt“;
+  * Urlaubsmodus: automatischer Beginn und automatisches Ende, nur Rückkehr gesetzt, Rückkehr in der Vergangenheit, externe Quellen, Neustart während des Urlaubs, Vorheizen zur eigenen Rückkehr, Hitzeschutz nur an Sommertagen, Lüftungsempfehlung „Urlaub“, Meldung offener Fenster bei Abreise und beim Öffnen, Leckwarnung nach Menge und nach Durchfluss (einmal je Urlaub), Wärmezähler ausgenommen;
   * hassfest und HACS in der CI.
 * **Ende zu Ende** in einer Test-Instanz (Home Assistant 2026.10 im Container, Chromium und Playwright sind vorhanden):
   * mit den alten drei Integrationen und einer Kopie der echten `.storage` starten;
@@ -309,7 +348,7 @@ Jeder Schritt ist ein eigener PR mit grüner CI.
 * **Regelung:** vorausschauend ein und aus (Totzeit, Überschwingen, Restwärme), Sonne vorausschauend (PV-Prognose oder Wetter und Sonnenstand, Vertrauen 70 %, „Immer heizen unter Sollwert“, gelernte Klar-Himmel-Skala, PV-Ausfall-Logik), Mindestlaufzeiten, Frostschutz immer.
 * **Fenster:** Fensterverzögerung, Erholung je Lüftung, Kurzlüften, Luftzug und Querlüften → Abschnitt 5 und 6.
 * **Ausfälle:** Sensorfehler, Aktor nicht erreichbar, Wiederholungen 1/2/4/8/15 min, Reparaturen nach 15 min; Abschalten beim Deaktivieren und Entfernen, Freigabe-Liste.
-* **Heizperiode** (Südhalbkugel-Vorschlag), **Urlaub** und Vorheizen auf die Rückkehr.
+* **Heizperiode** (Südhalbkugel-Vorschlag), **Urlaub** und Vorheizen auf die Rückkehr (jetzt über den Urlaubsmodus des Hauses, Abschnitt 7a; Rückkehr in der Vergangenheit wird weiter ignoriert).
 * **Heiztag:** Regel θ/puffer, KI, Phasenmodell, Bewertung mit virtuellem Raum, Fehler A und B, Notfallregel, Heiztag manuell (auch außerhalb der Saison).
 * **Lernen:** RLS-Wärmemodell, Ereignisse, Erholungsmodell, Speichern, Export, Import, Zurücksetzen, Anpassen an die Grenzen, gelernte Werte bearbeiten.
 * **KI-Prüfung:** Kennzahlen inklusive `over_kh`, `sun_over_kh`, `on_per_kh`, Lüftungsliste, Verlauf der letzten 6, Grenzen und Schritt, KI-Anweisungen (Bausteine, eigene, Vorschau), seltener fragen, Kosten, Budget, Fallback-Preis, Ausfälle, Reauth, Wetter-Zeitgrenze, Wiederholung nach 15 min.
@@ -326,7 +365,7 @@ Jeder Schritt ist ein eigener PR mit grüner CI.
 * **Zuverlässigkeit:** Abstand der Befehle, Position prüfen mit Wiederholung und Meldung.
 * **Übersteuerung:** echte Fahrt oder jeder Befehl, Kontext-Erkennung, Sonnenaufgang oder Dauer 0.
 * **Zusatzbedingungen:** Öffnungssperre, Schließ-Auslöser, Fenster-Ausnahme.
-* **Morgenöffnung** in 4 Modi, **Urlaubssimulation**, **Neustart-Schutz** und Nachholen, Persistenz.
+* **Morgenöffnung** in 4 Modi, **Urlaubssimulation** (über den Urlaubsmodus des Hauses), **Neustart-Schutz** und Nachholen, Persistenz.
 * **Entitäten:** alle globalen und je Fenster mit Attributen. Dienste (4, umbenannt), 3 Ereignisse.
 * **Panel:** Sonnenkompass, Sonnenbedingung-Check, Haus im Kompass, Duplizieren. Karte und zwei Kacheln mit Farben und Editor; Seitenleisten-Option.
 * **Reparaturen:** fehlende Gruppe, keine Vorhersage. Diagnose (Benachrichtigungen geschwärzt).
