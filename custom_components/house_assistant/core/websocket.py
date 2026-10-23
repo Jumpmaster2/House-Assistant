@@ -1,0 +1,42 @@
+"""WebSocket API of the panel: the house and the commands of every module."""
+
+from __future__ import annotations
+
+import probatio as vol
+from homeassistant.components import websocket_api
+from homeassistant.core import HomeAssistant, callback
+
+from ..const import DOMAIN, MODULE_ORDER
+from ..meter.websocket import async_register_websocket as async_register_meter
+from ..runtime import enabled_modules
+from .entry import house_entry
+
+DATA_WS = f"{DOMAIN}_ws_registered"
+
+
+@callback
+def async_register_websocket(hass: HomeAssistant) -> None:
+    if hass.data.get(DATA_WS):
+        return
+    hass.data[DATA_WS] = True
+    websocket_api.async_register_command(hass, ws_config)
+    async_register_meter(hass)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/config"})
+@websocket_api.require_admin
+@callback
+def ws_config(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """The house: which modules exist and which are switched on."""
+    entry = house_entry(hass)
+    if entry is None:
+        connection.send_error(msg["id"], "not_found", "House Assistant is not set up")
+        return
+    connection.send_result(
+        msg["id"],
+        {
+            "entry_id": entry.entry_id,
+            "modules": enabled_modules(entry),
+            "available": list(MODULE_ORDER),
+        },
+    )

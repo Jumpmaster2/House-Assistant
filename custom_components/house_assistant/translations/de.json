@@ -3,11 +3,463 @@
     "step": {
       "user": {
         "title": "House Assistant",
-        "description": "Heizung mit KI, Rollos und Zählerablesung auf einem gemeinsamen Modell des Hauses. Räume, Fenster und Zähler werden danach im Panel House Assistant in der Seitenleiste angelegt."
+        "description": "Heizung mit KI, Rollos und Zählerablesung auf einem gemeinsamen Modell des Hauses. Wähle die Module, die du nutzen willst; Räume, Fenster und Zähler werden danach im Panel House Assistant in der Seitenleiste angelegt.",
+        "data": {
+          "modules": "Module"
+        },
+        "data_description": {
+          "modules": "Die Teile des Hauses, die House Assistant steuern soll. Später unter Einstellungen > Module änderbar."
+        }
+      },
+      "meter": {
+        "title": "Zähler",
+        "data": {
+          "ai_task_entity": "KI-Aufgabe",
+          "notify_rejected": "Benachrichtigungen"
+        },
+        "data_description": {
+          "ai_task_entity": "KI-Aufgaben-Entität, die die Bilder liest (z. B. Anthropic, OpenAI, Google oder Ollama mit Bildunterstützung). Ein Zähler kann eine eigene nutzen.",
+          "notify_rejected": "Hauptschalter für die Benachrichtigungen in Home Assistant. Ab wann sie bei welchem Zähler kommen, steht beim Zähler unter „Benachrichtigungen“."
+        }
       }
     },
     "abort": {
       "single_instance_allowed": "House Assistant ist bereits eingerichtet. Räume, Fenster und Zähler werden im Panel angelegt."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Einstellungen",
+        "menu_options": {
+          "modules": "Module",
+          "meter": "Zähler"
+        }
+      },
+      "modules": {
+        "title": "Module",
+        "data": {
+          "modules": "Module"
+        },
+        "data_description": {
+          "modules": "Die Teile des Hauses, die House Assistant steuern soll. Ein abgeschaltetes Modul behält seine Einstellungen."
+        }
+      },
+      "meter": {
+        "title": "Zähler",
+        "data": {
+          "ai_task_entity": "KI-Aufgabe",
+          "notify_rejected": "Benachrichtigungen"
+        },
+        "data_description": {
+          "ai_task_entity": "KI-Aufgaben-Entität, die die Bilder liest (z. B. Anthropic, OpenAI, Google oder Ollama mit Bildunterstützung). Ein Zähler kann eine eigene nutzen.",
+          "notify_rejected": "Hauptschalter für die Benachrichtigungen in Home Assistant. Ab wann sie bei welchem Zähler kommen, steht beim Zähler unter „Benachrichtigungen“."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "meter": {
+      "entry_type": "Zähler",
+      "initiate_flow": {
+        "user": "Zähler hinzufügen",
+        "reconfigure": "Zähler ändern"
+      },
+      "step": {
+        "user": {
+          "title": "Neuer Zähler",
+          "description": "Name und Art. Die Art setzt im nächsten Schritt passende Startwerte.",
+          "data": {
+            "name": "Name",
+            "meter_type": "Zählerart"
+          }
+        },
+        "details": {
+          "title": "{name}",
+          "description": "Kamera, Anzeige und Zeitplan des Zählers.",
+          "sections": {
+            "camera_section": {
+              "name": "Kamera und Licht",
+              "description": "Kamera am Zähler und das Licht, das für das Bild eingeschaltet wird.",
+              "data": {
+                "camera": "Kamera",
+                "light": "Licht",
+                "light_brightness": "Helligkeit",
+                "light_brightness_2": "Helligkeit 2. Bild",
+                "warmup": "Vorlaufzeit",
+                "discard_frames": "Verworfene Bilder"
+              },
+              "data_description": {
+                "camera": "Kamera-Entität, die auf die Anzeige zeigt (z. B. ESP32-CAM mit ESPHome).",
+                "light": "Optional. Wird für das Bild ein- und danach wieder ausgeschaltet (z. B. die Blitz-LED).",
+                "light_brightness": "Helligkeit des Lichts für das Bild. Am besten mit einem Testbild ausprobieren: Spiegelungen machen die Anzeige unlesbar.",
+                "light_brightness_2": "Optional (0 = aus): Pro Versuch wird ein zweites Bild mit dieser Helligkeit aufgenommen, und die KI bekommt beide. Hilft, wenn bei einer Helligkeit ein Lichtfleck Ziffern überstrahlt und bei der anderen Ziffern zu dunkel sind. Ein Versuch dauert dadurch länger.",
+                "warmup": "Wartezeit nach dem Einschalten des Lichts, damit die Kamera die Belichtung anpasst.",
+                "discard_frames": "Bilder, die vor dem eigentlichen Bild weggeworfen werden. Kameras mit Puffer (ESP32-CAM) liefern sonst ein altes Bild ohne Licht."
+              }
+            },
+            "external_light_section": {
+              "name": "Externe Beleuchtung",
+              "description": "Optional zusätzliches Licht (light- oder switch-Entität) neben dem Licht der Kamera, z. B. LED-Module. Ist es nicht erreichbar, wird ohne es abgelesen und eine Warnung ins Log geschrieben.",
+              "data": {
+                "external_light": "Externe Beleuchtung",
+                "external_light_mode": "Modus",
+                "external_light_brightness": "Helligkeit",
+                "external_light_lead_time": "Vorlaufzeit",
+                "external_light_turn_off": "Danach ausschalten"
+              },
+              "data_description": {
+                "external_light": "Optional. light- oder switch-Entität, die die Anzeige zusätzlich ausleuchtet. Leer lassen, wenn es keine gibt.",
+                "external_light_mode": "Nur während der Aufnahme: wird vor den Bildern ein- und danach wieder ausgeschaltet. Dauerlicht: wird nur eingeschaltet, falls es aus ist, und bleibt an.",
+                "external_light_brightness": "Nur bei einer dimmbaren light-Entität; ein Schalter wird nur ein- und ausgeschaltet.",
+                "external_light_lead_time": "Wartezeit nach dem Einschalten der externen Beleuchtung, bevor das Licht der Kamera eingeschaltet wird und die Bilder aufgenommen werden.",
+                "external_light_turn_off": "Nur im Modus „Nur während der Aufnahme“: schaltet das Licht nach den Bildern wieder aus, auch wenn Aufnahme oder Auswertung fehlschlagen."
+              }
+            },
+            "image_section": {
+              "name": "Bildausschnitt",
+              "description": "Nur dieser Teil des Bildes geht an die KI. Bei Weitwinkel-Kameras auf die Anzeige zuschneiden; im Dashboard lässt sich der Ausschnitt mit der Maus aufziehen.",
+              "data": {
+                "crop_left": "Links",
+                "crop_top": "Oben",
+                "crop_right": "Rechts",
+                "crop_bottom": "Unten",
+                "rotate": "Drehen",
+                "exposure": "Belichtung",
+                "enhance": "Bild aufbereiten"
+              },
+              "data_description": {
+                "crop_left": "Linker Rand des Ausschnitts in Prozent der Breite des gedrehten Bildes.",
+                "crop_top": "Oberer Rand des Ausschnitts in Prozent der Höhe des gedrehten Bildes.",
+                "crop_right": "Rechter Rand des Ausschnitts in Prozent der Breite des gedrehten Bildes.",
+                "crop_bottom": "Unterer Rand des Ausschnitts in Prozent der Höhe des gedrehten Bildes.",
+                "rotate": "Dreht das Bild im Uhrzeigersinn um diesen Winkel (negativ: gegen den Uhrzeigersinn), z. B. 90 für eine seitlich montierte Kamera oder ein paar Grad für eine schief sitzende Anzeige. Gedreht wird vor dem Zuschneiden, der Ausschnitt bezieht sich auf das gedrehte Bild.",
+                "exposure": "Helligkeit des Bildes für die KI: 100 % lässt es unverändert, darunter dunkler (gegen Spiegelungen und Überbelichtung), darüber heller.",
+                "enhance": "Macht das Bild grau, gleicht die Ausleuchtung aus und hebt den Kontrast an, bevor die KI es liest. Hilft, wenn das Licht einen hellen Fleck auf dem Displayglas und dunkle Ecken hinterlässt, oder bei blassen LCD-Segmenten. Im Live-Bild nicht zu sehen, dafür ein Testbild machen."
+              }
+            },
+            "display_section": {
+              "name": "Anzeige",
+              "description": "Was die Anzeige zeigt. Die Hinweise bekommt die KI mit.",
+              "data": {
+                "unit": "Einheit",
+                "decimals": "Nachkommastellen",
+                "hints": "Hinweise für die KI",
+                "prompt": "Eigene Anweisung an die KI"
+              },
+              "data_description": {
+                "unit": "Einheit auf der Anzeige (z. B. MWh, kWh oder m³).",
+                "decimals": "Anzahl der Nachkommastellen auf der Anzeige.",
+                "hints": "Optional. Was an dieser Anzeige besonders ist, z. B. Linien, die zu keiner Ziffer gehören, oder welche Ziffern nicht mitgelesen werden.",
+                "prompt": "Ersetzt die ganze automatisch erzeugte Anweisung (leer lassen für den Standard). Einheit, Nachkommastellen und Hinweise werden dann nicht mehr eingesetzt. Die KI soll weiterhin nur die Zahl oder „unlesbar“ antworten."
+              }
+            },
+            "schedule_section": {
+              "name": "Zeitplan",
+              "description": "Wie oft der Zähler automatisch abgelesen wird.",
+              "data": {
+                "interval": "Intervall",
+                "condition_entity": "Bedingung",
+                "interval_off": "Intervall, wenn die Bedingung aus ist"
+              },
+              "data_description": {
+                "interval": "Zeit zwischen zwei automatischen Ablesungen.",
+                "condition_entity": "Optional. Solange diese Entität 'aus' ist, gilt das zweite Intervall (z. B. ein Heiztag-Sensor).",
+                "interval_off": "Nur zusammen mit einer Bedingung."
+              }
+            },
+            "checks_section": {
+              "name": "Prüfungen",
+              "description": "Mehrheitsentscheid und Plausibilitätsprüfung einer Ablesung.",
+              "data": {
+                "max_rate": "Größter Anstieg pro Stunde",
+                "max_correction": "Größte Korrektur",
+                "max_attempts": "Bilder pro Ablesung",
+                "confirmations": "Bestätigungsbilder",
+                "history_hint": "Letzte Stände an die KI",
+                "meter_ai_task_entity": "Eigene KI-Aufgabe"
+              },
+              "data_description": {
+                "max_rate": "In der Einheit des Zählers. Ein größerer Anstieg seit der letzten gültigen Ablesung wird verworfen (z. B. 0,05 MWh = 50 kW).",
+                "max_correction": "In der Einheit des Zählers. Ein kleinerer Wert als zuvor wird nur übernommen, wenn er höchstens so viel kleiner ist und von weiteren Bildern bestätigt wird.",
+                "max_attempts": "Höchstens so viele Bilder, bis ein Wert zweimal gelesen wurde.",
+                "confirmations": "Weitere Bilder, die alle den kleineren Wert zeigen müssen, bevor er als Korrektur übernommen wird.",
+                "history_hint": "Die KI bekommt die letzten 3 gültigen Zählerstände als Hinweis, um eine unklare Ziffer plausibel zu entscheiden. Sie soll trotzdem nur ablesen, was im Bild steht; die Prüfungen hier bleiben bestehen. Kann dazu verleiten, einen erwarteten Wert zu nennen, daher vor allem bei schwer lesbaren Anzeigen nutzen.",
+                "meter_ai_task_entity": "Optional. Statt der KI-Aufgabe der Integration."
+              }
+            },
+            "notify_section": {
+              "name": "Benachrichtigungen",
+              "description": "Ab dem wievielten Mal in Folge eine Benachrichtigung in Home Assistant erscheint (0 = nie, 1 = sofort). Eine gültige Ablesung setzt die Zählung zurück. Gilt nur, solange in den Einstellungen der Integration Benachrichtigungen eingeschaltet sind.",
+              "data": {
+                "notify_smaller": "Kleiner als zuvor",
+                "notify_too_large": "Anstieg zu groß",
+                "notify_corrected": "Korrigiert",
+                "notify_failed": "Unlesbar oder Fehler"
+              },
+              "data_description": {
+                "notify_smaller": "Wert kleiner als der letzte gültige und nicht als Korrektur bestätigt (verworfen).",
+                "notify_too_large": "Wert stärker gestiegen als der größte Anstieg pro Stunde erlaubt (verworfen).",
+                "notify_corrected": "Kleinerer Wert von weiteren Bildern bestätigt und übernommen.",
+                "notify_failed": "KI liest nichts Eindeutiges, oder Kamera bzw. KI nicht erreichbar. Unlesbare Ablesungen unterbrechen die Zählung der anderen Fälle nicht."
+              }
+            }
+          }
+        },
+        "reconfigure": {
+          "title": "Zähler ändern",
+          "data": {
+            "name": "Name",
+            "meter_type": "Zählerart"
+          },
+          "sections": {
+            "camera_section": {
+              "name": "Kamera und Licht",
+              "description": "Kamera am Zähler und das Licht, das für das Bild eingeschaltet wird.",
+              "data": {
+                "camera": "Kamera",
+                "light": "Licht",
+                "light_brightness": "Helligkeit",
+                "light_brightness_2": "Helligkeit 2. Bild",
+                "warmup": "Vorlaufzeit",
+                "discard_frames": "Verworfene Bilder"
+              },
+              "data_description": {
+                "camera": "Kamera-Entität, die auf die Anzeige zeigt (z. B. ESP32-CAM mit ESPHome).",
+                "light": "Optional. Wird für das Bild ein- und danach wieder ausgeschaltet (z. B. die Blitz-LED).",
+                "light_brightness": "Helligkeit des Lichts für das Bild. Am besten mit einem Testbild ausprobieren: Spiegelungen machen die Anzeige unlesbar.",
+                "light_brightness_2": "Optional (0 = aus): Pro Versuch wird ein zweites Bild mit dieser Helligkeit aufgenommen, und die KI bekommt beide. Hilft, wenn bei einer Helligkeit ein Lichtfleck Ziffern überstrahlt und bei der anderen Ziffern zu dunkel sind. Ein Versuch dauert dadurch länger.",
+                "warmup": "Wartezeit nach dem Einschalten des Lichts, damit die Kamera die Belichtung anpasst.",
+                "discard_frames": "Bilder, die vor dem eigentlichen Bild weggeworfen werden. Kameras mit Puffer (ESP32-CAM) liefern sonst ein altes Bild ohne Licht."
+              }
+            },
+            "external_light_section": {
+              "name": "Externe Beleuchtung",
+              "description": "Optional zusätzliches Licht (light- oder switch-Entität) neben dem Licht der Kamera, z. B. LED-Module. Ist es nicht erreichbar, wird ohne es abgelesen und eine Warnung ins Log geschrieben.",
+              "data": {
+                "external_light": "Externe Beleuchtung",
+                "external_light_mode": "Modus",
+                "external_light_brightness": "Helligkeit",
+                "external_light_lead_time": "Vorlaufzeit",
+                "external_light_turn_off": "Danach ausschalten"
+              },
+              "data_description": {
+                "external_light": "Optional. light- oder switch-Entität, die die Anzeige zusätzlich ausleuchtet. Leer lassen, wenn es keine gibt.",
+                "external_light_mode": "Nur während der Aufnahme: wird vor den Bildern ein- und danach wieder ausgeschaltet. Dauerlicht: wird nur eingeschaltet, falls es aus ist, und bleibt an.",
+                "external_light_brightness": "Nur bei einer dimmbaren light-Entität; ein Schalter wird nur ein- und ausgeschaltet.",
+                "external_light_lead_time": "Wartezeit nach dem Einschalten der externen Beleuchtung, bevor das Licht der Kamera eingeschaltet wird und die Bilder aufgenommen werden.",
+                "external_light_turn_off": "Nur im Modus „Nur während der Aufnahme“: schaltet das Licht nach den Bildern wieder aus, auch wenn Aufnahme oder Auswertung fehlschlagen."
+              }
+            },
+            "image_section": {
+              "name": "Bildausschnitt",
+              "description": "Nur dieser Teil des Bildes geht an die KI. Bei Weitwinkel-Kameras auf die Anzeige zuschneiden; im Dashboard lässt sich der Ausschnitt mit der Maus aufziehen.",
+              "data": {
+                "crop_left": "Links",
+                "crop_top": "Oben",
+                "crop_right": "Rechts",
+                "crop_bottom": "Unten",
+                "rotate": "Drehen",
+                "exposure": "Belichtung",
+                "enhance": "Bild aufbereiten"
+              },
+              "data_description": {
+                "crop_left": "Linker Rand des Ausschnitts in Prozent der Breite des gedrehten Bildes.",
+                "crop_top": "Oberer Rand des Ausschnitts in Prozent der Höhe des gedrehten Bildes.",
+                "crop_right": "Rechter Rand des Ausschnitts in Prozent der Breite des gedrehten Bildes.",
+                "crop_bottom": "Unterer Rand des Ausschnitts in Prozent der Höhe des gedrehten Bildes.",
+                "rotate": "Dreht das Bild im Uhrzeigersinn um diesen Winkel (negativ: gegen den Uhrzeigersinn), z. B. 90 für eine seitlich montierte Kamera oder ein paar Grad für eine schief sitzende Anzeige. Gedreht wird vor dem Zuschneiden, der Ausschnitt bezieht sich auf das gedrehte Bild.",
+                "exposure": "Helligkeit des Bildes für die KI: 100 % lässt es unverändert, darunter dunkler (gegen Spiegelungen und Überbelichtung), darüber heller.",
+                "enhance": "Macht das Bild grau, gleicht die Ausleuchtung aus und hebt den Kontrast an, bevor die KI es liest. Hilft, wenn das Licht einen hellen Fleck auf dem Displayglas und dunkle Ecken hinterlässt, oder bei blassen LCD-Segmenten. Im Live-Bild nicht zu sehen, dafür ein Testbild machen."
+              }
+            },
+            "display_section": {
+              "name": "Anzeige",
+              "description": "Was die Anzeige zeigt. Die Hinweise bekommt die KI mit.",
+              "data": {
+                "unit": "Einheit",
+                "decimals": "Nachkommastellen",
+                "hints": "Hinweise für die KI",
+                "prompt": "Eigene Anweisung an die KI"
+              },
+              "data_description": {
+                "unit": "Einheit auf der Anzeige (z. B. MWh, kWh oder m³).",
+                "decimals": "Anzahl der Nachkommastellen auf der Anzeige.",
+                "hints": "Optional. Was an dieser Anzeige besonders ist, z. B. Linien, die zu keiner Ziffer gehören, oder welche Ziffern nicht mitgelesen werden.",
+                "prompt": "Ersetzt die ganze automatisch erzeugte Anweisung (leer lassen für den Standard). Einheit, Nachkommastellen und Hinweise werden dann nicht mehr eingesetzt. Die KI soll weiterhin nur die Zahl oder „unlesbar“ antworten."
+              }
+            },
+            "schedule_section": {
+              "name": "Zeitplan",
+              "description": "Wie oft der Zähler automatisch abgelesen wird.",
+              "data": {
+                "interval": "Intervall",
+                "condition_entity": "Bedingung",
+                "interval_off": "Intervall, wenn die Bedingung aus ist"
+              },
+              "data_description": {
+                "interval": "Zeit zwischen zwei automatischen Ablesungen.",
+                "condition_entity": "Optional. Solange diese Entität 'aus' ist, gilt das zweite Intervall (z. B. ein Heiztag-Sensor).",
+                "interval_off": "Nur zusammen mit einer Bedingung."
+              }
+            },
+            "checks_section": {
+              "name": "Prüfungen",
+              "description": "Mehrheitsentscheid und Plausibilitätsprüfung einer Ablesung.",
+              "data": {
+                "max_rate": "Größter Anstieg pro Stunde",
+                "max_correction": "Größte Korrektur",
+                "max_attempts": "Bilder pro Ablesung",
+                "confirmations": "Bestätigungsbilder",
+                "history_hint": "Letzte Stände an die KI",
+                "meter_ai_task_entity": "Eigene KI-Aufgabe"
+              },
+              "data_description": {
+                "max_rate": "In der Einheit des Zählers. Ein größerer Anstieg seit der letzten gültigen Ablesung wird verworfen (z. B. 0,05 MWh = 50 kW).",
+                "max_correction": "In der Einheit des Zählers. Ein kleinerer Wert als zuvor wird nur übernommen, wenn er höchstens so viel kleiner ist und von weiteren Bildern bestätigt wird.",
+                "max_attempts": "Höchstens so viele Bilder, bis ein Wert zweimal gelesen wurde.",
+                "confirmations": "Weitere Bilder, die alle den kleineren Wert zeigen müssen, bevor er als Korrektur übernommen wird.",
+                "history_hint": "Die KI bekommt die letzten 3 gültigen Zählerstände als Hinweis, um eine unklare Ziffer plausibel zu entscheiden. Sie soll trotzdem nur ablesen, was im Bild steht; die Prüfungen hier bleiben bestehen. Kann dazu verleiten, einen erwarteten Wert zu nennen, daher vor allem bei schwer lesbaren Anzeigen nutzen.",
+                "meter_ai_task_entity": "Optional. Statt der KI-Aufgabe der Integration."
+              }
+            },
+            "notify_section": {
+              "name": "Benachrichtigungen",
+              "description": "Ab dem wievielten Mal in Folge eine Benachrichtigung in Home Assistant erscheint (0 = nie, 1 = sofort). Eine gültige Ablesung setzt die Zählung zurück. Gilt nur, solange in den Einstellungen der Integration Benachrichtigungen eingeschaltet sind.",
+              "data": {
+                "notify_smaller": "Kleiner als zuvor",
+                "notify_too_large": "Anstieg zu groß",
+                "notify_corrected": "Korrigiert",
+                "notify_failed": "Unlesbar oder Fehler"
+              },
+              "data_description": {
+                "notify_smaller": "Wert kleiner als der letzte gültige und nicht als Korrektur bestätigt (verworfen).",
+                "notify_too_large": "Wert stärker gestiegen als der größte Anstieg pro Stunde erlaubt (verworfen).",
+                "notify_corrected": "Kleinerer Wert von weiteren Bildern bestätigt und übernommen.",
+                "notify_failed": "KI liest nichts Eindeutiges, oder Kamera bzw. KI nicht erreichbar. Unlesbare Ablesungen unterbrechen die Zählung der anderen Fälle nicht."
+              }
+            }
+          }
+        }
+      },
+      "error": {
+        "name_required": "Bitte einen Namen eingeben.",
+        "camera_required": "Bitte eine Kamera auswählen."
+      },
+      "abort": {
+        "reconfigure_successful": "Der Zähler wurde geändert."
+      }
+    }
+  },
+  "selector": {
+    "modules": {
+      "options": {
+        "meter": "Zähler"
+      }
+    },
+    "meter_type": {
+      "options": {
+        "heat": "Wärmezähler",
+        "water": "Wasserzähler",
+        "gas": "Gaszähler",
+        "electricity": "Stromzähler",
+        "other": "Anderer Zähler"
+      }
+    },
+    "external_light_mode": {
+      "options": {
+        "capture": "Nur während der Aufnahme",
+        "permanent": "Dauerlicht"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "reading": {
+        "name": "Zählerstand"
+      },
+      "rate": {
+        "name": "Mittlerer Verbrauch"
+      },
+      "rate_power": {
+        "name": "Mittlere Leistung"
+      },
+      "rate_flow": {
+        "name": "Mittlerer Durchfluss"
+      },
+      "last_check": {
+        "name": "Letzte Ablesung"
+      },
+      "next_check": {
+        "name": "Nächste Ablesung"
+      },
+      "meter_status": {
+        "name": "Status",
+        "state": {
+          "ok": "Gültig",
+          "corrected": "Korrigiert",
+          "unreadable": "Unlesbar",
+          "error": "Kamera- oder KI-Fehler",
+          "smaller": "Kleiner als zuvor",
+          "too_large": "Anstieg zu groß",
+          "manual": "Von Hand gesetzt"
+        }
+      }
+    },
+    "camera": {
+      "last_image": {
+        "name": "Letztes Bild"
+      }
+    },
+    "button": {
+      "read_now": {
+        "name": "Jetzt ablesen"
+      },
+      "test_picture": {
+        "name": "Testbild"
+      }
+    },
+    "switch": {
+      "meter_automatic": {
+        "name": "Automatik"
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "House Assistant ist nicht geladen."
+    },
+    "no_meter": {
+      "message": "{entity_id} gehört zu keinem Zähler von House Assistant."
+    },
+    "negative": {
+      "message": "Der Zählerstand darf nicht negativ sein."
+    }
+  },
+  "services": {
+    "read_meter": {
+      "name": "Zähler ablesen",
+      "description": "Liest die Zähler der angegebenen Entitäten jetzt ab (mit Mehrheitsentscheid und Plausibilitätsprüfung).",
+      "fields": {
+        "entity_id": {
+          "name": "Entitäten",
+          "description": "Eine beliebige Entität des Zählers (z. B. sein Zählerstand)."
+        }
+      }
+    },
+    "set_meter_reading": {
+      "name": "Zählerstand setzen",
+      "description": "Setzt den Zählerstand von Hand, z. B. nach einer Fehllesung. Die nächsten Ablesungen werden gegen diesen Wert geprüft.",
+      "fields": {
+        "entity_id": {
+          "name": "Entitäten",
+          "description": "Eine beliebige Entität des Zählers (z. B. sein Zählerstand)."
+        },
+        "value": {
+          "name": "Wert",
+          "description": "Neuer Zählerstand in der Einheit des Zählers."
+        }
+      }
     }
   }
 }
