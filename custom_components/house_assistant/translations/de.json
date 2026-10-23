@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "House Assistant",
+        "description": "Heizung mit KI, Rollos und Zählerablesung auf einem gemeinsamen Modell des Hauses. Räume, Fenster und Zähler werden danach im Panel House Assistant in der Seitenleiste angelegt."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "House Assistant ist bereits eingerichtet. Räume, Fenster und Zähler werden im Panel angelegt."
+    }
+  }
+}

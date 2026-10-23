@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "House Assistant",
+        "description": "Heating with AI, covers and meter reading on one model of the house. Rooms, windows and meters are added in the House Assistant panel in the sidebar afterwards."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "House Assistant is already set up. Rooms, windows and meters are added in the panel."
+    }
+  }
+}
