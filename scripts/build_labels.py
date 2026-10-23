@@ -78,12 +78,48 @@ def labels(translation: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _add(fields: dict[str, list[str]], step: dict[str, Any]) -> None:
+    fields.update({key: value for key, value in _fields(step).items() if key not in fields})
+
+
+def meter_labels(translation: dict[str, Any]) -> dict[str, Any]:
+    """Texts of the meter section, in the form its view (the former panel) reads them."""
+    fields: dict[str, list[str]] = {}
+    _add(fields, translation["options"]["step"]["meter"])
+    meter = translation["config_subentries"]["meter"]
+    _add(fields, meter["step"]["user"])
+    details = meter["step"]["details"]
+    for sec in details["sections"].values():
+        _add(fields, sec)
+    selectors = translation["selector"]
+    return {
+        # options of the other select fields, under their translation key
+        "external_light_mode": selectors["external_light_mode"]["options"],
+        "fields": fields,
+        "sections": {
+            k: [v["name"], v.get("description", "")] for k, v in details["sections"].items()
+        },
+        "errors": meter["error"],
+        "status": translation["entity"]["sensor"]["meter_status"]["state"],
+        "types": selectors["meter_type"]["options"],
+    }
+
+
+# name of the export -> texts in the form one section of the panel reads them
+SECTIONS = {"LABELS": labels, "METER": meter_labels}
+
+
 def render() -> str:
-    data = {}
+    data: dict[str, dict[str, Any]] = {name: {} for name in SECTIONS}
     for language in LANGUAGES:
         path = COMPONENT / "translations" / f"{language}.json"
-        data[language] = labels(json.loads(path.read_text(encoding="utf-8")))
-    return f"{HEADER}export const LABELS = {json.dumps(data, ensure_ascii=False, indent=1)};\n"
+        translation = json.loads(path.read_text(encoding="utf-8"))
+        for name, build in SECTIONS.items():
+            data[name][language] = build(translation)
+    parts = [HEADER]
+    for name, value in data.items():
+        parts.append(f"export const {name} = {json.dumps(value, ensure_ascii=False, indent=1)};\n")
+    return "".join(parts)
 
 
 def main() -> int:

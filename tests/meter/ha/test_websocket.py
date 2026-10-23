@@ -1,0 +1,172 @@
+"""WebSocket API of the panel."""
+
+from __future__ import annotations
+
+from homeassistant.core import HomeAssistant
+
+from custom_components.house_assistant.meter.const import DOMAIN
+
+from .conftest import meters, setup_entry
+
+
+async def _send(client, **msg):
+    await client.send_json_auto_id(msg)
+    return await client.receive_json()
+
+
+async def test_config_payload(hass: HomeAssistant, base, hass_ws_client) -> None:
+    await setup_entry(hass)
+    client = await hass_ws_client(hass)
+    msg = await _send(client, type=f"{DOMAIN}/meter/config")
+    assert msg["success"], msg
+    cfg = msg["result"]
+    heat = next(m for m in cfg["meters"] if m["title"] == "Heat")
+    assert heat["entities"]["reading"] == "sensor.heat_meter_reading"
+    assert heat["entities"]["last_image"] == "camera.heat_last_picture"
+    assert heat["rate_unit"] == "kW"
+    assert heat["data"]["max_attempts"] == 4
+    sections = {s["id"]: s["fields"] for s in cfg["meter_sections"]}
+    assert sections["camera_section"]["camera"]["domain"] == ["camera"]
+    assert sections["display_section"]["hints"]["multiline"] is True
+    external = sections["external_light_section"]
+    assert external["external_light"]["domain"] == ["light", "switch"]
+    assert external["external_light_mode"]["options"] == ["capture", "permanent"]
+    assert external["external_light_mode"]["translation_key"] == "external_light_mode"
+    assert heat["data"]["external_light_mode"] == "capture"
+    assert cfg["type_defaults"]["water"]["unit"] == "m³"
+    assert cfg["option_specs"]["ai_task_entity"]["domain"] == ["ai_task"]
+
+
+async def test_save_and_delete_meter(hass: HomeAssistant, base, hass_ws_client) -> None:
+    entry = await setup_entry(hass, meters=[])
+    client = await hass_ws_client(hass)
+
+    msg = await _send(
+        client, type=f"{DOMAIN}/meter/save_meter", title=" ", data={"camera": "camera.x"}
+    )
+    assert not msg["success"]
+    assert msg["error"]["message"] == "name_required"
+    msg = await _send(
+        client, type=f"{DOMAIN}/meter/save_meter", title="W", data={"meter_type": "water"}
+    )
+    assert msg["error"]["message"] == "camera_required"
+    msg = await _send(
+        client,
+        type=f"{DOMAIN}/meter/save_meter",
+        title="Water",
+        data={
+            "meter_type": "water",
+            "camera": "camera.water_cam",
+            "decimals": "2",
+            "light": "",
+            "unknown": 1,
+        },
+    )
+    assert msg["success"], msg
+    await hass.async_block_till_done()
+    sub_id = msg["result"]["subentry_id"]
+    data = entry.subentries[sub_id].data
+    assert data["unit"] == "m³"
+    assert data["decimals"] == 2
+    assert "light" not in data
+    assert "unknown" not in data
+    assert hass.states.get("sensor.water_meter_reading")
+
+    msg = await _send(
+        client,
+        type=f"{DOMAIN}/meter/save_meter",
+        subentry_id=sub_id,
+        title="Water",
+        data={**data, "light_brightness": 500},
+    )
+    assert msg["error"]["message"] == "invalid_value:light_brightness"
+
+    # external light from the panel; a camera is no light
+    msg = await _send(
+        client,
+        type=f"{DOMAIN}/meter/save_meter",
+        subentry_id=sub_id,
+        title="Water",
+        data={**data, "external_light": "camera.water_cam"},
+    )
+    assert msg["error"]["message"] == "invalid_value:external_light"
+    msg = await _send(
+        client,
+        type=f"{DOMAIN}/meter/save_meter",
+        subentry_id=sub_id,
+        title="Water",
+        data={**data, "external_light": "switch.lamp", "external_light_mode": "permanent"},
+    )
+    assert msg["success"], msg
+    await hass.async_block_till_done()
+    data = entry.subentries[sub_id].data
+    assert data["external_light"] == "switch.lamp"
+    assert data["external_light_mode"] == "permanent"
+
+    msg = await _send(client, type=f"{DOMAIN}/meter/set_reading", subentry_id=sub_id, value=12.5)
+    assert msg["success"], msg
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.water_meter_reading").state == "12.5"
+
+    msg = await _send(client, type=f"{DOMAIN}/meter/delete_meter", subentry_id=sub_id)
+    assert msg["success"]
+    await hass.async_block_till_done()
+    assert not entry.subentries
+    assert hass.states.get("sensor.water_meter_reading") is None
+
+
+async def test_options_and_prompt(hass: HomeAssistant, base, hass_ws_client) -> None:
+    entry = await setup_entry(hass, meters=[])
+    client = await hass_ws_client(hass)
+    msg = await _send(
+        client, type=f"{DOMAIN}/meter/save_options", options={"notify_rejected": False}
+    )
+    assert msg["success"], msg
+    assert entry.options["meter"]["notify_rejected"] is False
+    msg = await _send(client, type=f"{DOMAIN}/meter/save_options", options={"ai_task_entity": ""})
+    assert msg["error"]["message"] == "required:ai_task_entity"
+
+    msg = await _send(
+        client,
+        type=f"{DOMAIN}/meter/prompt",
+        data={"meter_type": "heat", "unit": "MWh", "decimals": 3, "hints": "Frame line."},
+    )
+    assert "MWh" in msg["result"]["instructions"]
+    assert "Frame line." in msg["result"]["instructions"]
+    assert msg["result"]["standard"] == msg["result"]["instructions"]
+
+    # own instructions replace the generated ones; the generated stay available as template
+    msg = await _send(
+        client,
+        type=f"{DOMAIN}/meter/prompt",
+        data={"meter_type": "heat", "unit": "MWh", "decimals": 3, "prompt": "  Lies den Zähler.  "},
+    )
+    assert msg["result"]["instructions"] == "Lies den Zähler."
+    assert "MWh" in msg["result"]["standard"]
+
+
+async def test_rejected_pictures(hass: HomeAssistant, base, hass_ws_client) -> None:
+    entry = await setup_entry(hass)
+    meter = next(iter(meters(entry).values()))
+    folder = meter.folder / "verworfen"
+
+    def write() -> None:
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "20261020-101500_smaller.jpg").write_bytes(b"a")
+        (folder / "20261021-090000_unreadable.jpg").write_bytes(b"b")
+        (folder / "20261019-080000.jpg").write_bytes(b"c")
+
+    await hass.async_add_executor_job(write)
+    client = await hass_ws_client(hass)
+    msg = await _send(client, type=f"{DOMAIN}/meter/rejected", subentry_id=meter.id)
+    assert msg["success"], msg
+    pictures = msg["result"]["pictures"]
+    # newest first; older pictures have no status in the name
+    assert [(p["stamp"], p["status"]) for p in pictures] == [
+        ("20261021-090000", "unreadable"),
+        ("20261020-101500", "smaller"),
+        ("20261019-080000", None),
+    ]
+    assert pictures[0]["image"] == "Yg=="
+    msg = await _send(client, type=f"{DOMAIN}/meter/rejected", subentry_id="nope")
+    assert not msg["success"]

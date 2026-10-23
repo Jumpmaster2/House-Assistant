@@ -1,0 +1,42 @@
+"""Stored meter data of older versions."""
+
+from __future__ import annotations
+
+from custom_components.house_assistant.meter.const import meter_values
+
+
+def test_meter_values_converts_old_rotation() -> None:
+    # older versions cropped first and turned the cropped picture by a right angle
+    old = {
+        "meter_type": "water",
+        "crop_left": 10,
+        "crop_top": 20,
+        "crop_right": 70,
+        "crop_bottom": 90,
+        "rotate": "90",
+    }
+    values = meter_values(old)
+    assert values["rotate"] == 90
+    assert (
+        values["crop_left"],
+        values["crop_top"],
+        values["crop_right"],
+        values["crop_bottom"],
+    ) == (10, 10, 80, 70)
+    assert values["exposure"] == 100
+    assert values["enhance"] is False
+    # new data stays as it is
+    new = {**old, "rotate": -3.5}
+    values = meter_values(new)
+    assert values["rotate"] == -3.5
+    assert values["crop_left"] == 10 and values["crop_bottom"] == 90
+
+
+def test_meter_values_without_external_light() -> None:
+    # meters of older versions have no external light settings: off, with the defaults
+    values = meter_values({"meter_type": "heat", "camera": "camera.heat_cam"})
+    assert "external_light" not in values
+    assert values["external_light_mode"] == "capture"
+    assert values["external_light_brightness"] == 100
+    assert values["external_light_lead_time"] == 2
+    assert values["external_light_turn_off"] is True

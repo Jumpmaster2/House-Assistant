@@ -1,0 +1,25 @@
+read_meter:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          integration: house_assistant
+          multiple: true
+set_meter_reading:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          integration: house_assistant
+          domain: sensor
+          multiple: true
+    value:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100000000
+          step: any
+          mode: box
