@@ -72,6 +72,7 @@ async def test_user_flow(hass: HomeAssistant, base) -> None:
             "language": "de",
             "notify_services": [],
             "weekend_days": ["sat", "sun"],
+            "draft_reach": 2.0,
         },
         "meter": {"ai_task_entity": "ai_task.claude", "notify_rejected": False},
     }

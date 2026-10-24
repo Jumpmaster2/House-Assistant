@@ -320,6 +320,8 @@ def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
         "entry_id": entry.entry_id,
         "loaded": _engine(hass) is not None,
         "options": {**defaults(unit), **_options(entry)},
+        # settings of the house that win over the ones of the covers (the house plan)
+        "house": shared_options(entry),
         "groups": [item(sub_id, sub) for sub_id, sub in _groups(entry).items()],
         # windows without a cover are edited in the house section
         "windows": [

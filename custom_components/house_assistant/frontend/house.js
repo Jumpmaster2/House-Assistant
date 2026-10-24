@@ -44,6 +44,13 @@ const UI = {
       wall_position: ["Position an der Wand", "1 = ganz links, von innen durch die Wand nach draußen geschaut."],
     },
     walls: { front: "Vorderseite", right: "Rechte Seite", back: "Rückseite", left: "Linke Seite" },
+    cross: ["Querlüften und Luftzug", "Aus der Lage der Fenster: Querlüften ist ein eigenes Fenster zusammen mit einem Fenster eines anderen Raums an einer gegenüberliegenden oder angrenzenden Wand, Luftzug sind zwei offene Fenster anderer Räume, zwischen denen dieser Raum liegt. Einzelne Kombinationen lassen sich abschalten."],
+    kinds: { cross: "Querlüften", draft: "Luftzug" },
+    noCombinations: "Keine automatischen Kombinationen.",
+    noWall: "Ohne Wand, nehmen nicht teil:",
+    noFloor: "Die Etage dieses Raums ist unbekannt: einen Bereich mit Etage wählen, sonst nimmt er nicht teil.",
+    noHouse: "Ohne Länge und Tiefe des Hauses (Allgemein) gibt es nur Querlüften, keinen Luftzug durch den Raum.",
+    front: "Vorderseite",
   },
   en: {
     tabs: { rooms: "Rooms", windows: "Windows", general: "General" },
@@ -80,6 +87,13 @@ const UI = {
       wall_position: ["Position on the wall", "1 = far left, looking out through the wall from inside."],
     },
     walls: { front: "Front", right: "Right side", back: "Back", left: "Left side" },
+    cross: ["Cross ventilation and draft", "From the arrangement of the windows: cross ventilation is an own window together with a window of another room on an opposite or adjacent wall, a draft are two open windows of other rooms with this room between them. Single combinations can be switched off."],
+    kinds: { cross: "Cross ventilation", draft: "Draft" },
+    noCombinations: "No automatic combinations.",
+    noWall: "Without a wall, taking no part:",
+    noFloor: "The floor of this room is unknown: choose an area with a floor, else it takes no part.",
+    noHouse: "Without length and depth of the house (General) there is only cross ventilation, no draft through the room.",
+    front: "Front",
   },
 };
 
@@ -88,7 +102,7 @@ const TABS = [
   ["windows", "mdi:window-closed-variant"],
   ["general", "mdi:cog-outline"],
 ];
-const SETTINGS = ["outdoor_temperature", "outdoor_humidity", "weather", "language", "notify_services", "workday_entity", "weekend_days"];
+const SETTINGS = ["outdoor_temperature", "outdoor_humidity", "weather", "language", "notify_services", "workday_entity", "weekend_days", "house_azimuth", "house_width", "house_depth", "draft_reach"];
 
 const ROOM_FIELDS = ["area", "temperature_sensor", "humidity_sensor", "cooling_entity"];
 const WINDOW_FIELDS = ["room", "size", "cover", "window_sensors", "tilt_sensors", "group", "wall", "wall_position"];
@@ -300,6 +314,7 @@ class HouseAssistantHouseView extends HTMLElement {
           .map((w) => `<button class="row" data-edit-window="${esc(w.id)}"><ha-icon icon="${w.data.cover ? "mdi:window-shutter" : "mdi:window-closed-variant"}"></ha-icon><span class="grow">${esc(w.title)}</span><span class="muted">${esc(this.labels.sizes[w.data.size] || "")}</span></button>`)
           .join("")}</div>`;
       }
+      extra += this._combinations(e.id);
       if (modules.includes("heating")) extra += `<p class="desc hint">${esc(ui.heatingHint)}</p>`;
     }
     if (!isRoom && e.data.cover && modules.includes("shutter")) extra += `<p class="desc hint">${esc(ui.coverHint)}</p>`;
@@ -315,6 +330,57 @@ class HouseAssistantHouseView extends HTMLElement {
         <button class="btn" data-action="close">${esc(ui.cancel)}</button>
         <button class="btn primary" data-action="save">${esc(ui.save)}</button></div>
     </div>`;
+  }
+
+  // automatic combinations of a room: the house plan with their lines and a switch each
+  _combinations(roomId) {
+    const ui = this.ui;
+    const plan = this._cfg.plan || {};
+    const titles = Object.fromEntries(this._cfg.windows.map((w) => [w.id, w.title]));
+    const list = (plan.combinations || {})[roomId] || [];
+    const own = new Set(this._cfg.windows.filter((w) => w.data.room === roomId).map((w) => w.id));
+    let html = `<h3>${esc(ui.cross[0])}</h3><p class="desc">${esc(ui.cross[1])}</p>`;
+    if ((plan.no_floor || []).includes(roomId)) html += `<p class="desc warn">${esc(ui.noFloor)}</p>`;
+    const noWall = (plan.no_wall || []).filter((id) => own.has(id));
+    if (noWall.length) html += `<p class="desc warn">${esc(ui.noWall)} ${esc(noWall.map((id) => titles[id]).join(", "))}</p>`;
+    const house = this._cfg.house || {};
+    if (house.house_width && house.house_depth && Object.keys(plan.points || {}).length) html += this._planSvg(roomId, list, own);
+    else html += `<p class="desc">${esc(ui.noHouse)}</p>`;
+    if (!list.length) return `${html}<p class="muted">${esc(ui.noCombinations)}</p>`;
+    const rows = list
+      .map((c) => `<label class="row combination"><span class="pill ${c.kind === "cross" ? "" : "warn"}">${esc(ui.kinds[c.kind])}</span>
+        <span class="grow">${esc(c.windows.map((id) => titles[id] || id).join(" ↔ "))}</span>
+        <input type="checkbox" class="switch-input" data-combination="${esc(c.key)}" ${c.enabled ? "checked" : ""}><span class="switch ${c.enabled ? "on" : ""}"></span></label>`)
+      .join("");
+    return `${html}<div class="rows">${rows}</div>`;
+  }
+
+  // top view with the front at the top: x = towards the right seen from inside, y = towards the back
+  _planSvg(roomId, list, own) {
+    const plan = this._cfg.plan;
+    const { house_width: width, house_depth: depth } = this._cfg.house;
+    const pad = 14;
+    const scale = 260 / Math.max(width, depth);
+    const [w, h] = [width * scale, depth * scale];
+    const xy = ([f, r]) => [pad + (r + width / 2) * scale, pad + (depth / 2 - f) * scale];
+    const n = (v) => v.toFixed(1);
+    let svg = `<rect x="${pad}" y="${pad}" width="${n(w)}" height="${n(h)}" class="house"></rect>
+      <text x="${n(pad + w / 2)}" y="${pad - 4}" class="front">${esc(this.ui.front)}</text>`;
+    for (const c of list) {
+      const [a, b] = c.windows.map((id) => plan.points[id]);
+      if (!a || !b) continue;
+      const [[x1, y1], [x2, y2]] = [xy(a), xy(b)];
+      svg += `<line x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}" class="combo ${c.kind} ${c.enabled ? "" : "off"}"></line>`;
+    }
+    if (plan.room_points?.[roomId]) {
+      const [x, y] = xy(plan.room_points[roomId]);
+      svg += `<rect x="${n(x - 4)}" y="${n(y - 4)}" width="8" height="8" class="room-point"></rect>`;
+    }
+    for (const [id, point] of Object.entries(plan.points)) {
+      const [x, y] = xy(point);
+      svg += `<circle cx="${n(x)}" cy="${n(y)}" r="4" class="window-point ${own.has(id) ? "own" : ""}"></circle>`;
+    }
+    return `<svg class="plan" viewBox="0 0 ${n(w + 2 * pad)} ${n(h + 2 * pad)}">${svg}</svg>`;
   }
 
   _field(key, spec, value) {
@@ -430,8 +496,21 @@ class HouseAssistantHouseView extends HTMLElement {
     if (el.dataset.k === "cover") this._renderContent();
   }
 
+  async _toggleCombination(el) {
+    try {
+      this._cfg = await this._hass.callWS({ type: `${WS}/combination`, room_id: this._edit.id, key: el.dataset.combination, enabled: el.checked });
+      this._renderContent();
+    } catch (err) {
+      this._message(this._errorText(err), true);
+    }
+  }
+
   _onInput(ev, isChange) {
     const el = ev.target;
+    if (el.dataset?.combination) {
+      if (isChange) this._toggleCombination(el);
+      return;
+    }
     const key = el.dataset?.k;
     if (!key || el.dataset.add) return;
     const type = el.dataset.type;
@@ -606,6 +685,18 @@ input:focus, select:focus { outline:2px solid var(--primary-color); outline-offs
 .switch::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .2s; }
 .switch.on { background:var(--switch-checked-track-color, var(--primary-color)); }
 .switch.on::after { left:18px; }
+.combination { cursor:pointer; }
+.desc.warn { color:var(--warning-color, #b26a00); }
+.plan { width:100%; max-width:320px; display:block; margin:8px 0; }
+.plan .house { fill:var(--secondary-background-color, #f5f5f5); stroke:var(--secondary-text-color); stroke-width:1.5; }
+.plan .front { font-size:9px; text-anchor:middle; fill:var(--secondary-text-color); }
+.plan .combo { stroke:var(--primary-color); stroke-width:2; }
+.plan .combo.cross { stroke-dasharray:4 3; }
+.plan .combo.draft { stroke:var(--warning-color, #ffa600); }
+.plan .combo.off { opacity:.2; }
+.plan .window-point { fill:var(--secondary-text-color); }
+.plan .window-point.own { fill:var(--primary-color); }
+.plan .room-point { fill:none; stroke:var(--primary-text-color); stroke-width:1.5; }
 .actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:16px; flex-wrap:wrap; }
 .msg { margin-right:auto; font-size:13px; color:var(--secondary-text-color); }
 .grow { flex:1; }

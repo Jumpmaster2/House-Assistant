@@ -35,8 +35,17 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import PowerConverter, TemperatureConverter
 
 from ..const import CONF_LANGUAGE
-from ..core.house import room_contacts
+from ..core.house import (
+    CONF_TILT_SENSORS,
+    CONF_WINDOW_SENSORS,
+    house_plan,
+    room_contacts,
+    room_tilts,
+)
+from ..core.house import windows as house_windows
 from ..core.links import meter_reading
+from ..core.logic.contacts import OPEN, TILTED, contact_state, opening_share, window_state
+from ..core.logic.geometry import KIND_CROSS
 from ..core.store import module_store
 from .ai_client import AiAuthError, AiError, ClaudeClient
 from .const import (
@@ -214,6 +223,8 @@ if TYPE_CHECKING:
     from . import HeatingModule
 
 SAVE_DELAY = 30
+# key of the area configuration: window contact -> tilt contacts of its window
+TILTS = "window_tilts"
 HISTORY_DAYS = 60
 EXTERNAL_SWITCH_GRACE = 120  # s within which a switch change counts as our own command
 CHECK_COLD_MARGIN = 0.3
@@ -294,6 +305,15 @@ class Area:
     humidity_profile: HumidityProfile = field(default_factory=HumidityProfile)
     ref_temp: float | None = None  # reference air of the ventilation recommendation
     ref_humidity: float | None = None
+    # an own window open together with one of another room (manual or automatic draft
+    # combination, or an automatic cross ventilation pair)
+    cross: bool = False
+    # windows of the combination that causes the draft or the cross ventilation
+    draft_windows: list[str] = field(default_factory=list)
+    # automatic combinations from the house plan (window ids): an own window with one of
+    # another room, and two windows of other rooms with this room between them
+    auto_cross: list[tuple[str, str]] = field(default_factory=list)
+    auto_draft: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def has_humidity(self) -> bool:
@@ -409,6 +429,8 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         self._pending_release: list[str] = []
         self._missing_since: dict[str, float] = {}  # repair issue id -> start of the outage
         self._issues: set[str] = set()  # repair issues raised by this coordinator
+        # windows of the house: title, contacts, tilt contacts (see _plan_windows)
+        self._windows: dict[str, tuple[str, list[str], list[str]]] = {}
 
     # ------------------------------------------------------------------ config
 
@@ -557,7 +579,11 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             if s.subentry_type == SUBENTRY_ROOM and s.data.get(CONF_TEMP_SENSOR)
         ):
             contacts = room_contacts(self.config_entry, subentry.subentry_id)
-            cfg = {**subentry.data, **size_fields(contacts)}
+            cfg = {
+                **subentry.data,
+                **size_fields(contacts),
+                TILTS: room_tilts(self.config_entry, subentry.subentry_id),
+            }
             self.areas[subentry.subentry_id] = self._build_area(
                 subentry.subentry_id,
                 subentry.title,
@@ -565,6 +591,8 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 stored_areas.get(subentry.subentry_id, {}),
                 index,
             )
+
+        self._plan_windows()
 
         if self.ai_configured:
             self.client = await ClaudeClient.create(
@@ -598,6 +626,51 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         in the settings, restarted after a change)."""
         await self._async_setup()
         await self.async_refresh()
+
+    def _plan_windows(self) -> None:
+        """The windows of the house and the automatic combinations of every room."""
+        self._windows = {
+            window_id: (
+                sub.title,
+                list(sub.data.get(CONF_WINDOW_SENSORS) or []),
+                list(sub.data.get(CONF_TILT_SENSORS) or []),
+            )
+            for window_id, sub in house_windows(self.config_entry).items()
+        }
+        plan = house_plan(self.hass, self.config_entry)
+        for area in self.areas.values():
+            for combination in plan.combinations.get(area.area_id, []):
+                target = area.auto_cross if combination.kind == KIND_CROSS else area.auto_draft
+                target.append(combination.windows)
+
+    def _window_open(self, window_id: str) -> bool:
+        """A window of the house is open or tilted (unknown counts as closed)."""
+        _, contacts, tilts = self._windows.get(window_id, ("", [], []))
+        state = window_state(
+            [self._state_value(e) for e in contacts], [self._state_value(e) for e in tilts]
+        )
+        return state in (OPEN, TILTED)
+
+    def _contact_open(self, entity_id: str) -> bool:
+        """A contact is open or tilted (window handles as well; unknown counts as closed)."""
+        return contact_state(self._state_value(entity_id)) in (OPEN, TILTED)
+
+    def _opening(self, cfg: dict[str, Any]) -> float:
+        """Opening area of the own windows: every contact with the size of its window, a
+        tilted window (handle or tilt contact) with a quarter of it."""
+        tilts: dict[str, list[str]] = cfg.get(TILTS) or {}
+        return open_area(
+            own_windows(cfg),
+            lambda e: opening_share(
+                window_state(
+                    [self._state_value(e)], [self._state_value(t) for t in tilts.get(e, ())]
+                )
+            ),
+        )
+
+    def _state_value(self, entity_id: str | None) -> str | None:
+        state = self._state(entity_id)
+        return state.state if state is not None else None
 
     def _build_area(
         self, area_id: str, title: str, cfg: dict[str, Any], stored: dict[str, Any], index: int
@@ -799,8 +872,15 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 if area.cfg.get(key):
                     watched.add(area.cfg[key])
             watched.update(own_windows(area.cfg))
+            for tilts in (area.cfg.get(TILTS) or {}).values():
+                watched.update(tilts)
             for group in draft_groups(area.cfg):
                 watched.update(group)
+            for pair in (*area.auto_cross, *area.auto_draft):
+                for window_id in pair:
+                    _, contacts, tilts = self._windows.get(window_id, ("", [], []))
+                    watched.update(contacts)
+                    watched.update(tilts)
             if area.has_circuit:
                 switches[area.cfg[CONF_SWITCH]] = area.area_id
         self._switch_map = switches
@@ -1380,9 +1460,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         cfg = area.cfg
         area.temp = self._temp(cfg.get(CONF_TEMP_SENSOR))
         area.humidity = self._humidity(cfg.get(CONF_HUMIDITY_SENSOR))
-        area.opening = open_area(own_windows(cfg), self._is_on)
+        area.opening = self._opening(cfg)
         area.own_window_open = area.opening > 0
-        area.draft = self._draft(cfg)
+        self._draft(area)
         area.window_open = area.own_window_open or area.draft
 
         if area.has_circuit:
@@ -1406,10 +1486,34 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
 
         self._ventilation(area, heating_day, ts, minutes)
 
-    def _draft(self, cfg: dict[str, Any]) -> bool:
-        """Draft through windows of other rooms: every window of one combination open.
-        A sensor that is also an own window counts only there."""
-        return has_draft(draft_groups(cfg, own_windows(cfg)), self._is_on)
+    def _draft(self, area: Area) -> None:
+        """Draft through windows of other rooms: every window of one combination open (by
+        hand: contacts, a sensor that is also an own window counts only there; automatic:
+        two windows with the room between them). Cross ventilation: an own window open
+        with a draft, or with a window of another room of an automatic pair."""
+        cfg = area.cfg
+        group = next(
+            (g for g in draft_groups(cfg, own_windows(cfg)) if has_draft([g], self._contact_open)),
+            None,
+        )
+        names = [self._friendly(e) for e in group] if group else self._open_pair(area.auto_draft)
+        area.draft = bool(names)
+        area.cross = area.own_window_open and area.draft
+        if area.own_window_open and not area.cross and (pair := self._open_pair(area.auto_cross)):
+            area.cross = True
+            names = pair
+        area.draft_windows = names
+
+    def _open_pair(self, pairs: list[tuple[str, str]]) -> list[str]:
+        """Titles of the windows of the first automatic pair that is open, else none."""
+        for pair in pairs:
+            if all(self._window_open(w) for w in pair):
+                return [self._windows[w][0] for w in pair]
+        return []
+
+    def _friendly(self, entity_id: str) -> str:
+        state = self._state(entity_id)
+        return str(state.attributes.get("friendly_name") or entity_id) if state else entity_id
 
     async def _control_area(
         self, area: Area, ts: float, minutes: float, heating_day: bool, return_ts: float | None
@@ -1568,9 +1672,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         if area.window_open:
             day.window_min += minutes
             check["window_min"] = check.get("window_min", 0.0) + minutes
-            if area.draft:
+            if area.cross or area.draft:
                 # draft through other rooms: alone, or across with an own window
-                key = "cross_min" if area.own_window_open else "draft_min"
+                key = "cross_min" if area.cross else "draft_min"
                 check[key] = check.get(key, 0.0) + minutes
         elif area.runtime.recovery_until is not None:
             check["rec_min"] = check.get("rec_min", 0.0) + minutes
@@ -1657,7 +1761,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         profile = area.humidity_profile
         previous = area.ventilation
         # an own window together with windows in other rooms: cross ventilation
-        cross = area.own_window_open and area.draft
+        cross = area.cross
         delta_t = area.temp - ref_temp if area.temp is not None and ref_temp is not None else None
         if area.has_humidity and minutes > 0:  # extra ticks on state changes count once
             profile.add_sample(
@@ -2484,7 +2588,8 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             "state": vent.state if vent else None,
             "window_open": area.own_window_open,
             **({"draft": True} if area.draft else {}),
-            "draft_groups": len(draft_groups(area.cfg, own_windows(area.cfg))),
+            "draft_groups": len(draft_groups(area.cfg, own_windows(area.cfg)))
+            + len(area.auto_draft),
             "windows": {
                 size: len(area.cfg.get(key) or ())
                 for key, size in WINDOW_FIELDS.items()

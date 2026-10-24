@@ -21,7 +21,11 @@
           "language": "Language of messages",
           "notify_services": "Notification services",
           "workday_entity": "Workday sensor",
-          "weekend_days": "Weekend days"
+          "weekend_days": "Weekend days",
+          "house_azimuth": "Front faces",
+          "house_width": "Length of the front",
+          "house_depth": "Depth",
+          "draft_reach": "Draft reach"
         },
         "data_description": {
           "outdoor_temperature": "For heating and covers (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used.",
@@ -30,7 +34,11 @@
           "language": "Logbook, last reason, push messages and notifications of every module. Automatic = the language of Home Assistant.",
           "notify_services": "Get the messages of the house, e.g. when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone).",
           "workday_entity": "Optional, e.g. the Workday integration (knows public holidays). Without a sensor the weekend days decide.",
-          "weekend_days": "Only without a workday sensor: on these days e.g. the weekend time of the morning opening applies."
+          "weekend_days": "Only without a workday sensor: on these days e.g. the weekend time of the morning opening applies.",
+          "house_azimuth": "Direction the front looks to (90° = east, 180° = south, 270° = west), e.g. read from a map. For the house in the sun compass of the covers.",
+          "house_width": "Also the back. With the depth the house appears in the sun compass, and the draft through rooms between two open windows is recognised.",
+          "house_depth": "Length of the two side walls.",
+          "draft_reach": "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m)."
         }
       },
       "heating": {
@@ -235,7 +243,11 @@
           "language": "Language of messages",
           "notify_services": "Notification services",
           "workday_entity": "Workday sensor",
-          "weekend_days": "Weekend days"
+          "weekend_days": "Weekend days",
+          "house_azimuth": "Front faces",
+          "house_width": "Length of the front",
+          "house_depth": "Depth",
+          "draft_reach": "Draft reach"
         },
         "data_description": {
           "outdoor_temperature": "For heating and covers (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used.",
@@ -244,7 +256,11 @@
           "language": "Logbook, last reason, push messages and notifications of every module. Automatic = the language of Home Assistant.",
           "notify_services": "Get the messages of the house, e.g. when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone).",
           "workday_entity": "Optional, e.g. the Workday integration (knows public holidays). Without a sensor the weekend days decide.",
-          "weekend_days": "Only without a workday sensor: on these days e.g. the weekend time of the morning opening applies."
+          "weekend_days": "Only without a workday sensor: on these days e.g. the weekend time of the morning opening applies.",
+          "house_azimuth": "Direction the front looks to (90° = east, 180° = south, 270° = west), e.g. read from a map. For the house in the sun compass of the covers.",
+          "house_width": "Also the back. With the depth the house appears in the sun compass, and the draft through rooms between two open windows is recognised.",
+          "house_depth": "Length of the two side walls.",
+          "draft_reach": "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m)."
         }
       },
       "meter": {

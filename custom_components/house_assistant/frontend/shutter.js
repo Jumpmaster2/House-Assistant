@@ -343,7 +343,6 @@ const SETTINGS = {
     { id: "startup", icon: "mdi:restart", fields: ["startup_delay", "catch_up_after"] },
     { id: "protection", icon: "mdi:weather-windy", fields: ["wind_entity", "wind_threshold", "rain_entity", "rain_threshold", "frost_threshold", "protection_release"] },
     { id: "advanced", icon: "mdi:cog-outline", fields: ["window_closed_delay", "command_interval", "verify_after"] },
-    { id: "house", icon: "mdi:home-outline", fields: ["house_azimuth", "house_width", "house_depth"], preview: true },
   ],
   evening: [
     { id: "evening", icon: "mdi:weather-sunset-down", fields: ["evening_earliest", "evening_elevation", "evening_latest", "night_end", "follow_up_earliest"] },
@@ -566,7 +565,7 @@ class HouseAssistantShutterView extends HTMLElement {
   // ------------------------------------------------------------------ house
 
   // house from the options (or the values being edited), null until all three are set
-  _house(values = this._cfg?.options || {}) {
+  _house(values = { ...(this._cfg?.options || {}), ...(this._cfg?.house || {}) }) {
     const az = Number(values.house_azimuth);
     const width = Number(values.house_width);
     const depth = Number(values.house_depth);

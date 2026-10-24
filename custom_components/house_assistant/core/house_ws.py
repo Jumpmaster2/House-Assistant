@@ -39,15 +39,19 @@ from ..shutter.config_flow import window_basics_fields
 from ..shutter.websocket import WINDOW_WALL_FIELDS
 from .entry import house_entry, update_section
 from .house import (
+    CONF_AUTO_DRAFT_OFF,
     CONF_NAME,
     CONF_ROOM,
     CONF_SIZE,
+    house_dimensions,
+    house_plan,
     rooms,
     subentries,
     window_errors,
     window_size,
     windows,
 )
+from .logic.geometry import Plan
 from .schema import PanelError, coerce, spec
 from .settings import house_schema, validate_house
 
@@ -84,16 +88,46 @@ def _specs(fields: dict[Any, Any]) -> dict[str, Any]:
     }
 
 
+def _plan_payload(entry: ConfigEntry, plan: Plan) -> dict[str, Any]:
+    """The house plan for the panel: points, the combinations of every room (also the
+    ones switched off) and what keeps windows or rooms out."""
+    off = {
+        sub_id: set(sub.data.get(CONF_AUTO_DRAFT_OFF) or []) for sub_id, sub in rooms(entry).items()
+    }
+    return {
+        "points": plan.points,
+        "room_points": plan.room_points,
+        "combinations": {
+            room_id: [
+                {
+                    "key": c.key,
+                    "kind": c.kind,
+                    "windows": list(c.windows),
+                    "enabled": c.key not in off.get(room_id, set()),
+                }
+                for c in combinations
+            ]
+            for room_id, combinations in plan.combinations.items()
+        },
+        "no_wall": plan.no_wall,
+        "no_floor": plan.no_floor,
+    }
+
+
 def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
     registry = er.async_get(hass)
     house_windows = windows(entry)
     core = module_options(entry, OPT_CORE)
+    # every combination, also the ones switched off (they are shown with their switch)
+    plan = house_plan(hass, entry, with_disabled=True)
     return {
         "entry_id": entry.entry_id,
         "modules": enabled_modules(entry),
         "available": list(MODULE_ORDER),
         "show_panel": bool(core.get(CONF_SHOW_PANEL, True)),
         "settings": {key: core[key] for key in SHARED_KEYS if key in core},
+        "plan": _plan_payload(entry, plan),
+        "house": {k: v for k, v in house_dimensions(entry).items() if v is not None},
         "rooms": [
             {
                 "id": sub_id,
@@ -292,4 +326,33 @@ def ws_save_settings(
     connection.send_result(msg["id"], config_payload(hass, entry))
 
 
-COMMANDS = (ws_config, ws_save, ws_delete, ws_save_settings)
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{PREFIX}/combination",
+        vol.Required("room_id"): str,
+        vol.Required("key"): str,
+        vol.Required("enabled"): bool,
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_combination(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Switch an automatic combination of a room on or off."""
+    entry = house_entry(hass)
+    room = entry.subentries.get(msg["room_id"]) if entry else None
+    if entry is None or room is None or room.subentry_type != SUBENTRY_ROOM:
+        connection.send_error(msg["id"], "not_found", "room not found")
+        return
+    off = [key for key in room.data.get(CONF_AUTO_DRAFT_OFF) or [] if key != msg["key"]]
+    if not msg["enabled"]:
+        off.append(msg["key"])
+    data = {k: v for k, v in room.data.items() if k != CONF_AUTO_DRAFT_OFF}
+    if off:
+        data[CONF_AUTO_DRAFT_OFF] = sorted(off)
+    hass.config_entries.async_update_subentry(entry, room, data=data)
+    connection.send_result(msg["id"], config_payload(hass, entry))
+
+
+COMMANDS = (ws_config, ws_save, ws_delete, ws_save_settings, ws_combination)

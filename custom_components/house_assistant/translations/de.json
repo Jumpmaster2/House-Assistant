@@ -21,7 +21,11 @@
           "language": "Sprache der Meldungen",
           "notify_services": "Benachrichtigungsdienste",
           "workday_entity": "Werktag-Sensor",
-          "weekend_days": "Wochenendtage"
+          "weekend_days": "Wochenendtage",
+          "house_azimuth": "Vorderseite zeigt nach",
+          "house_width": "Länge der Vorderseite",
+          "house_depth": "Tiefe",
+          "draft_reach": "Luftzug-Reichweite"
         },
         "data_description": {
           "outdoor_temperature": "Für Heizung und Rollos (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität.",
@@ -30,7 +34,11 @@
           "language": "Logbuch, letzter Grund, Push-Nachrichten und Benachrichtigungen aller Module. Automatisch = die Sprache von Home Assistant.",
           "notify_services": "Erhalten die Meldungen des Hauses, z. B. wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy).",
           "workday_entity": "Optional, z. B. die Workday-Integration (berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage.",
-          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung."
+          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung.",
+          "house_azimuth": "Himmelsrichtung, in die die Vorderseite schaut (90° = Ost, 180° = Süd, 270° = West), z. B. auf einer Karte abgelesen. Für das Haus im Sonnenkompass der Rollos.",
+          "house_width": "Gilt auch für die Rückseite. Mit der Tiefe erscheint das Haus im Sonnenkompass, und der Luftzug durch Räume zwischen zwei offenen Fenstern wird erkannt.",
+          "house_depth": "Länge der beiden Seitenwände.",
+          "draft_reach": "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
         }
       },
       "heating": {
@@ -235,7 +243,11 @@
           "language": "Sprache der Meldungen",
           "notify_services": "Benachrichtigungsdienste",
           "workday_entity": "Werktag-Sensor",
-          "weekend_days": "Wochenendtage"
+          "weekend_days": "Wochenendtage",
+          "house_azimuth": "Vorderseite zeigt nach",
+          "house_width": "Länge der Vorderseite",
+          "house_depth": "Tiefe",
+          "draft_reach": "Luftzug-Reichweite"
         },
         "data_description": {
           "outdoor_temperature": "Für Heizung und Rollos (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität.",
@@ -244,7 +256,11 @@
           "language": "Logbuch, letzter Grund, Push-Nachrichten und Benachrichtigungen aller Module. Automatisch = die Sprache von Home Assistant.",
           "notify_services": "Erhalten die Meldungen des Hauses, z. B. wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy).",
           "workday_entity": "Optional, z. B. die Workday-Integration (berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage.",
-          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung."
+          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung.",
+          "house_azimuth": "Himmelsrichtung, in die die Vorderseite schaut (90° = Ost, 180° = Süd, 270° = West), z. B. auf einer Karte abgelesen. Für das Haus im Sonnenkompass der Rollos.",
+          "house_width": "Gilt auch für die Rückseite. Mit der Tiefe erscheint das Haus im Sonnenkompass, und der Luftzug durch Räume zwischen zwei offenen Fenstern wird erkannt.",
+          "house_depth": "Länge der beiden Seitenwände.",
+          "draft_reach": "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
         }
       },
       "meter": {

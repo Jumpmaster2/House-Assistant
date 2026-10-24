@@ -16,6 +16,10 @@ from homeassistant.helpers.selector import (
 )
 
 from ..const import (
+    CONF_DRAFT_REACH,
+    CONF_HOUSE_AZIMUTH,
+    CONF_HOUSE_DEPTH,
+    CONF_HOUSE_WIDTH,
     CONF_LANGUAGE,
     CONF_NOTIFY,
     CONF_OUTDOOR_HUMIDITY,
@@ -26,7 +30,8 @@ from ..const import (
     MODULE_HEATING,
     MODULE_SHUTTER,
 )
-from .schema import entity, optional
+from .logic.geometry import DEFAULT_REACH
+from .schema import entity, number, optional
 
 LANGUAGES = ["auto", "de", "en"]
 WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
@@ -79,6 +84,13 @@ def house_schema(hass: HomeAssistant, v: dict[str, Any]) -> vol.Schema:
                     multiple=True,
                     mode=SelectSelectorMode.LIST,
                 )
+            ),
+            # the house plan: compass of the covers and draft through the rooms
+            optional(CONF_HOUSE_AZIMUTH, v): number(0, 360, 1, "°"),
+            optional(CONF_HOUSE_WIDTH, v): number(1, 500, 0.1, "m"),
+            optional(CONF_HOUSE_DEPTH, v): number(1, 500, 0.1, "m"),
+            vol.Required(CONF_DRAFT_REACH, default=v.get(CONF_DRAFT_REACH, DEFAULT_REACH)): number(
+                0, 20, 0.5, "m"
             ),
         }
     )

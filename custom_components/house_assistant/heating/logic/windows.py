@@ -36,9 +36,11 @@ def own_windows(cfg: Mapping[str, Any]) -> dict[str, float]:
     return windows
 
 
-def open_area(windows: Mapping[str, float], is_open: Callable[[str], bool]) -> float:
-    """Relative opening area of the windows open right now (0 = all closed)."""
-    return sum(opening for entity_id, opening in windows.items() if is_open(entity_id))
+def open_area(windows: Mapping[str, float], share: Callable[[str], float]) -> float:
+    """Relative opening area of the windows open right now (0 = all closed). ``share``:
+    the part of a window that is open (1 open, a quarter tilted, 0 closed; a bool works
+    as well)."""
+    return sum(opening * float(share(entity_id)) for entity_id, opening in windows.items())
 
 
 def largest(windows: Mapping[str, float]) -> tuple[str, float] | None:

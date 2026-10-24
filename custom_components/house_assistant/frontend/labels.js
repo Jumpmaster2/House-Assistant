@@ -42,6 +42,22 @@ export const LABELS = {
      "weekend_days": [
       "Wochenendtage",
       "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung."
+     ],
+     "house_azimuth": [
+      "Vorderseite zeigt nach",
+      "Himmelsrichtung, in die die Vorderseite schaut (90° = Ost, 180° = Süd, 270° = West), z. B. auf einer Karte abgelesen. Für das Haus im Sonnenkompass der Rollos."
+     ],
+     "house_width": [
+      "Länge der Vorderseite",
+      "Gilt auch für die Rückseite. Mit der Tiefe erscheint das Haus im Sonnenkompass, und der Luftzug durch Räume zwischen zwei offenen Fenstern wird erkannt."
+     ],
+     "house_depth": [
+      "Tiefe",
+      "Länge der beiden Seitenwände."
+     ],
+     "draft_reach": [
+      "Luftzug-Reichweite",
+      "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
      ]
     },
     "sections": {}
@@ -295,6 +311,22 @@ export const LABELS = {
      "weekend_days": [
       "Wochenendtage",
       "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung."
+     ],
+     "house_azimuth": [
+      "Vorderseite zeigt nach",
+      "Himmelsrichtung, in die die Vorderseite schaut (90° = Ost, 180° = Süd, 270° = West), z. B. auf einer Karte abgelesen. Für das Haus im Sonnenkompass der Rollos."
+     ],
+     "house_width": [
+      "Länge der Vorderseite",
+      "Gilt auch für die Rückseite. Mit der Tiefe erscheint das Haus im Sonnenkompass, und der Luftzug durch Räume zwischen zwei offenen Fenstern wird erkannt."
+     ],
+     "house_depth": [
+      "Tiefe",
+      "Länge der beiden Seitenwände."
+     ],
+     "draft_reach": [
+      "Luftzug-Reichweite",
+      "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
      ]
     },
     "sections": {}
@@ -2649,6 +2681,22 @@ export const LABELS = {
      "weekend_days": [
       "Weekend days",
       "Only without a workday sensor: on these days e.g. the weekend time of the morning opening applies."
+     ],
+     "house_azimuth": [
+      "Front faces",
+      "Direction the front looks to (90° = east, 180° = south, 270° = west), e.g. read from a map. For the house in the sun compass of the covers."
+     ],
+     "house_width": [
+      "Length of the front",
+      "Also the back. With the depth the house appears in the sun compass, and the draft through rooms between two open windows is recognised."
+     ],
+     "house_depth": [
+      "Depth",
+      "Length of the two side walls."
+     ],
+     "draft_reach": [
+      "Draft reach",
+      "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m)."
      ]
     },
     "sections": {}
@@ -2902,6 +2950,22 @@ export const LABELS = {
      "weekend_days": [
       "Weekend days",
       "Only without a workday sensor: on these days e.g. the weekend time of the morning opening applies."
+     ],
+     "house_azimuth": [
+      "Front faces",
+      "Direction the front looks to (90° = east, 180° = south, 270° = west), e.g. read from a map. For the house in the sun compass of the covers."
+     ],
+     "house_width": [
+      "Length of the front",
+      "Also the back. With the depth the house appears in the sun compass, and the draft through rooms between two open windows is recognised."
+     ],
+     "house_depth": [
+      "Depth",
+      "Length of the two side walls."
+     ],
+     "draft_reach": [
+      "Draft reach",
+      "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m)."
      ]
     },
     "sections": {}
@@ -5375,6 +5439,22 @@ export const HOUSE = {
      "Wochenendtage",
      "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung."
     ],
+    "house_azimuth": [
+     "Vorderseite zeigt nach",
+     "Himmelsrichtung, in die die Vorderseite schaut (90° = Ost, 180° = Süd, 270° = West), z. B. auf einer Karte abgelesen. Für das Haus im Sonnenkompass der Rollos."
+    ],
+    "house_width": [
+     "Länge der Vorderseite",
+     "Gilt auch für die Rückseite. Mit der Tiefe erscheint das Haus im Sonnenkompass, und der Luftzug durch Räume zwischen zwei offenen Fenstern wird erkannt."
+    ],
+    "house_depth": [
+     "Tiefe",
+     "Länge der beiden Seitenwände."
+    ],
+    "draft_reach": [
+     "Luftzug-Reichweite",
+     "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
+    ],
     "modules": [
      "Module",
      "Die Teile des Hauses, die House Assistant steuern soll. Ein abgeschaltetes Modul behält seine Einstellungen."
@@ -5591,6 +5671,22 @@ export const HOUSE = {
     "weekend_days": [
      "Weekend days",
      "Only without a workday sensor: on these days e.g. the weekend time of the morning opening applies."
+    ],
+    "house_azimuth": [
+     "Front faces",
+     "Direction the front looks to (90° = east, 180° = south, 270° = west), e.g. read from a map. For the house in the sun compass of the covers."
+    ],
+    "house_width": [
+     "Length of the front",
+     "Also the back. With the depth the house appears in the sun compass, and the draft through rooms between two open windows is recognised."
+    ],
+    "house_depth": [
+     "Depth",
+     "Length of the two side walls."
+    ],
+    "draft_reach": [
+     "Draft reach",
+     "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m)."
     ],
     "modules": [
      "Modules",

@@ -20,6 +20,10 @@
 - Meters can use the days without heating as their condition (option per meter).
 - The heating reads a heat meter of the meter module with the time it was read; a confirmed correction downwards is no meter reset.
 - Settings of the house for every module (setup step and Settings > House, panel House > General): outdoor temperature and humidity, weather, language of the messages, notification services, workday sensor and weekend days. A value set there applies to every module; without one the value in the settings of the module applies. The setup asks for them once, before the modules; the covers start with the summer day. Logbook and notifications of heating and meters follow the language of the house as well.
+- Cross ventilation and draft from the arrangement of the windows: the heating no longer needs combinations entered by hand. A room ventilates across when an own window is open together with a window of another room on the same floor on the opposite or an adjacent wall. A draft passes through a room without an open own window when two windows of other rooms on the same floor (opposite or adjacent walls) are open and the room lies within the draft reach (default 2 m) of the line between them. The floor comes from the Home Assistant area of the room; without floors in Home Assistant every room is on one floor. Without the size of the house only cross ventilation applies.
+- Each combination can be switched off per room (panel House > Rooms, the plan of the house with its lines). The thermostat attribute `draft_windows` names the windows that set it off.
+- Tilted windows: a window handle reporting `tilted` or a tilt contact of the window counts for the heating as open with 25 % of the opening area. Unknown still counts as closed.
+- The plan of the house (orientation, width, depth and the draft reach) is a setting of the house (House > General); the house card of the cover section is gone.
 
 ## 0.1.0
 
