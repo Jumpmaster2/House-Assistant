@@ -2,4 +2,4 @@
 
 from __future__ import annotations
 
-from . import meter  # noqa: F401
+from . import meter, shutter  # noqa: F401

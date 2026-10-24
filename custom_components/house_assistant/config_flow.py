@@ -14,41 +14,64 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
 )
 
-from .const import CONF_MODULES, DOMAIN, MODULE_METER, MODULE_ORDER, NAME, OPT_CORE, SUBENTRY_METER
+from .const import (
+    CONF_MODULES,
+    CONF_SHOW_PANEL,
+    DOMAIN,
+    MODULE_METER,
+    MODULE_ORDER,
+    MODULE_SHUTTER,
+    NAME,
+    OPT_CORE,
+    SUBENTRY_GROUP,
+    SUBENTRY_METER,
+    SUBENTRY_WINDOW,
+)
 from .meter.config_flow import MeterSubentryFlow
 from .meter.config_flow import options_schema as meter_schema
 from .meter.const import DEFAULTS as METER_DEFAULTS
 from .runtime import enabled_modules, module_options
+from .shutter.config_flow import (
+    GroupSubentryFlow,
+    ShutterOptionsSteps,
+    ShutterSetupSteps,
+    WindowSubentryFlow,
+)
 
-# module -> its settings form (setup and options) and the defaults of its options
+# modules whose settings are one form: the form and the defaults of its options
 MODULE_FORMS = {MODULE_METER: (meter_schema, METER_DEFAULTS)}
+# modules with setup steps (the cover module has several)
+SETUP_MODULES = (MODULE_SHUTTER, MODULE_METER)
 # subentry types of every module
 MODULE_SUBENTRIES: dict[str, dict[str, type[ConfigSubentryFlow]]] = {
+    MODULE_SHUTTER: {SUBENTRY_GROUP: GroupSubentryFlow, SUBENTRY_WINDOW: WindowSubentryFlow},
     MODULE_METER: {SUBENTRY_METER: MeterSubentryFlow},
 }
 
 
-def modules_schema(chosen: list[str]) -> vol.Schema:
-    return vol.Schema(
-        {
-            vol.Required(CONF_MODULES, default=chosen): SelectSelector(
-                SelectSelectorConfig(
-                    options=list(MODULE_ORDER),
-                    multiple=True,
-                    translation_key=CONF_MODULES,
-                    mode=SelectSelectorMode.LIST,
-                )
+def modules_schema(chosen: list[str], show_panel: bool | None = None) -> vol.Schema:
+    fields: dict[Any, Any] = {
+        vol.Required(CONF_MODULES, default=chosen): SelectSelector(
+            SelectSelectorConfig(
+                options=list(MODULE_ORDER),
+                multiple=True,
+                translation_key=CONF_MODULES,
+                mode=SelectSelectorMode.LIST,
             )
-        }
-    )
+        )
+    }
+    if show_panel is not None:
+        fields[vol.Required(CONF_SHOW_PANEL, default=show_panel)] = BooleanSelector()
+    return vol.Schema(fields)
 
 
-class HouseAssistantConfigFlow(ConfigFlow, domain=DOMAIN):
+class HouseAssistantConfigFlow(ShutterSetupSteps, ConfigFlow, domain=DOMAIN):
     """Create the single entry: choose the modules, then their first settings."""
 
     VERSION = 1
@@ -77,58 +100,55 @@ class HouseAssistantConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             chosen = [key for key in MODULE_ORDER if key in user_input[CONF_MODULES]]
             self._options = {OPT_CORE: {CONF_MODULES: chosen}}
-            self._pending = [key for key in chosen if key in MODULE_FORMS]
+            self._pending = [key for key in chosen if key in SETUP_MODULES]
             return await self._async_next()
         return self.async_show_form(step_id="user", data_schema=modules_schema(list(MODULE_ORDER)))
 
     async def _async_next(self) -> ConfigFlowResult:
+        """The setup steps of the next chosen module, at the end the entry."""
         if self._pending:
-            return await getattr(self, f"async_step_{self._pending[0]}")()
+            return await getattr(self, f"async_step_{self._pending.pop(0)}")()
         return self.async_create_entry(title=NAME, data={}, options=self._options)
 
     async def async_step_meter(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        return await self._async_module_step(MODULE_METER, user_input)
-
-    async def _async_module_step(
-        self, key: str, user_input: dict[str, Any] | None
-    ) -> ConfigFlowResult:
-        schema, defaults = MODULE_FORMS[key]
+        schema, defaults = MODULE_FORMS[MODULE_METER]
         if user_input is not None:
-            self._options[key] = {**defaults, **user_input}
-            self._pending.remove(key)
+            self._options[MODULE_METER] = {**defaults, **user_input}
             return await self._async_next()
-        return self.async_show_form(step_id=key, data_schema=schema(dict(defaults)))
+        return self.async_show_form(step_id=MODULE_METER, data_schema=schema(dict(defaults)))
 
 
-class HouseAssistantOptionsFlow(OptionsFlow):
+class HouseAssistantOptionsFlow(ShutterOptionsSteps, OptionsFlow):
     """The modules and the settings of each module (the panel offers the same)."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         options = [CONF_MODULES] + [
-            k for k in enabled_modules(self.config_entry) if k in MODULE_FORMS
+            k for k in enabled_modules(self.config_entry) if k in SETUP_MODULES
         ]
         return self.async_show_menu(step_id="init", menu_options=options)
 
     async def async_step_modules(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        core = module_options(self.config_entry, OPT_CORE)
         if user_input is not None:
-            core = module_options(self.config_entry, OPT_CORE)
             core[CONF_MODULES] = [key for key in MODULE_ORDER if key in user_input[CONF_MODULES]]
+            core[CONF_SHOW_PANEL] = bool(user_input.get(CONF_SHOW_PANEL, True))
             return self.async_create_entry(data={**self.config_entry.options, OPT_CORE: core})
-        chosen = module_options(self.config_entry, OPT_CORE).get(CONF_MODULES) or []
-        return self.async_show_form(step_id="modules", data_schema=modules_schema(chosen))
+        return self.async_show_form(
+            step_id="modules",
+            data_schema=modules_schema(
+                core.get(CONF_MODULES) or [], bool(core.get(CONF_SHOW_PANEL, True))
+            ),
+        )
 
     async def async_step_meter(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        return await self._async_module_step(MODULE_METER, user_input)
-
-    async def _async_module_step(
-        self, key: str, user_input: dict[str, Any] | None
-    ) -> ConfigFlowResult:
-        schema, defaults = MODULE_FORMS[key]
-        current = module_options(self.config_entry, key)
+        schema, defaults = MODULE_FORMS[MODULE_METER]
+        current = module_options(self.config_entry, MODULE_METER)
         if user_input is not None:
             return self.async_create_entry(
-                data={**self.config_entry.options, key: {**current, **user_input}}
+                data={**self.config_entry.options, MODULE_METER: {**current, **user_input}}
             )
-        return self.async_show_form(step_id=key, data_schema=schema({**defaults, **current}))
+        return self.async_show_form(
+            step_id=MODULE_METER, data_schema=schema({**defaults, **current})
+        )

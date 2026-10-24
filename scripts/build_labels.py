@@ -105,8 +105,62 @@ def meter_labels(translation: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+SHUTTER_CHOICES = (
+    "language",
+    "morning_mode",
+    "morning_sun_event",
+    "override_trigger",
+    "weekday",
+    "forecast_type",
+    "service_action",
+)
+
+
+def _shutter_steps(translation: dict[str, Any]) -> list[dict[str, Any]]:
+    """Steps and sections of the cover dialogs that contain fields."""
+    steps = [
+        step
+        for flow in ("config", "options")
+        for key, step in translation[flow]["step"].items()
+        if key.startswith("shutter")
+    ]
+    for sub in ("group", "window"):
+        steps.extend(translation["config_subentries"][sub]["step"].values())
+    found: list[dict[str, Any]] = []
+    for step in steps:
+        found.append(step)
+        found.extend(step.get("sections", {}).values())
+    return found
+
+
+def shutter_labels(translation: dict[str, Any]) -> dict[str, Any]:
+    """Texts of the cover section, in the form its view and the card read them. The
+    same field has the same text in every cover dialog."""
+    fields: dict[str, list[str]] = {}
+    for step in _shutter_steps(translation):
+        for key, (name, help_text) in _fields(step).items():
+            if key not in fields:
+                fields[key] = [name, help_text]
+                continue
+            known = fields[key]
+            if known[0] != name or (help_text and known[1] and known[1] != help_text):
+                raise ValueError(f"Field {key} has different texts: {known} / {[name, help_text]}")
+            if help_text and not known[1]:
+                known[1] = help_text
+    sensor = translation["entity"]["sensor"]
+    return {
+        "LABELS": dict(sorted(fields.items())),
+        "CHOICES": {
+            key: translation["selector"][key]["options"] for key in sorted(SHUTTER_CHOICES)
+        },
+        "ERRORS": translation["config"]["error"],
+        "STATUS": sensor["window_status"]["state"],
+        "NEXT_ACTION": sensor["next_action"]["state_attributes"]["action"]["state"],
+    }
+
+
 # name of the export -> texts in the form one section of the panel reads them
-SECTIONS = {"LABELS": labels, "METER": meter_labels}
+SECTIONS = {"LABELS": labels, "SHUTTER": shutter_labels, "METER": meter_labels}
 
 
 def render() -> str:
@@ -116,6 +170,11 @@ def render() -> str:
         translation = json.loads(path.read_text(encoding="utf-8"))
         for name, build in SECTIONS.items():
             data[name][language] = build(translation)
+    # the cover section reads every kind of text by language: SHUTTER.LABELS.de
+    data["SHUTTER"] = {
+        kind: {language: data["SHUTTER"][language][kind] for language in LANGUAGES}
+        for kind in data["SHUTTER"][LANGUAGES[0]]
+    }
     parts = [HEADER]
     for name, value in data.items():
         parts.append(f"export const {name} = {json.dumps(value, ensure_ascii=False, indent=1)};\n")

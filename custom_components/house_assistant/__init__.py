@@ -4,14 +4,16 @@ from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 
 from . import modules  # noqa: F401  (the modules register themselves)
-from .const import DOMAIN, PLATFORMS
-from .core.panel import async_register_panel, async_unregister_panel
+from .const import CONF_SHOW_PANEL, DOMAIN, OPT_CORE, PLATFORMS
+from .core.panel import async_register_panel, async_set_card_resource, async_unregister_panel
 from .core.websocket import async_register_websocket
 from .meter.services import async_setup_services as async_setup_meter_services
-from .runtime import MODULE_TYPES, HouseConfigEntry, HouseRuntime
+from .runtime import MODULE_TYPES, HouseConfigEntry, HouseRuntime, module_options
+from .shutter.services import async_register_services as async_setup_shutter_services
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -19,6 +21,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the services and the panel commands once."""
     async_setup_meter_services(hass)
+    async_setup_shutter_services(hass)
     async_register_websocket(hass)
     return True
 
@@ -35,13 +38,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> boo
         await runtime.async_shutdown()
         raise
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
-    await async_register_panel(hass, entry.entry_id)
+    await async_register_panel(hass, entry.entry_id, _sidebar(entry))
     return True
+
+
+def _sidebar(entry: HouseConfigEntry) -> bool:
+    return bool(module_options(entry, OPT_CORE).get(CONF_SHOW_PANEL, True))
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: HouseConfigEntry) -> None:
     """Options or subentries changed: only the modules concerned are restarted."""
     await entry.runtime_data.async_entry_updated()
+    await async_register_panel(hass, entry.entry_id, _sidebar(entry))
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> bool:
@@ -55,5 +63,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> bo
 async def async_remove_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> None:
     """Every module removes what it stored (and switches off what it controlled)."""
     async_unregister_panel(hass)
+    await async_set_card_resource(hass, None)
+    for domain, issue_id in list(ir.async_get(hass).issues):
+        if domain == DOMAIN:
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
     for module in MODULE_TYPES.values():
         await module.async_remove_entry(hass, entry)

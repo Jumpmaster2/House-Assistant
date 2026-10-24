@@ -21,10 +21,78 @@
           "ai_task_entity": "KI-Aufgaben-Entität, die die Bilder liest (z. B. Anthropic, OpenAI, Google oder Ollama mit Bildunterstützung). Ein Zähler kann eine eigene nutzen.",
           "notify_rejected": "Hauptschalter für die Benachrichtigungen in Home Assistant. Ab wann sie bei welchem Zähler kommen, steht beim Zähler unter „Benachrichtigungen“."
         }
+      },
+      "shutter": {
+        "title": "Rollos",
+        "description": "Globale Sensoren. Gruppen (Himmelsrichtungen) und Fenster werden danach im Panel „House Assistant“ (Seitenleiste, Bereich Rollos) angelegt.",
+        "data": {
+          "outdoor_temperature": "Außentemperatur-Sensor",
+          "weather": "Wetter-Entität",
+          "language": "Sprache der Meldungen",
+          "notify_services": "Benachrichtigungsdienste",
+          "workday_entity": "Werktag-Sensor",
+          "weekend_days": "Wochenendtage"
+        },
+        "data_description": {
+          "outdoor_temperature": "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden).",
+          "weather": "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist.",
+          "language": "Logbuch, letzter Grund und Push-Nachrichten.",
+          "notify_services": "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy).",
+          "workday_entity": "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage.",
+          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung."
+        }
+      },
+      "shutter_summer": {
+        "title": "Sommertag",
+        "description": "Sonnenschutz gibt es nur an Sommertagen.",
+        "data": {
+          "summer_threshold": "Sommertag ab Vorhersage-Höchsttemperatur",
+          "night_threshold": "Später Sommertag nur bei Nacht ab",
+          "heating_entity": "Heizbedarf",
+          "day_change_time": "Tageswechsel",
+          "forecast_type": "Vorhersage-Art"
+        },
+        "data_description": {
+          "summer_threshold": "Ohne Sommertag gibt es keinen Sonnenschutz. Tagsüber beginnt der Sommertag auch, wenn die Außentemperatur über diesen Wert steigt (siehe Nacht).",
+          "night_threshold": "Wird der Tag erst durch die Außentemperatur zum Sommertag, zählt das nur, wenn der Vorhersage-Tiefstwert der kommenden Nacht mindestens so hoch ist. Kühlt es nachts ab (Frühling, Herbst), bleibt die Wärme im Haus. Ohne Tiefstwert in der Vorhersage gilt der Sommertag wie bisher.",
+          "heating_entity": "Optional, z. B. ein input_boolean „Heizperiode“ oder der Heiztag einer Heizungssteuerung. Solange sie an ist, ist Sonnenwärme erwünscht: Sonnenschutz nur, wenn der Raum eines Fensters trotzdem zu warm ist. Fenster ohne Raumtemperatur werden dann nicht abgesenkt.",
+          "day_change_time": "Prüfung der Vorhersage und Zurücksetzen der Tagesmarker für Sonnenschutz und Benachrichtigungen.",
+          "forecast_type": "Automatisch nimmt die erste Art, die die Wetter-Entität kann (täglich, zweimal täglich, stündlich). Aus stündlichen Werten werden Tageshöchst- und Nachttiefstwert berechnet."
+        }
+      },
+      "shutter_evening": {
+        "title": "Abendmodus",
+        "description": "Der Abendmodus schließt die Rollos einmal und sperrt Auto-Hoch. Fenster können eigene Zeiten nutzen.",
+        "data": {
+          "evening_earliest": "Abendmodus frühestens",
+          "evening_elevation": "Sonnenhöhe",
+          "evening_latest": "Abendmodus spätestens",
+          "night_end": "Ende der Nacht",
+          "follow_up_earliest": "Nachziehen ab"
+        },
+        "data_description": {
+          "evening_earliest": "Vor dieser Uhrzeit beginnt der Abendmodus nie.",
+          "evening_elevation": "Der Abendmodus beginnt, wenn die Sonne unter diese Höhe sinkt (z. B. -4 °).",
+          "evening_latest": "Zeit-Fallback: spätestens um diese Uhrzeit beginnt der Abendmodus.",
+          "night_end": "Abendmodus und Abend-Marker enden um diese Uhrzeit (oder bei Sonnenaufgang, falls früher).",
+          "follow_up_earliest": "Ein am Abend geschlossenes Fenster fährt das Rollo erst ab dieser Uhrzeit zu."
+        }
       }
     },
     "abort": {
       "single_instance_allowed": "House Assistant ist bereits eingerichtet. Räume, Fenster und Zähler werden im Panel angelegt."
+    },
+    "error": {
+      "latest_before_earliest": "Die späteste Zeit liegt vor der frühesten. Bitte die späteste Zeit nach hinten oder die früheste nach vorne verschieben.",
+      "night_end_after_evening": "Das Ende der Nacht muss vor dem frühesten Abendbeginn liegen, z. B. 03:30 bei Abendbeginn ab 17:00.",
+      "min_above_max": "Das Minimum ist größer als das Maximum. Bitte die Werte tauschen oder anpassen.",
+      "name_required": "Bitte einen Namen eingeben.",
+      "azimuth_equal": "Azimut von und bis müssen verschieden sein.",
+      "no_lux_sensor": "Die Gruppe dieses Fensters hat keinen Helligkeitssensor. Füge der Gruppe einen Helligkeitssensor hinzu oder wähle einen anderen Modus.",
+      "need_temperature_source": "Bitte einen Außentemperatur-Sensor oder eine Wetter-Entität wählen; ohne Temperatur gibt es keinen Sommertag.",
+      "not_numeric": "Diese Entität meldet keinen Zahlenwert. Bitte einen Sensor mit Messwert wählen (z. B. °C, lx, W, W/m²).",
+      "invalid_notify_service": "Nur Benachrichtigungsdienste (notify.…) sind erlaubt. Bitte einen Dienst aus der Liste wählen.",
+      "cover_in_use": "Dieses Rollo wird schon von einem anderen Fenster gesteuert. Bitte ein anderes Rollo wählen oder das andere Fenster ändern."
     }
   },
   "options": {
@@ -33,16 +101,19 @@
         "title": "Einstellungen",
         "menu_options": {
           "modules": "Module",
+          "shutter": "Rollos",
           "meter": "Zähler"
         }
       },
       "modules": {
         "title": "Module",
         "data": {
-          "modules": "Module"
+          "modules": "Module",
+          "show_panel": "Dashboard in der Seitenleiste"
         },
         "data_description": {
-          "modules": "Die Teile des Hauses, die House Assistant steuern soll. Ein abgeschaltetes Modul behält seine Einstellungen."
+          "modules": "Die Teile des Hauses, die House Assistant steuern soll. Ein abgeschaltetes Modul behält seine Einstellungen.",
+          "show_panel": "Aus: Das Dashboard verschwindet aus der Seitenleiste, bleibt aber über „Einstellungen“ bei der Integration erreichbar."
         }
       },
       "meter": {
@@ -55,10 +126,496 @@
           "ai_task_entity": "KI-Aufgaben-Entität, die die Bilder liest (z. B. Anthropic, OpenAI, Google oder Ollama mit Bildunterstützung). Ein Zähler kann eine eigene nutzen.",
           "notify_rejected": "Hauptschalter für die Benachrichtigungen in Home Assistant. Ab wann sie bei welchem Zähler kommen, steht beim Zähler unter „Benachrichtigungen“."
         }
+      },
+      "shutter": {
+        "title": "Rollos",
+        "menu_options": {
+          "shutter_general": "Allgemein",
+          "shutter_override": "Manuelle Übersteuerung",
+          "shutter_summer": "Sommertag",
+          "shutter_evening": "Abendmodus",
+          "shutter_vacation": "Urlaubssimulation",
+          "shutter_protection": "Wetterschutz",
+          "shutter_startup": "Neustart-Schutz",
+          "shutter_advanced": "Erweitert"
+        }
+      },
+      "shutter_general": {
+        "title": "Allgemein",
+        "data": {
+          "outdoor_temperature": "Außentemperatur-Sensor",
+          "weather": "Wetter-Entität",
+          "language": "Sprache der Meldungen",
+          "notify_services": "Benachrichtigungsdienste",
+          "workday_entity": "Werktag-Sensor",
+          "weekend_days": "Wochenendtage"
+        },
+        "data_description": {
+          "outdoor_temperature": "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden).",
+          "weather": "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist.",
+          "language": "Logbuch, letzter Grund und Push-Nachrichten.",
+          "notify_services": "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy).",
+          "workday_entity": "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage.",
+          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung."
+        }
+      },
+      "shutter_override": {
+        "title": "Manuelle Übersteuerung",
+        "description": "Wann eine Bedienung von Hand (Taster, App, Sprachassistent) die Übersteuerung eines Fensters startet. Dauer und weitere Einstellungen stehen am Fenster.",
+        "data": {
+          "override_trigger": "Übersteuerung beginnt"
+        },
+        "data_description": {
+          "override_trigger": "Nur bei echter Fahrt: Ein Befehl an ein Rollo, das schon in der Zielposition steht (z. B. „alle Rollos auf“, während es offen ist), startet keine Übersteuerung. Jeder Befehl: auch ohne Fahrt, wie bisher."
+        }
+      },
+      "shutter_summer": {
+        "title": "Sommertag",
+        "description": "Sonnenschutz gibt es nur an Sommertagen.",
+        "data": {
+          "summer_threshold": "Sommertag ab Vorhersage-Höchsttemperatur",
+          "night_threshold": "Später Sommertag nur bei Nacht ab",
+          "heating_entity": "Heizbedarf",
+          "day_change_time": "Tageswechsel",
+          "forecast_type": "Vorhersage-Art"
+        },
+        "data_description": {
+          "summer_threshold": "Ohne Sommertag gibt es keinen Sonnenschutz. Tagsüber beginnt der Sommertag auch, wenn die Außentemperatur über diesen Wert steigt (siehe Nacht).",
+          "night_threshold": "Wird der Tag erst durch die Außentemperatur zum Sommertag, zählt das nur, wenn der Vorhersage-Tiefstwert der kommenden Nacht mindestens so hoch ist. Kühlt es nachts ab (Frühling, Herbst), bleibt die Wärme im Haus. Ohne Tiefstwert in der Vorhersage gilt der Sommertag wie bisher.",
+          "heating_entity": "Optional, z. B. ein input_boolean „Heizperiode“ oder der Heiztag einer Heizungssteuerung. Solange sie an ist, ist Sonnenwärme erwünscht: Sonnenschutz nur, wenn der Raum eines Fensters trotzdem zu warm ist. Fenster ohne Raumtemperatur werden dann nicht abgesenkt.",
+          "day_change_time": "Prüfung der Vorhersage und Zurücksetzen der Tagesmarker für Sonnenschutz und Benachrichtigungen.",
+          "forecast_type": "Automatisch nimmt die erste Art, die die Wetter-Entität kann (täglich, zweimal täglich, stündlich). Aus stündlichen Werten werden Tageshöchst- und Nachttiefstwert berechnet."
+        }
+      },
+      "shutter_evening": {
+        "title": "Abendmodus",
+        "description": "Der Abendmodus schließt die Rollos einmal und sperrt Auto-Hoch. Fenster können eigene Zeiten nutzen.",
+        "data": {
+          "evening_earliest": "Abendmodus frühestens",
+          "evening_elevation": "Sonnenhöhe",
+          "evening_latest": "Abendmodus spätestens",
+          "night_end": "Ende der Nacht",
+          "follow_up_earliest": "Nachziehen ab"
+        },
+        "data_description": {
+          "evening_earliest": "Vor dieser Uhrzeit beginnt der Abendmodus nie.",
+          "evening_elevation": "Der Abendmodus beginnt, wenn die Sonne unter diese Höhe sinkt (z. B. -4 °).",
+          "evening_latest": "Zeit-Fallback: spätestens um diese Uhrzeit beginnt der Abendmodus.",
+          "night_end": "Abendmodus und Abend-Marker enden um diese Uhrzeit (oder bei Sonnenaufgang, falls früher).",
+          "follow_up_earliest": "Ein am Abend geschlossenes Fenster fährt das Rollo erst ab dieser Uhrzeit zu."
+        }
+      },
+      "shutter_vacation": {
+        "title": "Urlaubssimulation",
+        "description": "Zufälliges Öffnen am Morgen und Schließen am Abend, solange Urlaub aktiv ist.",
+        "data": {
+          "vacation_entities": "Urlaubs-Entitäten",
+          "vacation_morning_start": "Urlaub morgens ab",
+          "vacation_morning_window": "Zufallszeitraum morgens",
+          "vacation_position_min": "Öffnungsposition von",
+          "vacation_position_max": "Öffnungsposition bis",
+          "vacation_evening_start": "Urlaub abends ab",
+          "vacation_evening_window": "Zufallszeitraum abends"
+        },
+        "data_description": {
+          "vacation_entities": "Urlaub ist aktiv, solange eine davon an ist (z. B. ein input_boolean „Urlaub“ oder ein Kalender).",
+          "vacation_morning_start": "Geschlossene Rollos der Fenster in der Simulation öffnen danach zu einer zufälligen Zeit.",
+          "vacation_morning_window": "Jedes Fenster öffnet zu einer zufälligen Zeit in diesem Zeitraum.",
+          "vacation_position_min": "Zufällige Position zwischen beiden Werten.",
+          "vacation_position_max": "Zufällige Position zwischen beiden Werten.",
+          "vacation_evening_start": "Beginnt den Abend für die Fenster der Simulation und schließt sie zu zufälligen Zeiten. Der normale Abendlauf ruht im Urlaub.",
+          "vacation_evening_window": "Jedes Fenster schließt zu einer zufälligen Zeit in diesem Zeitraum."
+        }
+      },
+      "shutter_protection": {
+        "title": "Wetterschutz",
+        "description": "Wind und Regen fahren die Rollos der beteiligten Fenster auf ihre Schutzposition, auch bei Übersteuerung und ausgeschalteter Automatik. Frost lässt beim Schließen einen Spalt. Die Positionen stehen am Fenster.",
+        "data": {
+          "wind_entity": "Windsensor",
+          "wind_threshold": "Windschutz ab",
+          "rain_entity": "Regensensor",
+          "rain_threshold": "Regenschutz über",
+          "frost_threshold": "Frost ab (höchstens)",
+          "protection_release": "Freigabe nach"
+        },
+        "data_description": {
+          "wind_entity": "Windgeschwindigkeit oder Böen, z. B. von einer Wetterstation.",
+          "wind_threshold": "In der Einheit des Windsensors (z. B. km/h oder m/s).",
+          "rain_entity": "Ein Regensensor, der einschaltet, oder eine Regenmenge (z. B. mm/h).",
+          "rain_threshold": "Nur bei einem Zahlenwert: Regen zählt über diesem Wert.",
+          "frost_threshold": "Außentemperatur. Nur Fenster mit einer Frostposition machen mit.",
+          "protection_release": "Ein Schutz endet erst, wenn der Wert so lange wieder im sicheren Bereich war. Ein nicht verfügbarer Sensor beendet nie einen Schutz."
+        }
+      },
+      "shutter_startup": {
+        "title": "Neustart-Schutz",
+        "data": {
+          "startup_delay": "Neustart-Schutz",
+          "catch_up_after": "Abendlauf nachholen ab"
+        },
+        "data_description": {
+          "startup_delay": "Nach dem Start von Home Assistant so lange keine Fahrt (Sensoren und Rollos melden sich noch an).",
+          "catch_up_after": "Nach dem Neustart-Schutz wird der Abendlauf für noch nicht geschlossene Fenster nachgeholt, aber erst ab dieser Uhrzeit."
+        }
+      },
+      "shutter_advanced": {
+        "title": "Erweitert",
+        "description": "Selten benötigte Einstellungen.",
+        "data": {
+          "window_closed_delay": "Fenster gilt als geschlossen nach",
+          "command_interval": "Abstand zwischen Fahrbefehlen",
+          "verify_after": "Position prüfen nach"
+        },
+        "data_description": {
+          "window_closed_delay": "Ein Fensterkontakt muss so lange „zu“ melden, bevor Nachziehen, Sonnenschutz oder Schließ-Auslöser greifen (gegen Prellen beim Schließen).",
+          "command_interval": "Mehrere Rollos fahren nacheinander mit diesem Abstand (gegen Funkkollisionen). 0 = alle gleichzeitig.",
+          "verify_after": "Hat ein Rollo sein Ziel bis dahin nicht erreicht, wird der Befehl einmal wiederholt, danach kommt eine Meldung. 0 = aus."
+        }
       }
+    },
+    "error": {
+      "latest_before_earliest": "Die späteste Zeit liegt vor der frühesten. Bitte die späteste Zeit nach hinten oder die früheste nach vorne verschieben.",
+      "night_end_after_evening": "Das Ende der Nacht muss vor dem frühesten Abendbeginn liegen, z. B. 03:30 bei Abendbeginn ab 17:00.",
+      "min_above_max": "Das Minimum ist größer als das Maximum. Bitte die Werte tauschen oder anpassen.",
+      "name_required": "Bitte einen Namen eingeben.",
+      "azimuth_equal": "Azimut von und bis müssen verschieden sein.",
+      "no_lux_sensor": "Die Gruppe dieses Fensters hat keinen Helligkeitssensor. Füge der Gruppe einen Helligkeitssensor hinzu oder wähle einen anderen Modus.",
+      "need_temperature_source": "Bitte einen Außentemperatur-Sensor oder eine Wetter-Entität wählen; ohne Temperatur gibt es keinen Sommertag.",
+      "not_numeric": "Diese Entität meldet keinen Zahlenwert. Bitte einen Sensor mit Messwert wählen (z. B. °C, lx, W, W/m²).",
+      "invalid_notify_service": "Nur Benachrichtigungsdienste (notify.…) sind erlaubt. Bitte einen Dienst aus der Liste wählen.",
+      "cover_in_use": "Dieses Rollo wird schon von einem anderen Fenster gesteuert. Bitte ein anderes Rollo wählen oder das andere Fenster ändern."
     }
   },
   "config_subentries": {
+    "group": {
+      "entry_type": "Gruppe",
+      "initiate_flow": {
+        "user": "Gruppe hinzufügen",
+        "reconfigure": "Gruppe ändern"
+      },
+      "step": {
+        "user": {
+          "title": "Gruppe",
+          "description": "Eine Gruppe ist eine Himmelsrichtung mit ihren Sensoren. Schwellen werden pro Fenster eingestellt.",
+          "data": {
+            "name": "Name",
+            "azimuth_from": "Azimut von",
+            "azimuth_to": "Azimut bis",
+            "radiation_sensors": "Strahlungssensoren",
+            "pv_sensors": "PV-Leistungssensoren",
+            "lux_sensors": "Helligkeitssensoren"
+          },
+          "data_description": {
+            "name": "Wird auch für das Gerät und seine Entitäten verwendet.",
+            "azimuth_from": "Sonnenrichtung, ab der die Sonne auf die Fenster scheint (90 ° = Ost, 180 ° = Süd, 270 ° = West). Die Grenzen selbst zählen nicht.",
+            "azimuth_to": "Erreicht die Sonne diese Richtung, öffnen geschützte Rollos wieder (Auto-Hoch).",
+            "radiation_sensors": "Sonnenstrahlung in W/m², z. B. von einem Wetterdienst oder einer Wetterstation.",
+            "pv_sensors": "Leistung einer PV-Anlage oder eines Moduls in diese Richtung (W).",
+            "lux_sensors": "Lux-Sensoren an den Fenstern. Jeder Sensor der Gruppe muss die Schwelle des Fensters erreichen."
+          }
+        },
+        "reconfigure": {
+          "title": "Gruppe",
+          "description": "Eine Gruppe ist eine Himmelsrichtung mit ihren Sensoren. Schwellen werden pro Fenster eingestellt.",
+          "data": {
+            "name": "Name",
+            "azimuth_from": "Azimut von",
+            "azimuth_to": "Azimut bis",
+            "radiation_sensors": "Strahlungssensoren",
+            "pv_sensors": "PV-Leistungssensoren",
+            "lux_sensors": "Helligkeitssensoren"
+          },
+          "data_description": {
+            "name": "Wird auch für das Gerät und seine Entitäten verwendet.",
+            "azimuth_from": "Sonnenrichtung, ab der die Sonne auf die Fenster scheint (90 ° = Ost, 180 ° = Süd, 270 ° = West). Die Grenzen selbst zählen nicht.",
+            "azimuth_to": "Erreicht die Sonne diese Richtung, öffnen geschützte Rollos wieder (Auto-Hoch).",
+            "radiation_sensors": "Sonnenstrahlung in W/m², z. B. von einem Wetterdienst oder einer Wetterstation.",
+            "pv_sensors": "Leistung einer PV-Anlage oder eines Moduls in diese Richtung (W).",
+            "lux_sensors": "Lux-Sensoren an den Fenstern. Jeder Sensor der Gruppe muss die Schwelle des Fensters erreichen."
+          }
+        }
+      },
+      "error": {
+        "latest_before_earliest": "Die späteste Zeit liegt vor der frühesten. Bitte die späteste Zeit nach hinten oder die früheste nach vorne verschieben.",
+        "night_end_after_evening": "Das Ende der Nacht muss vor dem frühesten Abendbeginn liegen, z. B. 03:30 bei Abendbeginn ab 17:00.",
+        "min_above_max": "Das Minimum ist größer als das Maximum. Bitte die Werte tauschen oder anpassen.",
+        "name_required": "Bitte einen Namen eingeben.",
+        "azimuth_equal": "Azimut von und bis müssen verschieden sein.",
+        "no_lux_sensor": "Die Gruppe dieses Fensters hat keinen Helligkeitssensor. Füge der Gruppe einen Helligkeitssensor hinzu oder wähle einen anderen Modus.",
+        "need_temperature_source": "Bitte einen Außentemperatur-Sensor oder eine Wetter-Entität wählen; ohne Temperatur gibt es keinen Sommertag.",
+        "not_numeric": "Diese Entität meldet keinen Zahlenwert. Bitte einen Sensor mit Messwert wählen (z. B. °C, lx, W, W/m²).",
+        "invalid_notify_service": "Nur Benachrichtigungsdienste (notify.…) sind erlaubt. Bitte einen Dienst aus der Liste wählen.",
+        "cover_in_use": "Dieses Rollo wird schon von einem anderen Fenster gesteuert. Bitte ein anderes Rollo wählen oder das andere Fenster ändern."
+      },
+      "abort": {
+        "reconfigure_successful": "Änderungen gespeichert."
+      }
+    },
+    "window": {
+      "entry_type": "Fenster",
+      "initiate_flow": {
+        "user": "Fenster hinzufügen",
+        "reconfigure": "Fenster ändern"
+      },
+      "step": {
+        "basics": {
+          "title": "Fenster",
+          "data": {
+            "name": "Name",
+            "cover": "Rollo",
+            "window_sensors": "Fensterkontakte",
+            "tilt_sensors": "Kipp-Kontakte",
+            "group": "Gruppe"
+          },
+          "data_description": {
+            "name": "Wird auch für das Gerät und seine Entitäten verwendet.",
+            "cover": "100 % = offen, 0 % = zu.",
+            "window_sensors": "'on' = offen. Fenstergriffe mit den Zuständen open, tilted und closed gehen auch. Unbekannt oder nicht verfügbar zählt als offen.",
+            "tilt_sensors": "'on' = gekippt. Solange das Fenster nur gekippt ist, schließen die Rollos höchstens bis zur Lüftungsposition.",
+            "group": "Himmelsrichtung. Ohne Gruppe hat das Fenster keinen Sonnenschutz."
+          }
+        },
+        "sun": {
+          "title": "Sonnenschutz",
+          "description": "Schwellen für die Gruppe {group}.",
+          "data": {
+            "radiation_threshold": "Strahlungsschwelle",
+            "pv_threshold": "PV-Schwelle",
+            "lux_threshold": "Helligkeitsschwelle",
+            "temperature_threshold": "Außentemperatur mindestens",
+            "temperature_hold": "Haltezeit Temperatur",
+            "room_entity": "Raumtemperatur",
+            "room_margin": "Zu warm ab Sollwert plus",
+            "room_threshold": "Zu warm ab",
+            "cooling_entity": "Klimaanlage",
+            "sun_hold": "Haltezeit Sonne",
+            "sun_position": "Sonnenschutz-Position",
+            "position_tolerance": "Toleranz für Auto-Hoch",
+            "auto_up": "Auto-Hoch",
+            "notify_open_window": "Bei offenem Fenster benachrichtigen",
+            "manual_max_position": "Manueller Sonnenschutz bis",
+            "manual_detection_window": "Erkennungszeitraum",
+            "manual_follow_up": "Nachlauf der Sonnenbedingung",
+            "manual_at_sun_position": "Fahrt auf Sonnenschutz-Position zählt"
+          },
+          "data_description": {
+            "radiation_threshold": "Jeder Strahlungssensor der Gruppe muss diesen Wert erreichen.",
+            "pv_threshold": "Jeder PV-Sensor der Gruppe muss diesen Wert erreichen.",
+            "lux_threshold": "Jeder Helligkeitssensor der Gruppe muss diesen Wert erreichen.",
+            "temperature_threshold": "Sonnenschutz erst ab dieser Außentemperatur.",
+            "temperature_hold": "So lange muss die Außentemperatur darüber liegen. Darunter endet die Bedingung sofort.",
+            "room_entity": "Optional: Thermostat (climate) oder Temperatursensor des Raums. Dann wird nur abgesenkt, wenn der Raum zu warm ist. Ohne Wert gilt die Bedingung als erfüllt (außer am Heiztag).",
+            "room_margin": "Bei einem Thermostat: zu warm ab dessen Sollwert plus diesem Abstand.",
+            "room_threshold": "Bei einem Temperatursensor (oder einem Thermostat ohne Sollwert): zu warm ab dieser Temperatur.",
+            "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage.",
+            "sun_hold": "So lange müssen Sommertag, Temperatur, Raum und alle Sonnensensoren erfüllt sein. Die Bedingung endet sofort.",
+            "sun_position": "Einmal am Tag auf diese Position. Ein schon weiter geschlossenes Rollo bleibt, wie es ist.",
+            "position_tolerance": "Auto-Hoch öffnet nur Rollos, die auf der Sonnenschutz-Position bis so viel darüber stehen. Von Hand anders gestellte Rollos bleiben.",
+            "auto_up": "Wieder öffnen, wenn die Sonne den Bereich verlässt (nicht im Abendmodus).",
+            "notify_open_window": "Einmal am Tag, wenn ein offenes Fenster den Sonnenschutz verhindert hat.",
+            "manual_max_position": "Ein bei Sonne von Hand höchstens auf diese Position gefahrenes Rollo gilt heute als Sonnenschutz (keine Automatikfahrt).",
+            "manual_detection_window": "Die manuelle Bewegung darf höchstens so lange her sein.",
+            "manual_follow_up": "Für diese Erkennung zählt die Sonnenbedingung (ohne Temperatur) noch so lange nach ihrem Ende.",
+            "manual_at_sun_position": "Ein bei Sonne von irgendwem auf die Sonnenschutz-Position (bis zur Toleranz) gefahrenes Rollo gilt wie automatischer Sonnenschutz und öffnet wieder mit Auto-Hoch."
+          }
+        },
+        "behavior": {
+          "title": "Verhalten",
+          "sections": {
+            "override": {
+              "name": "Manuelle Übersteuerung",
+              "data": {
+                "override_duration": "Dauer",
+                "override_sunrise_reset": "Auch bei Sonnenaufgang beenden",
+                "override_ignore_evening": "Abend- und Urlaubsfahrten trotz Übersteuerung"
+              },
+              "data_description": {
+                "override_duration": "Nach einer manuellen Bewegung pausiert die Automatik so lange für das Fenster. Jede weitere Bewegung startet sie neu. 0 = bis Sonnenaufgang.",
+                "override_ignore_evening": "z. B. Schlafräume, die abends immer schließen sollen.",
+                "override_sunrise_reset": "Die Übersteuerung endet zusätzlich beim nächsten Sonnenaufgang, auch wenn die Dauer noch läuft."
+              }
+            },
+            "conditions": {
+              "name": "Zusatzbedingungen",
+              "data": {
+                "open_block_entity": "Öffnungssperre",
+                "open_block_free_states": "Freigabe-Zustände",
+                "close_trigger_entities": "Schließ-Auslöser",
+                "close_trigger_active_states": "Aktiv-Zustände",
+                "close_trigger_on_delay": "Aktiv nach",
+                "close_trigger_off_delay": "Inaktiv nach",
+                "close_trigger_min_position": "Nur wenn weiter offen als",
+                "close_trigger_max_lock": "Zyklus höchstens",
+                "window_exception_entity": "Fenster-Ausnahme"
+              },
+              "data_description": {
+                "open_block_entity": "Kein automatisches Öffnen (Auto-Hoch, Lüften, Urlaub morgens, Morgenöffnung), außer die Entität hat einen der Freigabe-Zustände (z. B. ein Fernseher).",
+                "close_trigger_entities": "Wird eine dieser Entitäten aktiv, schließt das Rollo einmal pro Aktiv-Zyklus, nur bei geschlossenem Fenster (sonst sobald es zu ist). Der Zyklus endet, wenn alle inaktiv sind.",
+                "window_exception_entity": "Solange diese Entität verfügbar ist, verhindert ein offenes Fenster keine Schließfahrten und es gibt keine Nachricht (z. B. Klimaanlage mit Schlauch durch die Balkontür). Gilt nicht für den Urlaubsabend.",
+                "open_block_free_states": "Zustände der Öffnungssperre, in denen trotzdem geöffnet wird (z. B. off, standby).",
+                "close_trigger_active_states": "Zustände, in denen ein Schließ-Auslöser als aktiv gilt (z. B. on, playing beim Fernseher).",
+                "close_trigger_on_delay": "So lange muss ein Auslöser aktiv sein, bevor das Rollo schließt (kurzes Einschalten zählt nicht).",
+                "close_trigger_off_delay": "So lange müssen alle Auslöser inaktiv sein, bis der Zyklus endet und ein neues Einschalten wieder schließt.",
+                "close_trigger_min_position": "Schließt nur, wenn das Rollo weiter offen steht als diese Position.",
+                "close_trigger_max_lock": "Spätestens nach dieser Zeit beginnt ein neuer Zyklus, auch wenn die Auslöser die ganze Zeit aktiv waren."
+              }
+            },
+            "evening": {
+              "name": "Abend",
+              "data": {
+                "evening_close": "Abendlauf",
+                "evening_position": "Abendposition",
+                "follow_up_close": "Nachziehen",
+                "evening_custom": "Eigene Abendzeiten",
+                "evening_earliest": "Abendmodus frühestens",
+                "evening_elevation": "Sonnenhöhe",
+                "evening_latest": "Abendmodus spätestens"
+              },
+              "data_description": {
+                "evening_close": "Zu Beginn des Abendmodus schließen, einmal pro Abend und nur bei geschlossenem Fenster.",
+                "evening_position": "Ziel des Abendlaufs und des Nachziehens. 0 % = zu; z. B. 20 % lässt in warmen Nächten einen Spalt.",
+                "follow_up_close": "Wird das Fenster am Abend geschlossen, fährt das Rollo zu (auch bei Übersteuerung).",
+                "evening_custom": "Die folgenden Werte statt der globalen verwenden.",
+                "evening_earliest": "Vor dieser Uhrzeit beginnt der Abendmodus nie.",
+                "evening_elevation": "Der Abendmodus beginnt, wenn die Sonne unter diese Höhe sinkt (z. B. -4 °).",
+                "evening_latest": "Zeit-Fallback: spätestens um diese Uhrzeit beginnt der Abendmodus."
+              }
+            },
+            "ventilation_settings": {
+              "name": "Lüften und Urlaub",
+              "data": {
+                "ventilation": "Lüften beim Öffnen des Fensters",
+                "ventilation_position": "Lüftungsposition",
+                "closed_position": "Gilt als geschlossen bis",
+                "ventilation_delay_evening": "Verzögerung abends",
+                "ventilation_delay_day": "Verzögerung tagsüber",
+                "vacation": "Urlaubssimulation"
+              },
+              "data_description": {
+                "ventilation": "Beim Öffnen des Fensters fährt ein geschlossenes Rollo auf die Lüftungsposition (abends nach der kurzen, tagsüber nach der langen Verzögerung).",
+                "closed_position": "Für Lüften und Urlaub morgens.",
+                "ventilation_delay_day": "Das Fenster muss danach noch offen sein.",
+                "vacation": "An der zufälligen Öffnung und Schließung im Urlaub teilnehmen.",
+                "ventilation_position": "Position beim Lüften (100 % = offen).",
+                "ventilation_delay_evening": "Im Abendmodus fährt das Rollo nach dieser kurzen Zeit auf die Lüftungsposition."
+              }
+            },
+            "protection": {
+              "name": "Wetterschutz & Tür",
+              "data": {
+                "weather_protection": "Wetterschutz für dieses Fenster",
+                "wind_position": "Position bei Wind",
+                "window_wind_threshold": "Eigene Windschwelle",
+                "rain_position": "Position bei Regen",
+                "frost_position": "Tiefste Position bei Frost",
+                "protection_keep_closed": "Weiter geschlossen gilt als geschützt",
+                "lockout_protection": "Aussperrschutz (Tür)"
+              },
+              "data_description": {
+                "weather_protection": "Aus = Wind, Regen und Frost fahren oder begrenzen dieses Rollo nie, egal was unten eingetragen ist. Für jedes Fenster einschalten, das mitmachen soll. Mit ausgeschalteter Automatik (global oder für dieses Fenster) gibt es auch keinen Wetterschutz.",
+                "wind_position": "Leer = nicht betroffen. Z. B. 100 % fährt Raffstores hoch. Nur mit eingeschaltetem Wetterschutz des Fensters.",
+                "window_wind_threshold": "Leer = Windschutz ab der Schwelle der Grundeinstellungen. Sonst schützt dieses Fenster schon oder erst ab diesem Wert (Einheit des Windsensors).",
+                "rain_position": "Leer = nicht betroffen. Z. B. 0 % für ein Dachfenster.",
+                "frost_position": "Leer = aus. Bei Frost stoppt das Schließen hier, damit das Rollo nicht anfriert, z. B. 5 %.",
+                "protection_keep_closed": "Ein Rollo, das schon weiter zu ist als seine Position bei Wind oder Regen, wird nicht dorthin hochgefahren (z. B. zu auf 0 % bei Wind-Position 20 %). Nicht bei 100 %: Raffstores einfahren läuft immer.",
+                "lockout_protection": "Solange der Kontakt offen meldet, fährt nichts unter die Lüftungsposition, auch nicht mit Fenster-Ausnahme oder Wetterschutz."
+              }
+            }
+          }
+        },
+        "morning": {
+          "title": "Morgenöffnung",
+          "description": "Nie bei aktiver Übersteuerung, Öffnungssperre oder einem seit dem Abend von Hand verstellten Rollo. Im Urlaub öffnet stattdessen die Simulation.",
+          "data": {
+            "morning_enabled": "Morgenöffnung",
+            "morning_mode": "Modus",
+            "morning_earliest": "Frühestens",
+            "morning_latest": "Spätestens",
+            "morning_position": "Zielposition",
+            "morning_sun_position": "Direkt auf Sonnenschutz, falls nötig"
+          },
+          "data_description": {
+            "morning_latest": "Hat bis dahin nichts ausgelöst, öffnet das Rollo zu dieser Zeit.",
+            "morning_position": "100 = offen, weniger = Teilöffnung.",
+            "morning_sun_position": "Gilt die Sonnenbedingung, nur bis zur Sonnenschutz-Position öffnen.",
+            "morning_enabled": "Das Rollo morgens automatisch öffnen.",
+            "morning_mode": "Wodurch die Morgenöffnung ausgelöst wird; die Einstellungen dazu folgen im nächsten Schritt.",
+            "morning_earliest": "Vorher öffnet das Rollo nie, auch wenn der Auslöser früher kommt."
+          }
+        },
+        "morning_time": {
+          "title": "Morgenöffnung nach Uhrzeit",
+          "data": {
+            "morning_time_workday": "Werktags",
+            "morning_time_weekend": "Wochenende und Feiertage"
+          },
+          "data_description": {
+            "morning_time_workday": "Uhrzeit an Werktagen (Werktag-Sensor oder Wochenendtage).",
+            "morning_time_weekend": "Uhrzeit am Wochenende und an Feiertagen (Feiertage nur mit Werktag-Sensor)."
+          }
+        },
+        "morning_sun": {
+          "title": "Morgenöffnung nach Sonnenstand",
+          "data": {
+            "morning_sun_event": "Ereignis",
+            "morning_sun_elevation": "Sonnenhöhe",
+            "morning_sun_offset": "Versatz"
+          },
+          "data_description": {
+            "morning_sun_elevation": "Nur für Sonnenhöhe: öffnet, wenn die aufgehende Sonne diese Höhe erreicht.",
+            "morning_sun_event": "Sonnenaufgang oder das Erreichen einer Sonnenhöhe.",
+            "morning_sun_offset": "Minuten vor (negativ) oder nach dem Ereignis."
+          }
+        },
+        "morning_brightness": {
+          "title": "Morgenöffnung nach Helligkeit",
+          "data": {
+            "morning_lux_threshold": "Helligkeit",
+            "morning_lux_hold": "Haltezeit"
+          },
+          "data_description": {
+            "morning_lux_threshold": "Jeder Helligkeitssensor der Gruppe muss diesen Wert erreichen.",
+            "morning_lux_hold": "So lange muss es hell genug sein, bevor das Rollo öffnet."
+          }
+        },
+        "morning_trigger": {
+          "title": "Morgenöffnung nach Auslöser",
+          "data": {
+            "morning_trigger_entity": "Auslöser-Entität",
+            "morning_trigger_offset": "Versatz"
+          },
+          "data_description": {
+            "morning_trigger_entity": "Ein Zeitstempel (z. B. nächster Wecker des Handys) öffnet zu dieser Zeit plus Versatz. Jede andere Entität öffnet, wenn sie angeht (Bewegung, Schalter).",
+            "morning_trigger_offset": "Nur für Zeitstempel."
+          }
+        },
+        "reconfigure": {
+          "title": "Fenster ändern",
+          "description": "Was möchtest du ändern? Jede Kategorie wird für sich gespeichert.",
+          "menu_options": {
+            "basics": "Fenster: Name, Rollo, Fensterkontakte, Gruppe",
+            "sun": "Sonnenschutz: Schwellen, Haltezeiten, Position, Auto-Hoch",
+            "behavior": "Verhalten: Übersteuerung, Zusatzbedingungen, Abend, Lüften, Urlaub",
+            "morning": "Morgenöffnung"
+          }
+        }
+      },
+      "error": {
+        "latest_before_earliest": "Die späteste Zeit liegt vor der frühesten. Bitte die späteste Zeit nach hinten oder die früheste nach vorne verschieben.",
+        "night_end_after_evening": "Das Ende der Nacht muss vor dem frühesten Abendbeginn liegen, z. B. 03:30 bei Abendbeginn ab 17:00.",
+        "min_above_max": "Das Minimum ist größer als das Maximum. Bitte die Werte tauschen oder anpassen.",
+        "name_required": "Bitte einen Namen eingeben.",
+        "azimuth_equal": "Azimut von und bis müssen verschieden sein.",
+        "no_lux_sensor": "Die Gruppe dieses Fensters hat keinen Helligkeitssensor. Füge der Gruppe einen Helligkeitssensor hinzu oder wähle einen anderen Modus.",
+        "need_temperature_source": "Bitte einen Außentemperatur-Sensor oder eine Wetter-Entität wählen; ohne Temperatur gibt es keinen Sommertag.",
+        "not_numeric": "Diese Entität meldet keinen Zahlenwert. Bitte einen Sensor mit Messwert wählen (z. B. °C, lx, W, W/m²).",
+        "invalid_notify_service": "Nur Benachrichtigungsdienste (notify.…) sind erlaubt. Bitte einen Dienst aus der Liste wählen.",
+        "cover_in_use": "Dieses Rollo wird schon von einem anderen Fenster gesteuert. Bitte ein anderes Rollo wählen oder das andere Fenster ändern."
+      },
+      "abort": {
+        "reconfigure_successful": "Änderungen gespeichert."
+      }
+    },
     "meter": {
       "entry_type": "Zähler",
       "initiate_flow": {
@@ -354,6 +911,7 @@
   "selector": {
     "modules": {
       "options": {
+        "shutter": "Rollos",
         "meter": "Zähler"
       }
     },
@@ -370,6 +928,62 @@
       "options": {
         "capture": "Nur während der Aufnahme",
         "permanent": "Dauerlicht"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Wie Home Assistant",
+        "de": "Deutsch",
+        "en": "English"
+      }
+    },
+    "morning_mode": {
+      "options": {
+        "time": "Feste Uhrzeit (Werktag / Wochenende)",
+        "sun": "Sonnenstand (Aufgang oder Höhe)",
+        "brightness": "Helligkeit der Gruppe",
+        "trigger": "Auslöser-Entität (Wecker, Bewegung, Schalter)"
+      }
+    },
+    "morning_sun_event": {
+      "options": {
+        "sunrise": "Sonnenaufgang",
+        "elevation": "Sonnenhöhe"
+      }
+    },
+    "override_trigger": {
+      "options": {
+        "movement": "Nur wenn das Rollo wirklich fährt",
+        "command": "Bei jedem Befehl von Hand, auch ohne Fahrt"
+      }
+    },
+    "weekday": {
+      "options": {
+        "mon": "Montag",
+        "tue": "Dienstag",
+        "wed": "Mittwoch",
+        "thu": "Donnerstag",
+        "fri": "Freitag",
+        "sat": "Samstag",
+        "sun": "Sonntag"
+      }
+    },
+    "forecast_type": {
+      "options": {
+        "auto": "Automatisch",
+        "daily": "Täglich",
+        "twice_daily": "Zweimal täglich",
+        "hourly": "Stündlich"
+      }
+    },
+    "service_action": {
+      "options": {
+        "open": "Öffnen",
+        "close": "Schließen",
+        "evening": "Abendposition",
+        "sun_protection": "Sonnenschutz-Position",
+        "ventilation": "Lüftungsposition",
+        "position": "Position"
       }
     }
   },
@@ -404,6 +1018,41 @@
           "too_large": "Anstieg zu groß",
           "manual": "Von Hand gesetzt"
         }
+      },
+      "forecast_max": {
+        "name": "Vorhersage Höchsttemperatur"
+      },
+      "last_reason": {
+        "name": "Letzter Grund"
+      },
+      "next_action": {
+        "name": "Nächste Aktion",
+        "state_attributes": {
+          "action": {
+            "name": "Aktion",
+            "state": {
+              "evening": "Abendlauf",
+              "morning": "Morgenöffnung",
+              "override_end": "Ende der Übersteuerung",
+              "sun_enter": "Sonne kommt in den Bereich",
+              "sun_leave": "Sonne verlässt den Bereich",
+              "protection_end": "Wetterschutz kann enden"
+            }
+          }
+        }
+      },
+      "window_status": {
+        "name": "Status",
+        "state": {
+          "off": "Automatik aus",
+          "startup": "Neustart-Schutz",
+          "override": "Manuelle Übersteuerung",
+          "evening": "Abends geschlossen",
+          "sun_protection": "Sonnenschutz",
+          "vacation": "Urlaubssimulation",
+          "ready": "Bereit",
+          "protection": "Wetterschutz"
+        }
       }
     },
     "camera": {
@@ -422,6 +1071,44 @@
     "switch": {
       "meter_automatic": {
         "name": "Automatik"
+      },
+      "automatic": {
+        "name": "Automatik"
+      },
+      "window_automatic": {
+        "name": "Automatik"
+      },
+      "window_sun_protection": {
+        "name": "Sonnenschutz"
+      }
+    },
+    "binary_sensor": {
+      "summer_day": {
+        "name": "Sommertag"
+      },
+      "evening_mode": {
+        "name": "Abendmodus"
+      },
+      "override": {
+        "name": "Manuelle Übersteuerung"
+      },
+      "sun_condition": {
+        "name": "Sonnenbedingung"
+      },
+      "sun_protection_today": {
+        "name": "Sonnenschutz heute"
+      },
+      "evening_closed": {
+        "name": "Abends geschlossen"
+      },
+      "wind_protection": {
+        "name": "Windschutz"
+      },
+      "rain_protection": {
+        "name": "Regenschutz"
+      },
+      "frost_protection": {
+        "name": "Frostschutz"
       }
     }
   },
@@ -434,6 +1121,12 @@
     },
     "negative": {
       "message": "Der Zählerstand darf nicht negativ sein."
+    },
+    "unknown_cover": {
+      "message": "{entity_id} gehört zu keinem Fenster von House Assistant."
+    },
+    "position_required": {
+      "message": "Die Aktion „Position“ braucht eine Position."
     }
   },
   "services": {
@@ -460,6 +1153,73 @@
           "description": "Neuer Zählerstand in der Einheit des Zählers."
         }
       }
+    },
+    "move_cover": {
+      "name": "Fahren",
+      "description": "Fährt Fenster von House Assistant, ohne eine Übersteuerung zu starten. Frost- und Aussperrschutz gelten weiter.",
+      "fields": {
+        "entity_id": {
+          "name": "Rollos",
+          "description": "Rollos konfigurierter Fenster. Leer = alle Fenster."
+        },
+        "action": {
+          "name": "Aktion",
+          "description": "Abend und Sonnenschutz nutzen die Positionen des Fensters und werden vorgemerkt wie die Fahrten der Automatik."
+        },
+        "position": {
+          "name": "Position",
+          "description": "Nur für die Aktion „Position“ (100 % = offen)."
+        }
+      }
+    },
+    "start_cover_override": {
+      "name": "Übersteuerung starten",
+      "description": "Pausiert die Automatik von Fenstern wie eine Fahrt von Hand.",
+      "fields": {
+        "entity_id": {
+          "name": "Rollos",
+          "description": "Rollos konfigurierter Fenster. Leer = alle Fenster."
+        },
+        "duration": {
+          "name": "Dauer",
+          "description": "Leer = die Dauer des Fensters. 0 = bis Sonnenaufgang."
+        }
+      }
+    },
+    "end_cover_override": {
+      "name": "Übersteuerung beenden",
+      "description": "Beendet eine laufende Übersteuerung; die Automatik entscheidet beim nächsten Anlass.",
+      "fields": {
+        "entity_id": {
+          "name": "Rollos",
+          "description": "Rollos konfigurierter Fenster. Leer = alle Fenster."
+        }
+      }
+    },
+    "resume_cover": {
+      "name": "Automatik fortsetzen",
+      "description": "Beendet eine Übersteuerung und lässt die Automatik sofort entscheiden (Sonnenschutz, Abendlauf).",
+      "fields": {
+        "entity_id": {
+          "name": "Rollos",
+          "description": "Rollos konfigurierter Fenster. Leer = alle Fenster."
+        }
+      }
+    }
+  },
+  "device": {
+    "shutter": {
+      "name": "Rollos"
+    }
+  },
+  "issues": {
+    "missing_group": {
+      "title": "Gruppe eines Fensters fehlt",
+      "description": "Das Fenster {window} verweist auf eine gelöschte Gruppe und hat keinen Sonnenschutz. Bitte in den Einstellungen des Fensters eine Gruppe wählen."
+    },
+    "forecast_unsupported": {
+      "title": "Wetter-Entität liefert keine Vorhersage",
+      "description": "{weather} unterstützt keine der Vorhersage-Arten täglich, zweimal täglich oder stündlich. Der Sommertag beginnt dann nur über die Außentemperatur. Bitte in den Einstellungen von House Assistant eine andere Wetter-Entität wählen."
     }
   }
 }

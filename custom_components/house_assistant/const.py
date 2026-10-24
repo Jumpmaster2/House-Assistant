@@ -12,17 +12,31 @@ NAME: Final = "House Assistant"
 LOGGER = logging.getLogger(__package__)
 
 # Every platform is set up once; the modules add and remove their entities there.
-PLATFORMS: Final = [Platform.BUTTON, Platform.CAMERA, Platform.SENSOR, Platform.SWITCH]
+PLATFORMS: Final = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.CAMERA,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
 # Options are kept per section: the house (core) and one section per module, with the
 # keys of the former integrations unchanged inside.
 OPT_CORE: Final = "core"
 CONF_MODULES: Final = "modules"
+# Show the panel in the sidebar (it stays reachable from the integration page).
+CONF_SHOW_PANEL: Final = "show_panel"
 
+MODULE_SHUTTER: Final = "shutter"
 MODULE_METER: Final = "meter"
 # order of the modules in dialogs and in the panel
-MODULE_ORDER: Final = (MODULE_METER,)
+MODULE_ORDER: Final = (MODULE_SHUTTER, MODULE_METER)
 
+SUBENTRY_GROUP: Final = "group"
+SUBENTRY_WINDOW: Final = "window"
 SUBENTRY_METER: Final = "meter"
+
+# One logbook event for every module (name, message and entity of the entry).
+EVENT_LOGBOOK: Final = f"{DOMAIN}_logbook"
 
 STORAGE_VERSION: Final = 1

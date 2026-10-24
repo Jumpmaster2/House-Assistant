@@ -61,6 +61,7 @@ class Module:
         self.entry = runtime.entry
         self._entities: list[Entity] = []
         self._tasks: set[asyncio.Task[Any]] = set()
+        self._waited: set[asyncio.Task[Any]] = set()
         self._unsubs: list[Callable[[], None]] = []
 
     @property
@@ -115,11 +116,15 @@ class Module:
         self._unsubs.append(unsub)
 
     @callback
-    def create_task(self, coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
-        """Background task that is cancelled when the module stops."""
+    def create_task(
+        self, coro: Coroutine[Any, Any, Any], name: str, cancel: bool = True
+    ) -> asyncio.Task[Any]:
+        """Background task of the module. It is cancelled when the module stops, or with
+        ``cancel=False`` waited for (a command to a device should not be cut off)."""
         task = self.entry.async_create_background_task(self.hass, coro, name)
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        tasks = self._tasks if cancel else self._waited
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
         return task
 
     async def async_stop(self, switched_off: bool = False) -> None:
@@ -128,8 +133,8 @@ class Module:
         as unavailable."""
         for task in list(self._tasks):
             task.cancel()
-        if self._tasks:
-            await asyncio.gather(*self._tasks, return_exceptions=True)
+        if self._tasks or self._waited:
+            await asyncio.gather(*self._tasks, *self._waited, return_exceptions=True)
         while self._unsubs:
             self._unsubs.pop()()
         for entity in self._entities:
