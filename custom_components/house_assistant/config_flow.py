@@ -25,6 +25,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_MODULES,
     CONF_SHOW_PANEL,
+    CONF_WEATHER,
     DOMAIN,
     MODULE_HEATING,
     MODULE_METER,
@@ -32,11 +33,13 @@ from .const import (
     MODULE_SHUTTER,
     NAME,
     OPT_CORE,
+    SHARED_KEYS,
     SUBENTRY_GROUP,
     SUBENTRY_METER,
     SUBENTRY_ROOM,
     SUBENTRY_WINDOW,
 )
+from .core.settings import house_schema, validate_house
 from .heating.config_flow import HeatingOptionsSteps, HeatingSetupSteps, RoomSubentryFlow
 from .meter.config_flow import MeterSubentryFlow
 from .meter.config_flow import options_schema as meter_schema
@@ -49,6 +52,8 @@ from .shutter.config_flow import (
     WindowSubentryFlow,
 )
 
+# setup and options step of the settings of the house
+STEP_HOUSE = "house"
 # modules whose settings are one form: the form and the defaults of its options
 MODULE_FORMS = {MODULE_METER: (meter_schema, METER_DEFAULTS)}
 # modules with setup steps (heating and covers have several)
@@ -62,6 +67,17 @@ MODULE_SUBENTRIES: dict[str, dict[str, type[ConfigSubentryFlow]]] = {
     MODULE_SHUTTER: {SUBENTRY_GROUP: GroupSubentryFlow},
     MODULE_METER: {SUBENTRY_METER: MeterSubentryFlow},
 }
+
+
+def _clean(data: dict[str, Any]) -> dict[str, Any]:
+    """Drop cleared optional values."""
+    return {k: v for k, v in data.items() if v not in (None, "")}
+
+
+def _single_entity(hass: Any, domain: str) -> str | None:
+    """The entity of a domain if there is exactly one (suggestion for the setup)."""
+    ids = hass.states.async_entity_ids(domain)
+    return ids[0] if len(ids) == 1 else None
 
 
 def modules_schema(chosen: list[str], show_panel: bool | None = None) -> vol.Schema:
@@ -111,7 +127,10 @@ class HouseAssistantConfigFlow(HeatingSetupSteps, ShutterSetupSteps, ConfigFlow,
         if user_input is not None:
             chosen = [key for key in MODULE_ORDER if key in user_input[CONF_MODULES]]
             self._options = {OPT_CORE: {CONF_MODULES: chosen}}
+            # the settings of the house first, the modules build on them
             self._pending = [key for key in chosen if key in SETUP_MODULES]
+            if chosen:
+                self._pending.insert(0, STEP_HOUSE)
             return await self._async_next()
         return self.async_show_form(step_id="user", data_schema=modules_schema(list(MODULE_ORDER)))
 
@@ -132,6 +151,22 @@ class HouseAssistantConfigFlow(HeatingSetupSteps, ShutterSetupSteps, ConfigFlow,
         result["next_flow"] = (FlowType.CONFIG_SUBENTRIES_FLOW, sub["flow_id"])
         return result
 
+    async def async_step_house(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Outdoor values, weather, language, notifications and working days for every
+        module."""
+        core = self._options[OPT_CORE]
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = validate_house(self.hass, user_input, core[CONF_MODULES])
+            if not errors:
+                core.update(_clean(user_input))
+                return await self._async_next()
+        # suggest the only weather entity
+        values = user_input or {CONF_WEATHER: _single_entity(self.hass, "weather")}
+        return self.async_show_form(
+            step_id=STEP_HOUSE, data_schema=house_schema(self.hass, values), errors=errors
+        )
+
     async def async_step_meter(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         schema, defaults = MODULE_FORMS[MODULE_METER]
         if user_input is not None:
@@ -144,10 +179,30 @@ class HouseAssistantOptionsFlow(HeatingOptionsSteps, ShutterOptionsSteps, Option
     """The modules and the settings of each module (the panel offers the same)."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        options = [CONF_MODULES] + [
+        options = [CONF_MODULES, STEP_HOUSE] + [
             k for k in enabled_modules(self.config_entry) if k in SETUP_MODULES
         ]
         return self.async_show_menu(step_id="init", menu_options=options)
+
+    async def async_step_house(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Settings of the house; a value set here applies to every module."""
+        entry = self.config_entry
+        core = module_options(entry, OPT_CORE)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            modules = enabled_modules(entry)
+            own = [module_options(entry, key) for key in (MODULE_HEATING, MODULE_SHUTTER)]
+            errors = validate_house(self.hass, user_input, modules, [v for v in own if v])
+            if not errors:
+                core = {k: v for k, v in core.items() if k not in SHARED_KEYS}
+                return self.async_create_entry(
+                    data={**entry.options, OPT_CORE: {**core, **_clean(user_input)}}
+                )
+        return self.async_show_form(
+            step_id=STEP_HOUSE,
+            data_schema=house_schema(self.hass, user_input or core),
+            errors=errors,
+        )
 
     async def async_step_modules(
         self, user_input: dict[str, Any] | None = None

@@ -38,7 +38,7 @@ from ..core.house import (
     rooms,
     window_errors,
 )
-from ..runtime import module_options
+from ..runtime import module_options, shared_options
 from .const import (
     ACTIVE_STATES_DEFAULT,
     CONF_AUTO_UP,
@@ -259,12 +259,6 @@ def _notify_services(hass: HomeAssistant) -> list[str]:
     return sorted(f"notify.{name}" for name in hass.services.async_services_for_domain("notify"))
 
 
-def _single_entity(hass: HomeAssistant, domain: str) -> str | None:
-    """The entity of a domain if there is exactly one (suggestion for the setup)."""
-    ids = hass.states.async_entity_ids(domain)
-    return ids[0] if len(ids) == 1 else None
-
-
 def _not_numeric(hass: HomeAssistant, entity_id: str | None) -> bool:
     """The entity reports a value that is not a number (unavailable is fine)."""
     state = hass.states.get(entity_id) if entity_id else None
@@ -441,20 +435,10 @@ class ShutterSetupSteps:
     async def async_step_shutter(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            errors = validate_general(self.hass, user_input)
-            if not errors:
-                self._options[MODULE_SHUTTER] = _clean(user_input)
-                return await self.async_step_shutter_summer()
-        # suggest the only weather and workday entity
-        values = user_input or {
-            **DEFAULTS,
-            CONF_WEATHER: _single_entity(self.hass, "weather"),
-        }
-        return self.async_show_form(  # type: ignore[attr-defined]
-            step_id="shutter", data_schema=_general_schema(self.hass, values), errors=errors
-        )
+        """Outdoor temperature, weather, language, notifications and working days come
+        from the house: the covers start with the summer day."""
+        self._options[MODULE_SHUTTER] = {}
+        return await self.async_step_shutter_summer()
 
     async def async_step_shutter_summer(
         self, user_input: dict[str, Any] | None = None
@@ -535,7 +519,10 @@ class ShutterOptionsSteps:
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            errors = validate_general(self.hass, user_input)
+            # the outdoor temperature or weather of the house counts as well
+            errors = validate_general(
+                self.hass, {**user_input, **shared_options(self.config_entry)}
+            )
             if not errors:
                 return self._save(
                     _clean(user_input), remove=(CONF_OUTDOOR_TEMP, CONF_WEATHER, CONF_WORKDAY)

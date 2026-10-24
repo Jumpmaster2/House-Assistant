@@ -10,7 +10,8 @@ const WS = "house_assistant/house";
 
 const UI = {
   de: {
-    tabs: { rooms: "Räume", windows: "Fenster" },
+    tabs: { rooms: "Räume", windows: "Fenster", general: "Allgemein" },
+    general: ["Allgemein", "Außenwerte, Wetter, Sprache, Benachrichtigungen und Arbeitstage gelten für alle Module. Ist hier nichts eingetragen, gilt der Wert in den Einstellungen des Moduls."],
     rooms: ["Räume", "Mit Temperatursensor bekommt ein Raum Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat. Die Rollos seiner Fenster nehmen Raumtemperatur und Klimaanlage des Raums."],
     windows: ["Fenster", "Jedes Fenster einmal: mit Raum und Größe für die Heizung, mit Rollo für den Sonnenschutz. Ein Kontakt gehört zu genau einem Fenster."],
     columns: { name: "Name", area: "Bereich", temperature: "Temperatur", windows: "Fenster", heating: "Heizung", room: "Raum", size: "Größe", contacts: "Kontakte", cover: "Rollo" },
@@ -45,7 +46,8 @@ const UI = {
     walls: { front: "Vorderseite", right: "Rechte Seite", back: "Rückseite", left: "Linke Seite" },
   },
   en: {
-    tabs: { rooms: "Rooms", windows: "Windows" },
+    tabs: { rooms: "Rooms", windows: "Windows", general: "General" },
+    general: ["General", "Outdoor values, weather, language, notifications and working days apply to every module. Without a value here the one in the settings of the module applies."],
     rooms: ["Rooms", "With a temperature sensor a room gets heating and ventilation advice, with a heating circuit also a thermostat. The covers of its windows take room temperature and air conditioner of the room."],
     windows: ["Windows", "Every window once: with room and size for the heating, with a cover for the sun protection. A contact belongs to one window only."],
     columns: { name: "Name", area: "Area", temperature: "Temperature", windows: "Windows", heating: "Heating", room: "Room", size: "Size", contacts: "Contacts", cover: "Cover" },
@@ -84,7 +86,9 @@ const UI = {
 const TABS = [
   ["rooms", "mdi:floor-plan"],
   ["windows", "mdi:window-closed-variant"],
+  ["general", "mdi:cog-outline"],
 ];
+const SETTINGS = ["outdoor_temperature", "outdoor_humidity", "weather", "language", "notify_services", "workday_entity", "weekend_days"];
 
 const ROOM_FIELDS = ["area", "temperature_sensor", "humidity_sensor", "cooling_entity"];
 const WINDOW_FIELDS = ["room", "size", "cover", "window_sensors", "tilt_sensors", "group", "wall", "wall_position"];
@@ -155,7 +159,7 @@ class HouseAssistantHouseView extends HTMLElement {
   }
 
   label(key) {
-    const type = this._edit?.type || "room";
+    const type = this._edit?.type || (this._tab === "general" ? "settings" : "room");
     return this.labels.fields[type][key] || this.ui.labels[key] || [key, ""];
   }
 
@@ -208,7 +212,25 @@ class HouseAssistantHouseView extends HTMLElement {
     if (this._error) return `<div class="card error">${esc(ui.loadError)}: ${esc(this._error)}</div>`;
     if (!this._cfg) return `<div class="card muted">${esc(ui.loading)}</div>`;
     if (this._edit) return this._editor();
+    if (this._tab === "general") return this._generalTab();
     return this._tab === "windows" ? this._windowsTab() : this._roomsTab();
+  }
+
+  _generalTab() {
+    const ui = this.ui;
+    const cfg = this._cfg;
+    // the values being edited stay while live states change
+    if (!this._settings) this._settings = { ...cfg.settings, modules: [...cfg.modules], show_panel: cfg.show_panel };
+    const specs = cfg.fields.settings;
+    const fields = SETTINGS.filter((key) => key in specs).map((key) => this._field(key, specs[key], this._settings[key])).join("");
+    const modules = this._field("modules", { selector: "select", options: cfg.available, multiple: true, translation_key: "modules" }, this._settings.modules);
+    const sidebar = this._field("show_panel", { selector: "boolean" }, this._settings.show_panel);
+    return `<div class="card" data-card="general">
+      <h2>${esc(ui.general[0])}</h2><p class="desc">${esc(ui.general[1])}</p>
+      <div class="fields">${fields}</div>
+      <div class="fields">${modules}${sidebar}</div>
+      <div class="actions"><span class="msg"></span><button class="btn primary" data-action="save-settings">${esc(ui.save)}</button></div>
+    </div>`;
   }
 
   _roomsTab() {
@@ -308,12 +330,28 @@ class HouseAssistantHouseView extends HTMLElement {
       return `<div class="field"><ha-selector ${attrs("selector")}></ha-selector>${helpHtml}</div>`;
     }
     switch (kind) {
+      case "boolean":
+        return `<label class="field toggle-row"><span><span class="lbl">${esc(name)}</span>${helpHtml}</span>
+          <input type="checkbox" class="switch-input" ${attrs("bool")} ${value ? "checked" : ""}><span class="switch ${value ? "on" : ""}"></span></label>`;
       case "number":
         return `<label class="field"><span class="lbl">${esc(name)}</span><span class="with-unit">
           <input type="number" ${attrs("number")} value="${esc(value ?? "")}" min="${spec.min ?? ""}" max="${spec.max ?? ""}" step="${spec.step ?? "any"}">
           ${spec.unit_of_measurement ? `<span class="unit">${esc(spec.unit_of_measurement)}</span>` : ""}</span>${helpHtml}</label>`;
       case "select": {
-        const texts = spec.translation_key === "window_size" ? this.labels.sizes : key === "wall" ? ui.walls : {};
+        const texts = spec.translation_key === "window_size" ? this.labels.sizes : key === "wall" ? ui.walls : this.labels.choices[spec.translation_key] || {};
+        if (spec.multiple && !spec.custom_value) {
+          const chosen = Array.isArray(value) ? value : [];
+          return `<div class="field"><span class="lbl">${esc(name)}</span><div class="seg">
+            ${(spec.options || []).map((o) => `<button class="seg-btn ${chosen.includes(o) ? "on" : ""}" data-toggle="${esc(o)}" ${attrs("toggle")}>${esc(texts[o] || o)}</button>`).join("")}
+            </div>${helpHtml}</div>`;
+        }
+        if (spec.multiple) {
+          const list = Array.isArray(value) ? value : [];
+          const chips = list.map((item, i) => `<span class="chip" title="${esc(item)}">${esc(item)}<button class="chip-btn" data-remove="${i}" ${attrs("entities")}>✕</button></span>`).join("");
+          return `<div class="field"><span class="lbl">${esc(name)}</span><div class="chips">${chips}</div>
+            <input type="text" list="dl-opt-${esc(key)}" data-add="1" ${attrs("entities")} placeholder="${esc(ui.addValue)}" autocomplete="off">
+            <datalist id="dl-opt-${esc(key)}">${(spec.options || []).map((o) => `<option value="${esc(o)}"></option>`).join("")}</datalist>${helpHtml}</div>`;
+        }
         const options = (spec.options || []).map((o) => (typeof o === "object" ? [o.value, o.label] : [o, texts[o] || o]));
         const empty = spec.translation_key ? "" : `<option value=""></option>`;
         return `<label class="field"><span class="lbl">${esc(name)}</span><select ${attrs("text")}>${empty}
@@ -374,6 +412,10 @@ class HouseAssistantHouseView extends HTMLElement {
   // ------------------------------------------------------------------ events
 
   _set(key, value) {
+    if (!this._edit && this._tab === "general") {
+      this._settings[key] = value;
+      return;
+    }
     const e = this._edit;
     if (!e) return;
     if (key === "name") e.title = value;
@@ -393,8 +435,12 @@ class HouseAssistantHouseView extends HTMLElement {
     const key = el.dataset?.k;
     if (!key || el.dataset.add) return;
     const type = el.dataset.type;
-    if (type === "entities" || type === "selector") return;
+    if (type === "entities" || type === "selector" || type === "toggle") return;
     let value = el.value;
+    if (type === "bool") {
+      value = el.checked;
+      el.nextElementSibling?.classList.toggle("on", value);
+    }
     if (type === "number") value = el.value === "" ? null : Number(el.value);
     if (type === "entity") {
       const hint = el.parentElement.querySelector(".entity-hint");
@@ -408,11 +454,15 @@ class HouseAssistantHouseView extends HTMLElement {
     if (isChange && key === "cover") this._renderContent();
   }
 
+  _target() {
+    return this._edit ? this._edit.data : this._settings;
+  }
+
   _addValue(input) {
     const value = input.value.trim();
     if (!value) return;
     const key = input.dataset.k;
-    const list = [...(this._edit.data[key] || [])];
+    const list = [...(this._target()[key] || [])];
     if (!list.includes(value)) list.push(value);
     this._set(key, list);
     this._renderContent();
@@ -420,11 +470,12 @@ class HouseAssistantHouseView extends HTMLElement {
   }
 
   _onClick(ev) {
-    const el = ev.target.closest("[data-tab], [data-new], [data-edit-room], [data-edit-window], [data-action], [data-remove]");
+    const el = ev.target.closest("[data-tab], [data-new], [data-edit-room], [data-edit-window], [data-action], [data-remove], [data-toggle]");
     if (!el) return;
     if (el.dataset.tab) {
       this._tab = el.dataset.tab;
       this._edit = null;
+      this._settings = null;
       this._render();
     } else if (el.dataset.new) {
       this._edit = { type: el.dataset.new, id: null, title: "", data: el.dataset.new === "window" ? { size: "medium" } : {} };
@@ -435,9 +486,16 @@ class HouseAssistantHouseView extends HTMLElement {
       if (!item) return;
       this._edit = { type: isRoom ? "room" : "window", id: item.id, title: item.title, originalTitle: item.title, data: JSON.parse(JSON.stringify(item.data)) };
       this._renderContent();
+    } else if (el.dataset.toggle !== undefined) {
+      const key = el.dataset.k;
+      const list = new Set(this._target()[key] || []);
+      if (list.has(el.dataset.toggle)) list.delete(el.dataset.toggle);
+      else list.add(el.dataset.toggle);
+      this._set(key, [...list]);
+      el.classList.toggle("on", list.has(el.dataset.toggle));
     } else if (el.dataset.remove !== undefined) {
       const key = el.dataset.k;
-      const list = [...(this._edit.data[key] || [])];
+      const list = [...(this._target()[key] || [])];
       list.splice(Number(el.dataset.remove), 1);
       this._set(key, list);
       this._renderContent();
@@ -446,6 +504,8 @@ class HouseAssistantHouseView extends HTMLElement {
       this._renderContent();
     } else if (el.dataset.action === "save") {
       this._save();
+    } else if (el.dataset.action === "save-settings") {
+      this._saveSettings();
     } else if (el.dataset.action === "delete") {
       this._delete();
     }
@@ -473,6 +533,22 @@ class HouseAssistantHouseView extends HTMLElement {
       this._cfg = result.config;
       this._edit = null;
       this._renderContent();
+    } catch (err) {
+      this._message(this._errorText(err), true);
+    }
+  }
+
+  async _saveSettings() {
+    for (const input of this.shadowRoot.querySelectorAll("input[data-add]")) if (input.value.trim()) this._addValue(input);
+    const { modules, show_panel: showPanel, ...settings } = this._settings;
+    const changed = modules.join() !== this._cfg.modules.join() || showPanel !== this._cfg.show_panel;
+    try {
+      this._cfg = await this._hass.callWS({ type: `${WS}/save_settings`, settings, modules, show_panel: showPanel });
+      this._settings = null;
+      this._renderContent();
+      this._message(this.ui.saved);
+      // the sections of the panel follow the modules
+      if (changed) this.dispatchEvent(new Event("house-assistant-reload", { bubbles: true, composed: true }));
     } catch (err) {
       this._message(this._errorText(err), true);
     }
@@ -520,6 +596,16 @@ input:focus, select:focus { outline:2px solid var(--primary-color); outline-offs
 .chip { display:inline-flex; align-items:center; gap:4px; border-radius:14px; padding:2px 4px 2px 10px; font-size:13px; background:var(--secondary-background-color, #eee); }
 .chip.bad { color:var(--error-color, #db4437); }
 .chip-btn { background:none; border:none; cursor:pointer; color:inherit; padding:0 4px; }
+.seg { display:flex; flex-wrap:wrap; gap:6px; }
+.seg-btn { font:inherit; font-size:13px; border-radius:14px; padding:4px 12px; cursor:pointer; border:1px solid var(--divider-color); background:none; color:var(--primary-text-color); }
+.seg-btn.on { background:var(--primary-color); color:var(--text-primary-color, #fff); border-color:var(--primary-color); }
+.toggle-row { flex-direction:row; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; }
+.toggle-row > span:first-child { display:flex; flex-direction:column; gap:2px; }
+.switch-input { display:none; }
+.switch { position:relative; flex:none; width:36px; height:20px; border-radius:10px; background:var(--switch-unchecked-track-color, #9e9e9e); transition:background .2s; }
+.switch::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .2s; }
+.switch.on { background:var(--switch-checked-track-color, var(--primary-color)); }
+.switch.on::after { left:18px; }
 .actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:16px; flex-wrap:wrap; }
 .msg { margin-right:auto; font-size:13px; color:var(--secondary-text-color); }
 .grow { flex:1; }

@@ -16,7 +16,6 @@ from custom_components.house_assistant.heating.const import EVENT_LOGBOOK, SUBEN
 from .conftest import heating, heating_options, make_entry, open_options, start_setup
 
 GENERAL = {
-    "outdoor_temperature": "sensor.outdoor_temperature",
     "season_start_day": 1,
     "season_start_month": "10",
     "season_end_day": 31,
@@ -40,13 +39,7 @@ async def test_full_user_flow_without_ai(hass: HomeAssistant, base_states) -> No
     # the entry is kept for correction
     defaults = {str(k): k.default() for k in result["data_schema"].schema if callable(k.default)}
     assert (defaults["season_start_day"], defaults["season_start_month"]) == (31, "2")
-    # an outdoor sensor or a weather entity is needed
-    without_outdoor = {
-        k: v for k, v in GENERAL.items() if k not in ("outdoor_temperature", "weather")
-    }
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], without_outdoor)
-    assert result["errors"] == {"outdoor_temperature": "outdoor_required"}
-
+    # the outdoor sensor is the house's (asked before)
     result = await hass.config_entries.flow.async_configure(result["flow_id"], GENERAL)
     assert result["step_id"] == "heating_vacation"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], VACATION)

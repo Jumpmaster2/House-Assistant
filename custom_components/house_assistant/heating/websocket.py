@@ -18,7 +18,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import EntitySelector, Selector, TimeSelector
 
 from ..core.entry import house_entry, update_section
-from ..runtime import module_options
+from ..runtime import module_options, shared_options
 from .config_flow import (
     START_KEYS,
     ai_schema,
@@ -202,8 +202,11 @@ def _limits(value: Any, current: Any) -> dict[str, dict[str, float]]:
     return limits
 
 
-def apply_options(current: dict[str, Any], changes: dict[str, Any]) -> dict[str, Any]:
-    """New options from the changed values of one card; raises PanelError."""
+def apply_options(
+    current: dict[str, Any], changes: dict[str, Any], house: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """New options from the changed values of one card; raises PanelError. ``house``: the
+    settings of the house, its outdoor sensor or weather counts as well."""
     fields = option_fields()
     updates: dict[str, Any] = {}
     removed: set[str] = set()
@@ -235,7 +238,8 @@ def apply_options(current: dict[str, Any], changes: dict[str, Any]) -> dict[str,
     options = {k: v for k, v in current.items() if k not in removed}
     options.update(updates)
     merged = {**DEFAULTS, **options}
-    if not merged.get(CONF_OUTDOOR_TEMP) and not merged.get(CONF_WEATHER):
+    sources = {**merged, **(house or {})}
+    if not sources.get(CONF_OUTDOOR_TEMP) and not sources.get(CONF_WEATHER):
         raise PanelError("outdoor_required", CONF_OUTDOOR_TEMP)
     for key in (CONF_SEASON_START, CONF_SEASON_END):
         try:
@@ -426,7 +430,7 @@ def ws_save_options(
         connection.send_error(msg["id"], "not_found", "House Assistant is not set up")
         return
     try:
-        options = apply_options(_options(entry), msg["options"])
+        options = apply_options(_options(entry), msg["options"], shared_options(entry))
     except PanelError as err:
         _error(connection, msg["id"], err)
         return
