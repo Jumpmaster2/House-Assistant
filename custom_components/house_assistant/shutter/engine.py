@@ -22,6 +22,7 @@ from homeassistant.const import (
     STATE_ON,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
+    UnitOfTemperature,
 )
 from homeassistant.core import (
     CALLBACK_TYPE,
@@ -34,7 +35,9 @@ from homeassistant.core import (
     callback,
 )
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import (
     async_track_point_in_time,
     async_track_state_change_event,
@@ -45,7 +48,11 @@ from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
+from homeassistant.util.unit_conversion import TemperatureConverter
 
+from ..core.house import CONF_ROOM, CONF_TEMP_SENSOR, rooms
+from ..core.links import SIGNAL_HEATING, room_target
+from ..core.links import heating_day as links_heating_day
 from ..core.store import module_store
 from .const import (
     CONF_AUTO_UP,
@@ -124,6 +131,7 @@ from .const import (
     CONF_TRIGGER_MIN_POSITION,
     CONF_TRIGGER_OFF_DELAY,
     CONF_TRIGGER_ON_DELAY,
+    CONF_USE_HEATING_DAY,
     CONF_VAC_EVENING,
     CONF_VAC_EVENING_WINDOW,
     CONF_VAC_MORNING,
@@ -276,6 +284,10 @@ class Window:
     evening_missed: date | None = None
     tilt_sensors: list[str] = field(default_factory=list)
     window_tilted: bool = False
+    # room of the window: without an own room entity its temperature sensor and the
+    # target of its thermostat count
+    room_id: str | None = None
+    room_sensor: str | None = None
     # wind or rain protection running for this window (persisted, so a reload
     # does not move covers that are already protected or were moved by hand since)
     protection: str | None = None
@@ -377,11 +389,24 @@ class ShutterEngine(DataUpdateCoordinator[None]):
                 float(data[CONF_AZIMUTH_TO]),
                 {kind: list(data.get(key) or []) for kind, key in SENSOR_KINDS.items()},
             )
+        house_rooms = rooms(self.module.entry)
         for sub_id, sub in self.module.subentries(SUBENTRY_WINDOW).items():
-            self.windows[sub_id] = self._build_window(sub_id, sub.title, dict(sub.data))
+            if not sub.data.get(CONF_COVER):
+                continue  # a window without a cover only serves the heating
+            room = house_rooms.get(str(sub.data.get(CONF_ROOM, "")))
+            self.windows[sub_id] = self._build_window(
+                sub_id, sub.title, dict(sub.data), dict(room.data) if room else None
+            )
+            if room is not None:
+                self.windows[sub_id].room_id = room.subentry_id
 
-    def _build_window(self, window_id: str, title: str, data: dict[str, Any]) -> Window:
+    def _build_window(
+        self, window_id: str, title: str, data: dict[str, Any], room: dict[str, Any] | None = None
+    ) -> Window:
         conf = {**self._window_defaults, **data}
+        if room is not None and not conf.get(CONF_COOLING_ENTITY) and room.get(CONF_COOLING_ENTITY):
+            # the air conditioner of the room, unless the window has its own
+            conf[CONF_COOLING_ENTITY] = room[CONF_COOLING_ENTITY]
         morning_settings = None
         if conf[CONF_MORNING]:
             morning_settings = mo.MorningSettings(
@@ -409,6 +434,7 @@ class ShutterEngine(DataUpdateCoordinator[None]):
             cover=str(conf[CONF_COVER]),
             sensors=list(conf.get(CONF_WINDOW_SENSORS) or []),
             tilt_sensors=list(conf.get(CONF_TILT_SENSORS) or []),
+            room_sensor=(room or {}).get(CONF_TEMP_SENSOR) or None,
             group_id=group_id,
             conf=conf,
             rules=rules.WindowRules(
@@ -660,6 +686,15 @@ class ShutterEngine(DataUpdateCoordinator[None]):
             for key in (CONF_ROOM_ENTITY, CONF_COOLING_ENTITY)
             if w.conf.get(key)
         }
+        heat_inputs.update(
+            w.room_sensor
+            for w in self.windows.values()
+            if w.room_sensor and not w.conf.get(CONF_ROOM_ENTITY)
+        )
+        # target of a thermostat, heating day, the heating started or stopped
+        self._unsubs.append(
+            async_dispatcher_connect(self.hass, SIGNAL_HEATING, self._on_heating_changed)
+        )
         heating = self.opt(CONF_HEATING_ENTITY)
         track(heat_inputs | ({heating} if heating else set()), self._on_heat_input)
 
@@ -812,8 +847,21 @@ class ShutterEngine(DataUpdateCoordinator[None]):
 
     @property
     def heating_day(self) -> bool:
-        """The heating entity is on: the warmth of the sun is welcome."""
-        return self._state_value(self.opt(CONF_HEATING_ENTITY)) == STATE_ON
+        """The heating entity is on, or without one the heating module has a heating day:
+        the warmth of the sun is welcome."""
+        if entity := self.opt(CONF_HEATING_ENTITY):
+            return self._state_value(entity) == STATE_ON
+        return bool(self.opt(CONF_USE_HEATING_DAY)) and links_heating_day(self.hass) is True
+
+    def _heat_need_entity(self) -> str | None:
+        """The entity shown for the heat need: the own one or the heating day sensor."""
+        if entity := self.opt(CONF_HEATING_ENTITY):
+            return str(entity)
+        if not self.opt(CONF_USE_HEATING_DAY) or links_heating_day(self.hass) is None:
+            return None
+        return er.async_get(self.hass).async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{self.config_entry.entry_id}_heating_day"
+        )
 
     def _evening_window(self, settings: EveningSettings, day: date) -> tuple[datetime, datetime]:
         """Start and end of the evening of ``day`` (cached, the sun is the same all day)."""
@@ -918,7 +966,18 @@ class ShutterEngine(DataUpdateCoordinator[None]):
         return changed
 
     def _room(self, win: Window) -> tuple[float | None, float | None]:
-        """Room temperature and setpoint (setpoint only from a thermostat)."""
+        """Room temperature and setpoint (setpoint only from a thermostat). Without an
+        own room entity the room of the window: its sensor and the target of its
+        thermostat (in °C, here in the unit system like the thresholds)."""
+        if not win.conf.get(CONF_ROOM_ENTITY) and win.room_sensor:
+            state = self._state(win.room_sensor)
+            current = None if state is None or state.state in INVALID else as_float(state.state)
+            target = room_target(self.hass, win.room_id)
+            if target is not None and self.temperature_unit != UnitOfTemperature.CELSIUS:
+                target = TemperatureConverter.convert(
+                    target, UnitOfTemperature.CELSIUS, self.temperature_unit
+                )
+            return current, target
         state = self._state(win.conf.get(CONF_ROOM_ENTITY))
         if state is None or state.state in INVALID:
             return None, None
@@ -1029,7 +1088,7 @@ class ShutterEngine(DataUpdateCoordinator[None]):
             "night_low": self.forecast_night_low,
             "night_threshold": self._night_threshold,
             "heat_need": self.heat_ok(win),
-            "room_entity": win.conf.get(CONF_ROOM_ENTITY),
+            "room_entity": win.conf.get(CONF_ROOM_ENTITY) or win.room_sensor,
             "room_temperature": room,
             "room_setpoint": setpoint,
             "room_limit": (
@@ -1040,7 +1099,7 @@ class ShutterEngine(DataUpdateCoordinator[None]):
             "room_warm": self.room_warm(win),
             "cooling_entity": win.conf.get(CONF_COOLING_ENTITY),
             "cooling": self.cooling(win),
-            "heating_entity": self.opt(CONF_HEATING_ENTITY),
+            "heating_entity": self._heat_need_entity(),
             "heating_day": self.heating_day,
             "temperature_sensor": self._outdoor_entity,
             "outdoor_temperature": self.outdoor_temperature,
@@ -1476,7 +1535,11 @@ class ShutterEngine(DataUpdateCoordinator[None]):
             self.async_update_listeners()
 
     @callback
-    def _on_heat_input(self, _event: Event[EventStateChangedData]) -> None:
+    def _on_heating_changed(self) -> None:
+        self._on_heat_input(None)
+
+    @callback
+    def _on_heat_input(self, _event: Event[EventStateChangedData] | None) -> None:
         """Room temperature, air conditioner or heating changed."""
         now = dt_util.now()
         for win in self.windows.values():

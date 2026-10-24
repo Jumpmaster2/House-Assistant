@@ -34,6 +34,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import PowerConverter, TemperatureConverter
 
+from ..core.house import room_contacts
+from ..core.links import meter_reading
 from ..core.store import module_store
 from .ai_client import AiAuthError, AiError, ClaudeClient
 from .const import (
@@ -204,7 +206,7 @@ from .logic.ventilation import (
     is_blocking,
     recommend,
 )
-from .logic.windows import WINDOW_FIELDS, largest, open_area, own_windows
+from .logic.windows import WINDOW_FIELDS, largest, open_area, own_windows, size_fields
 from .messages import label_of, text
 
 if TYPE_CHECKING:
@@ -544,13 +546,19 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         self.sun_scale = SunScale(float(scale) if isinstance(scale, int | float) else None)
         stored_areas: dict[str, Any] = stored.get("areas", {})
 
+        # Heating and ventilation advice only for rooms with a temperature sensor; the
+        # contacts of a room are those of its windows.
         for index, subentry in enumerate(
-            s for s in self.config_entry.subentries.values() if s.subentry_type == SUBENTRY_ROOM
+            s
+            for s in self.config_entry.subentries.values()
+            if s.subentry_type == SUBENTRY_ROOM and s.data.get(CONF_TEMP_SENSOR)
         ):
+            contacts = room_contacts(self.config_entry, subentry.subentry_id)
+            cfg = {**subentry.data, **size_fields(contacts)}
             self.areas[subentry.subentry_id] = self._build_area(
                 subentry.subentry_id,
                 subentry.title,
-                dict(subentry.data),
+                cfg,
                 stored_areas.get(subentry.subentry_id, {}),
                 index,
             )
@@ -1213,7 +1221,13 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 unit,
             )
         if kwh is not None:
-            self.meter.update(kwh, ts)
+            # a meter of the meter module gives the time it was read (a reading
+            # arrives up to a minute later here) and tells a correction from a reset
+            reading = meter_reading(self.hass, entity_id)
+            if reading is None:
+                self.meter.update(kwh, ts)
+            else:
+                self.meter.update(kwh, min(reading.ts, ts), reading.corrected)
             for name in ("check", "day", "today", "month"):  # periods start with the first reading
                 if name not in self.meter.baselines:
                     self.meter.rebase(name)

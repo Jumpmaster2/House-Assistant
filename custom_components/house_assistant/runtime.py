@@ -100,6 +100,10 @@ class Module:
     async def async_unload(self) -> None:
         """Stop the module (save the store)."""
 
+    @callback
+    def started(self) -> None:
+        """The module is running and reachable for the others (``running_module``)."""
+
     def entities(self, platform: Platform) -> list[tuple[str | None, list[Entity]]]:
         """Entities of a platform, grouped by the subentry they belong to."""
         return []
@@ -210,6 +214,7 @@ class HouseRuntime:
             raise
         self.modules[key] = module
         self._signatures[key] = module.signature()
+        module.started()
         for platform, add_entities in self._adders.items():
             self._add(module, platform, add_entities)
 

@@ -123,7 +123,6 @@ async def test_subentry_flow_adds_area(hass: HomeAssistant, base_states) -> None
         "sensors": {
             "temperature_sensor": "sensor.living_room_temperature",
             "humidity_sensor": "sensor.living_room_humidity",
-            "window_sensors": ["binary_sensor.living_room_window"],
         },
         "heating": {
             "heater_switch": "input_boolean.heating_circuit_1",
@@ -259,7 +258,6 @@ async def test_reconfigure_target_of_area_without_circuit(hass: HomeAssistant, b
         "sensors": {
             "temperature_sensor": "sensor.storage_temperature",
             "humidity_sensor": "sensor.storage_humidity",
-            "window_sensors": [],
         },
         "heating": {
             "default_target": 18.0,
@@ -308,7 +306,6 @@ async def test_existing_area_edits_learned_values(hass: HomeAssistant, base_stat
         "sensors": {
             "temperature_sensor": "sensor.living_room_temperature",
             "humidity_sensor": "sensor.living_room_humidity",
-            "window_sensors": ["binary_sensor.living_room_window"],
         },
         "heating": {
             "heater_switch": "input_boolean.heating_circuit_1",
@@ -381,7 +378,7 @@ async def test_switch_of_another_area_is_rejected(hass: HomeAssistant, base_stat
     )
     user_input = {
         "name": "Kitchen",
-        "sensors": {"temperature_sensor": "sensor.storage_temperature", "window_sensors": []},
+        "sensors": {"temperature_sensor": "sensor.storage_temperature"},
         "heating": {
             "heater_switch": "input_boolean.heating_circuit_1",
             "default_target": 21.0,
@@ -497,7 +494,11 @@ def test_entity_fields_offer_matching_entities_but_accept_others() -> None:
     assert temp("sensor.without_device_class") == "sensor.without_device_class"
     humidity = by_name["humidity_sensor"]
     assert {"domain": ["sensor"], "unit_of_measurement": ["%"]} in humidity.config["filter"]
-    windows = by_name["window_sensors"]  # contacts often have no device class: no filter
-    assert windows(["input_boolean.window"]) == ["input_boolean.window"]
+    # the contacts are entered at the windows (often without a device class: no filter)
+    assert "window_sensors" not in by_name
+    from custom_components.house_assistant.shutter.config_flow import window_basics_fields
+
+    window = {str(k): v for k, v in window_basics_fields({}, {}).items()}
+    assert window["window_sensors"](["input_boolean.window"]) == ["input_boolean.window"]
     block = by_name["ventilation_block_entity"]
     assert block("sensor.anything") == "sensor.anything"  # existing values stay valid

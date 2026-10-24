@@ -21,6 +21,11 @@ WINDOW_FIELDS: dict[str, str] = {
 SIZE_OPENING: dict[str, float] = {"small": 0.5, "medium": 1.0, "large": 1.6, "door": 2.5}
 
 
+def size_fields(contacts_by_size: Mapping[str, list[str]]) -> dict[str, list[str]]:
+    """Area fields from the contacts of the windows of a room by window size."""
+    return {key: list(contacts_by_size.get(size) or []) for key, size in WINDOW_FIELDS.items()}
+
+
 def own_windows(cfg: Mapping[str, Any]) -> dict[str, float]:
     """Window entity -> relative opening area. A contact entered in several sizes
     counts with the largest one."""

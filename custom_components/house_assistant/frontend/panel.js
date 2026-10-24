@@ -2,6 +2,7 @@
 // section with its own tabs (the former panels of the integrations). Plain web
 // component without build step; uses only the hass object and the WebSocket commands.
 
+import "./house.js";
 import "./heating.js";
 import "./shutter.js";
 import "./meter.js";
@@ -11,20 +12,22 @@ const DOMAIN = "house_assistant";
 const UI = {
   de: {
     title: "House Assistant",
-    sections: { heating: "Heizung", shutter: "Rollos", meter: "Zähler" },
+    sections: { house: "Haus", heating: "Heizung", shutter: "Rollos", meter: "Zähler" },
     noModules: "Es ist noch kein Modul eingeschaltet. Unter Einstellungen > Geräte & Dienste > House Assistant > Konfigurieren > Module lassen sie sich einschalten.",
     loadError: "Die Einstellungen konnten nicht geladen werden",
   },
   en: {
     title: "House Assistant",
-    sections: { heating: "Heating", shutter: "Covers", meter: "Meters" },
+    sections: { house: "House", heating: "Heating", shutter: "Covers", meter: "Meters" },
     noModules: "No module is switched on yet. Switch them on under Settings > Devices & services > House Assistant > Configure > Modules.",
     loadError: "The settings could not be loaded",
   },
 };
 
-// section -> icon and the element that shows it
+// section -> icon and the element that shows it; the house (rooms and windows) is
+// there as soon as a module is switched on
 const SECTIONS = {
+  house: ["mdi:home-outline", "house-assistant-house-view"],
   heating: ["mdi:home-thermometer-outline", "house-assistant-heating-view"],
   shutter: ["mdi:window-shutter-auto", "house-assistant-shutter-view"],
   meter: ["mdi:counter", "house-assistant-meter-view"],
@@ -86,13 +89,15 @@ class HouseAssistantPanel extends HTMLElement {
   }
 
   get _sections() {
-    return (this._cfg?.modules || []).filter((key) => SECTIONS[key]);
+    const modules = (this._cfg?.modules || []).filter((key) => SECTIONS[key]);
+    return modules.length ? ["house", ...modules] : [];
   }
 
   _render() {
     const ui = this.ui;
     const sections = this._sections;
-    if (!sections.includes(this._section)) this._section = sections[0] || null;
+    // the first module opens; the house is where rooms and windows are set up
+    if (!sections.includes(this._section)) this._section = sections.find((key) => key !== "house") || null;
     this.shadowRoot.innerHTML = `
       <style>${STYLE}</style>
       <div class="toolbar">

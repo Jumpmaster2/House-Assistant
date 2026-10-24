@@ -70,6 +70,8 @@ CONF_PROMPT = "prompt"
 CONF_INTERVAL = "interval"
 CONF_CONDITION = "condition_entity"
 CONF_INTERVAL_OFF = "interval_off"
+# the second interval also on days without heating (heating module)
+CONF_CONDITION_HEATING_DAY = "condition_heating_day"
 CONF_MAX_RATE = "max_rate"
 CONF_MAX_CORRECTION = "max_correction"
 CONF_MAX_ATTEMPTS = "max_attempts"
@@ -118,6 +120,7 @@ METER_DEFAULTS = {
     CONF_ENHANCE: False,
     CONF_INTERVAL: 60,
     CONF_INTERVAL_OFF: 360,
+    CONF_CONDITION_HEATING_DAY: False,
     CONF_MAX_ATTEMPTS: 4,
     CONF_CONFIRMATIONS: 2,
     CONF_HISTORY_HINT: False,

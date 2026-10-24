@@ -113,6 +113,7 @@ SHUTTER_CHOICES = (
     "weekday",
     "forecast_type",
     "service_action",
+    "window_size",
 )
 
 
@@ -209,9 +210,28 @@ def heating_labels(translation: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def house_labels(translation: dict[str, Any]) -> dict[str, Any]:
+    """Texts of the house section: the fields of a room and of the basics of a window."""
+    room = translation["config_subentries"]["room"]
+    window = translation["config_subentries"]["window"]
+    room_fields: dict[str, list[str]] = {}
+    step = room["step"]["user"]
+    _add(room_fields, step)
+    for sec in step["sections"].values():
+        _add(room_fields, sec)
+    window_fields: dict[str, list[str]] = {}
+    _add(window_fields, window["step"]["basics"])
+    return {
+        "fields": {"room": room_fields, "window": window_fields},
+        "errors": {**room["error"], **window["error"]},
+        "sizes": translation["selector"]["window_size"]["options"],
+    }
+
+
 # name of the export -> texts in the form one section of the panel reads them
 SECTIONS = {
     "LABELS": labels,
+    "HOUSE": house_labels,
     "HEATING": heating_labels,
     "SHUTTER": shutter_labels,
     "METER": meter_labels,

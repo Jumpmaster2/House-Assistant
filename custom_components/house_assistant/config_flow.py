@@ -53,10 +53,13 @@ from .shutter.config_flow import (
 MODULE_FORMS = {MODULE_METER: (meter_schema, METER_DEFAULTS)}
 # modules with setup steps (heating and covers have several)
 SETUP_MODULES = (MODULE_HEATING, MODULE_SHUTTER, MODULE_METER)
-# subentry types of every module
+# subentry types of the house (every module builds on them) and of every module
+HOUSE_SUBENTRIES: dict[str, type[ConfigSubentryFlow]] = {
+    SUBENTRY_ROOM: RoomSubentryFlow,
+    SUBENTRY_WINDOW: WindowSubentryFlow,
+}
 MODULE_SUBENTRIES: dict[str, dict[str, type[ConfigSubentryFlow]]] = {
-    MODULE_HEATING: {SUBENTRY_ROOM: RoomSubentryFlow},
-    MODULE_SHUTTER: {SUBENTRY_GROUP: GroupSubentryFlow, SUBENTRY_WINDOW: WindowSubentryFlow},
+    MODULE_SHUTTER: {SUBENTRY_GROUP: GroupSubentryFlow},
     MODULE_METER: {SUBENTRY_METER: MeterSubentryFlow},
 }
 
@@ -99,7 +102,7 @@ class HouseAssistantConfigFlow(HeatingSetupSteps, ShutterSetupSteps, ConfigFlow,
     def async_get_supported_subentry_types(
         cls, config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
-        types: dict[str, type[ConfigSubentryFlow]] = {}
+        types: dict[str, type[ConfigSubentryFlow]] = dict(HOUSE_SUBENTRIES)
         for key in enabled_modules(config_entry):
             types.update(MODULE_SUBENTRIES.get(key, {}))
         return types

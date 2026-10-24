@@ -26,6 +26,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from ..core.links import heating_day
 from ..core.store import module_store
 from .const import (
     CHECK_EVERY_MINUTES,
@@ -34,6 +35,7 @@ from .const import (
     CONF_BRIGHTNESS_2,
     CONF_CAMERA,
     CONF_CONDITION,
+    CONF_CONDITION_HEATING_DAY,
     CONF_CONFIRMATIONS,
     CONF_CROP_BOTTOM,
     CONF_CROP_LEFT,
@@ -207,10 +209,13 @@ class Meter:
         return f"media-source://media_source/local/{MEDIA_FOLDER}/{self.id}/{IMAGE_NAME}"
 
     def interval_minutes(self) -> float:
-        """Interval now: the second interval applies while the condition entity is off,
-        a failed reading is tried again sooner."""
+        """Interval now: the second interval applies while the condition entity is off or
+        (if chosen) on a day without heating, a failed reading is tried again sooner. An
+        unknown heating day counts as a heating day, like an unknown entity."""
         condition = self.opt(CONF_CONDITION)
-        if condition and (st := self.hass.states.get(condition)) and st.state == "off":
+        if (condition and (st := self.hass.states.get(condition)) and st.state == "off") or (
+            self.opt(CONF_CONDITION_HEATING_DAY) and heating_day(self.hass) is False
+        ):
             interval = float(self.opt(CONF_INTERVAL_OFF))
         else:
             interval = float(self.opt(CONF_INTERVAL))

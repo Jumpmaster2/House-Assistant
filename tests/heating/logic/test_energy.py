@@ -51,6 +51,20 @@ def test_reset_restarts_baselines() -> None:
     assert span is not None and span.kwh == pytest.approx(3.0)
 
 
+def test_confirmed_correction_is_no_reset() -> None:
+    """A wrong reading corrected downwards (meter module) keeps the periods running."""
+    meter = HeatMeter()
+    meter.update(1000.0, 0)
+    meter.rebase("day")
+    meter.update(1050.0, 1 * H)  # misread, the real value was about 1002
+    assert meter.update(1003.0, 2 * H, corrected=True)
+    assert meter.baselines["day"].kwh == pytest.approx(1000.0)
+    assert meter.kwh_since("day") == pytest.approx(3.0)
+    # a value falling without being a correction still is a new meter
+    assert meter.update(10.0, 3 * H)
+    assert meter.baselines["day"].kwh == pytest.approx(10.0)
+
+
 def test_calendar_periods_keep_yesterday_only_without_gap() -> None:
     meter = HeatMeter()
     meter.update(100.0, 0)

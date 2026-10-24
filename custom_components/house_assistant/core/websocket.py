@@ -12,6 +12,7 @@ from ..meter.websocket import async_register_websocket as async_register_meter
 from ..runtime import enabled_modules
 from ..shutter.websocket import async_register_websocket as async_register_shutter
 from .entry import house_entry
+from .house_ws import COMMANDS as HOUSE_COMMANDS
 
 DATA_WS = f"{DOMAIN}_ws_registered"
 
@@ -22,6 +23,8 @@ def async_register_websocket(hass: HomeAssistant) -> None:
         return
     hass.data[DATA_WS] = True
     websocket_api.async_register_command(hass, ws_config)
+    for command in HOUSE_COMMANDS:
+        websocket_api.async_register_command(hass, command)
     async_register_heating(hass)
     async_register_meter(hass)
     async_register_shutter(hass)

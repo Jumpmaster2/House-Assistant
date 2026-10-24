@@ -9,6 +9,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from ..core.house import CONF_AREA
 from .const import CONF_TEMP_SENSOR, DOMAIN, MODULE_HEATING, NAME
 from .coordinator import Area, HeatingCoordinator
 
@@ -22,6 +23,11 @@ def global_device_info(entry_id: str) -> DeviceInfo:
         model="Heating",
         entry_type=DeviceEntryType.SERVICE,
     )
+
+
+def room_area_name(hass: HomeAssistant, area_id: str | None) -> str | None:
+    area = ar.async_get(hass).async_get_area(area_id) if area_id else None
+    return area.name if area else None
 
 
 def sensor_area_name(hass: HomeAssistant, entity_id: str | None) -> str | None:
@@ -79,8 +85,11 @@ class AreaEntity(CoordinatorEntity[HeatingCoordinator]):
         # entity (e.g. after renaming its entity id).
         if coordinator.global_device_id:
             device_info["via_device_id"] = coordinator.global_device_id
-        # only used when the device is created: a later choice of the user stays
-        if suggested := sensor_area_name(coordinator.hass, area.cfg.get(CONF_TEMP_SENSOR)):
+        # only used when the device is created: the area of the room (kept in step by
+        # the module), else the one of its temperature sensor
+        if suggested := room_area_name(coordinator.hass, area.cfg.get(CONF_AREA)) or (
+            sensor_area_name(coordinator.hass, area.cfg.get(CONF_TEMP_SENSOR))
+        ):
             device_info["suggested_area"] = suggested
         self._attr_device_info = device_info
 

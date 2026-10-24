@@ -227,7 +227,9 @@ async def test_areas(hass: HomeAssistant, base_states, hass_ws_client) -> None:
 
     for title, data, error in (
         ("", {"temperature_sensor": "sensor.x"}, "name_required"),
-        ("X", {}, "required:temperature_sensor"),
+        # a room without sensor serves the covers only: no circuit, no humidity
+        ("X", {"heater_switch": "switch.x"}, "temperature_required"),
+        ("X", {"humidity_sensor": "sensor.h"}, "temperature_required"),
         (
             "X",
             {"temperature_sensor": "sensor.x", "min_target": 22, "max_target": 20},
