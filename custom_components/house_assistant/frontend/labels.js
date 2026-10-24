@@ -12,21 +12,43 @@ export const LABELS = {
     },
     "sections": {}
    },
-   "config.heating": {
-    "title": "Heizung",
+   "config.house": {
+    "title": "Haus",
     "fields": {
      "outdoor_temperature": [
       "Außentemperatursensor",
-      "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität."
+      "Für Heizung und Rollos (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität."
      ],
      "outdoor_humidity": [
       "Außenfeuchtesensor",
-      "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt."
+      "Optional. Für die Lüftungsempfehlung der Heizung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt."
      ],
      "weather": [
       "Wetter-Entität",
-      "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur."
+      "Empfohlen. Ihre Vorhersage nutzen die Heiztag-Entscheidung, die Sonnenprognose der Heizung und der Sommertag der Rollos. Ohne Außensensor gilt ihre aktuelle Temperatur."
      ],
+     "language": [
+      "Sprache der Meldungen",
+      "Logbuch, letzter Grund, Push-Nachrichten und Benachrichtigungen aller Module. Automatisch = die Sprache von Home Assistant."
+     ],
+     "notify_services": [
+      "Benachrichtigungsdienste",
+      "Erhalten die Meldungen des Hauses, z. B. wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy)."
+     ],
+     "workday_entity": [
+      "Werktag-Sensor",
+      "Optional, z. B. die Workday-Integration (berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage."
+     ],
+     "weekend_days": [
+      "Wochenendtage",
+      "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung."
+     ]
+    },
+    "sections": {}
+   },
+   "config.heating": {
+    "title": "Heizung",
+    "fields": {
      "pv_power": [
       "PV-Leistungssensor",
       "Optional. PV-Leistung (W oder kW) als Indikator für Sonne. Daraus wird der Sonneneinfluss je Bereich gelernt."
@@ -148,36 +170,6 @@ export const LABELS = {
     },
     "sections": {}
    },
-   "config.shutter": {
-    "title": "Rollos",
-    "fields": {
-     "outdoor_temperature": [
-      "Außentemperatur-Sensor",
-      "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden)."
-     ],
-     "weather": [
-      "Wetter-Entität",
-      "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist."
-     ],
-     "language": [
-      "Sprache der Meldungen",
-      "Logbuch, letzter Grund und Push-Nachrichten."
-     ],
-     "notify_services": [
-      "Benachrichtigungsdienste",
-      "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy)."
-     ],
-     "workday_entity": [
-      "Werktag-Sensor",
-      "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage."
-     ],
-     "weekend_days": [
-      "Wochenendtage",
-      "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung."
-     ]
-    },
-    "sections": {}
-   },
    "config.shutter_summer": {
     "title": "Sommertag",
     "fields": {
@@ -273,6 +265,40 @@ export const LABELS = {
     },
     "sections": {}
    },
+   "options.house": {
+    "title": "Haus",
+    "fields": {
+     "outdoor_temperature": [
+      "Außentemperatursensor",
+      "Für Heizung und Rollos (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität."
+     ],
+     "outdoor_humidity": [
+      "Außenfeuchtesensor",
+      "Optional. Für die Lüftungsempfehlung der Heizung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt."
+     ],
+     "weather": [
+      "Wetter-Entität",
+      "Empfohlen. Ihre Vorhersage nutzen die Heiztag-Entscheidung, die Sonnenprognose der Heizung und der Sommertag der Rollos. Ohne Außensensor gilt ihre aktuelle Temperatur."
+     ],
+     "language": [
+      "Sprache der Meldungen",
+      "Logbuch, letzter Grund, Push-Nachrichten und Benachrichtigungen aller Module. Automatisch = die Sprache von Home Assistant."
+     ],
+     "notify_services": [
+      "Benachrichtigungsdienste",
+      "Erhalten die Meldungen des Hauses, z. B. wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy)."
+     ],
+     "workday_entity": [
+      "Werktag-Sensor",
+      "Optional, z. B. die Workday-Integration (berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage."
+     ],
+     "weekend_days": [
+      "Wochenendtage",
+      "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung."
+     ]
+    },
+    "sections": {}
+   },
    "options.meter": {
     "title": "Zähler",
     "fields": {
@@ -297,27 +323,27 @@ export const LABELS = {
     "fields": {
      "outdoor_temperature": [
       "Außentemperatur-Sensor",
-      "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden)."
+      "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
      ],
      "weather": [
       "Wetter-Entität",
-      "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist."
+      "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
      ],
      "language": [
       "Sprache der Meldungen",
-      "Logbuch, letzter Grund und Push-Nachrichten."
+      "Logbuch, letzter Grund und Push-Nachrichten. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
      ],
      "notify_services": [
       "Benachrichtigungsdienste",
-      "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy)."
+      "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
      ],
      "workday_entity": [
       "Werktag-Sensor",
-      "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage."
+      "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
      ],
      "weekend_days": [
       "Wochenendtage",
-      "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung."
+      "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
      ]
     },
     "sections": {}
@@ -494,15 +520,15 @@ export const LABELS = {
     "fields": {
      "outdoor_temperature": [
       "Außentemperatursensor",
-      "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität."
+      "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
      ],
      "outdoor_humidity": [
       "Außenfeuchtesensor",
-      "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt."
+      "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
      ],
      "weather": [
       "Wetter-Entität",
-      "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur."
+      "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
      ],
      "pv_power": [
       "PV-Leistungssensor",
@@ -2593,21 +2619,43 @@ export const LABELS = {
     },
     "sections": {}
    },
-   "config.heating": {
-    "title": "Heating",
+   "config.house": {
+    "title": "House",
     "fields": {
      "outdoor_temperature": [
       "Outdoor temperature sensor",
-      "Sensor for the outdoor temperature (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used."
+      "For heating and covers (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used."
      ],
      "outdoor_humidity": [
       "Outdoor humidity sensor",
-      "Optional. Needed for the ventilation recommendation; without it the humidity of the weather entity is used."
+      "Optional. For the ventilation advice of the heating; without it the humidity of the weather entity is used."
      ],
      "weather": [
       "Weather entity",
-      "Optional but recommended. Its forecast is used for the nightly heating day decision and the expected sun. Without an outdoor sensor its current temperature is the outdoor temperature."
+      "Recommended. Its forecast is used by the heating day decision, the expected sun of the heating and the summer day of the covers. Without an outdoor sensor its current temperature applies."
      ],
+     "language": [
+      "Language of messages",
+      "Logbook, last reason, push messages and notifications of every module. Automatic = the language of Home Assistant."
+     ],
+     "notify_services": [
+      "Notification services",
+      "Get the messages of the house, e.g. when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone)."
+     ],
+     "workday_entity": [
+      "Workday sensor",
+      "Optional, e.g. the Workday integration (knows public holidays). Without a sensor the weekend days decide."
+     ],
+     "weekend_days": [
+      "Weekend days",
+      "Only without a workday sensor: on these days e.g. the weekend time of the morning opening applies."
+     ]
+    },
+    "sections": {}
+   },
+   "config.heating": {
+    "title": "Heating",
+    "fields": {
      "pv_power": [
       "PV power sensor",
       "Optional. PV power (W or kW) as an indicator for sunshine. The solar gain per room is learned from it."
@@ -2729,36 +2777,6 @@ export const LABELS = {
     },
     "sections": {}
    },
-   "config.shutter": {
-    "title": "Covers",
-    "fields": {
-     "outdoor_temperature": [
-      "Outdoor temperature sensor",
-      "For the summer day and the temperature condition of every window. Without a sensor the current temperature of the weather entity is used (at least one of both)."
-     ],
-     "weather": [
-      "Weather entity",
-      "Its daily forecast decides at the day change whether today is a summer day."
-     ],
-     "language": [
-      "Language of messages",
-      "Logbook, last reason and push messages."
-     ],
-     "notify_services": [
-      "Notification services",
-      "Get a message when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone)."
-     ],
-     "workday_entity": [
-      "Workday sensor",
-      "Optional, for the morning opening by time (e.g. Workday integration, knows public holidays). Without a sensor the weekend days decide."
-     ],
-     "weekend_days": [
-      "Weekend days",
-      "Only without a workday sensor: on these days the weekend time of the morning opening applies."
-     ]
-    },
-    "sections": {}
-   },
    "config.shutter_summer": {
     "title": "Summer day",
     "fields": {
@@ -2854,6 +2872,40 @@ export const LABELS = {
     },
     "sections": {}
    },
+   "options.house": {
+    "title": "House",
+    "fields": {
+     "outdoor_temperature": [
+      "Outdoor temperature sensor",
+      "For heating and covers (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used."
+     ],
+     "outdoor_humidity": [
+      "Outdoor humidity sensor",
+      "Optional. For the ventilation advice of the heating; without it the humidity of the weather entity is used."
+     ],
+     "weather": [
+      "Weather entity",
+      "Recommended. Its forecast is used by the heating day decision, the expected sun of the heating and the summer day of the covers. Without an outdoor sensor its current temperature applies."
+     ],
+     "language": [
+      "Language of messages",
+      "Logbook, last reason, push messages and notifications of every module. Automatic = the language of Home Assistant."
+     ],
+     "notify_services": [
+      "Notification services",
+      "Get the messages of the house, e.g. when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone)."
+     ],
+     "workday_entity": [
+      "Workday sensor",
+      "Optional, e.g. the Workday integration (knows public holidays). Without a sensor the weekend days decide."
+     ],
+     "weekend_days": [
+      "Weekend days",
+      "Only without a workday sensor: on these days e.g. the weekend time of the morning opening applies."
+     ]
+    },
+    "sections": {}
+   },
    "options.meter": {
     "title": "Meters",
     "fields": {
@@ -2878,27 +2930,27 @@ export const LABELS = {
     "fields": {
      "outdoor_temperature": [
       "Outdoor temperature sensor",
-      "For the summer day and the temperature condition of every window. Without a sensor the current temperature of the weather entity is used (at least one of both)."
+      "For the summer day and the temperature condition of every window. Without a sensor the current temperature of the weather entity is used (at least one of both). Only while nothing is set under Settings > House."
      ],
      "weather": [
       "Weather entity",
-      "Its daily forecast decides at the day change whether today is a summer day."
+      "Its daily forecast decides at the day change whether today is a summer day. Only while nothing is set under Settings > House."
      ],
      "language": [
       "Language of messages",
-      "Logbook, last reason and push messages."
+      "Logbook, last reason and push messages. Only while nothing is set under Settings > House."
      ],
      "notify_services": [
       "Notification services",
-      "Get a message when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone)."
+      "Get a message when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone). Only while nothing is set under Settings > House."
      ],
      "workday_entity": [
       "Workday sensor",
-      "Optional, for the morning opening by time (e.g. Workday integration, knows public holidays). Without a sensor the weekend days decide."
+      "Optional, for the morning opening by time (e.g. Workday integration, knows public holidays). Without a sensor the weekend days decide. Only while nothing is set under Settings > House."
      ],
      "weekend_days": [
       "Weekend days",
-      "Only without a workday sensor: on these days the weekend time of the morning opening applies."
+      "Only without a workday sensor: on these days the weekend time of the morning opening applies. Only while nothing is set under Settings > House."
      ]
     },
     "sections": {}
@@ -3075,15 +3127,15 @@ export const LABELS = {
     "fields": {
      "outdoor_temperature": [
       "Outdoor temperature sensor",
-      "Sensor for the outdoor temperature (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used."
+      "Sensor for the outdoor temperature (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used. Only while nothing is set under Settings > House."
      ],
      "outdoor_humidity": [
       "Outdoor humidity sensor",
-      "Optional. Needed for the ventilation recommendation; without it the humidity of the weather entity is used."
+      "Optional. Needed for the ventilation recommendation; without it the humidity of the weather entity is used. Only while nothing is set under Settings > House."
      ],
      "weather": [
       "Weather entity",
-      "Optional but recommended. Its forecast is used for the nightly heating day decision and the expected sun. Without an outdoor sensor its current temperature is the outdoor temperature."
+      "Optional but recommended. Its forecast is used for the nightly heating day decision and the expected sun. Without an outdoor sensor its current temperature is the outdoor temperature. Only while nothing is set under Settings > House."
      ],
      "pv_power": [
       "PV power sensor",
@@ -5293,6 +5345,65 @@ export const HOUSE = {
      "Gruppe",
      "Himmelsrichtung. Ohne Gruppe hat das Fenster keinen Sonnenschutz."
     ]
+   },
+   "settings": {
+    "outdoor_temperature": [
+     "Außentemperatursensor",
+     "Für Heizung und Rollos (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität."
+    ],
+    "outdoor_humidity": [
+     "Außenfeuchtesensor",
+     "Optional. Für die Lüftungsempfehlung der Heizung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt."
+    ],
+    "weather": [
+     "Wetter-Entität",
+     "Empfohlen. Ihre Vorhersage nutzen die Heiztag-Entscheidung, die Sonnenprognose der Heizung und der Sommertag der Rollos. Ohne Außensensor gilt ihre aktuelle Temperatur."
+    ],
+    "language": [
+     "Sprache der Meldungen",
+     "Logbuch, letzter Grund, Push-Nachrichten und Benachrichtigungen aller Module. Automatisch = die Sprache von Home Assistant."
+    ],
+    "notify_services": [
+     "Benachrichtigungsdienste",
+     "Erhalten die Meldungen des Hauses, z. B. wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy)."
+    ],
+    "workday_entity": [
+     "Werktag-Sensor",
+     "Optional, z. B. die Workday-Integration (berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage."
+    ],
+    "weekend_days": [
+     "Wochenendtage",
+     "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung."
+    ],
+    "modules": [
+     "Module",
+     "Die Teile des Hauses, die House Assistant steuern soll. Ein abgeschaltetes Modul behält seine Einstellungen."
+    ],
+    "show_panel": [
+     "Dashboard in der Seitenleiste",
+     "Aus: Das Dashboard verschwindet aus der Seitenleiste, bleibt aber über „Einstellungen“ bei der Integration erreichbar."
+    ]
+   }
+  },
+  "choices": {
+   "language": {
+    "auto": "Wie Home Assistant",
+    "de": "Deutsch",
+    "en": "English"
+   },
+   "weekday": {
+    "mon": "Montag",
+    "tue": "Dienstag",
+    "wed": "Mittwoch",
+    "thu": "Donnerstag",
+    "fri": "Freitag",
+    "sat": "Samstag",
+    "sun": "Sonntag"
+   },
+   "modules": {
+    "heating": "Heizung",
+    "shutter": "Rollos",
+    "meter": "Zähler"
    }
   },
   "errors": {
@@ -5451,6 +5562,65 @@ export const HOUSE = {
      "Group",
      "Direction of the sun. Without a group the window has no sun protection."
     ]
+   },
+   "settings": {
+    "outdoor_temperature": [
+     "Outdoor temperature sensor",
+     "For heating and covers (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used."
+    ],
+    "outdoor_humidity": [
+     "Outdoor humidity sensor",
+     "Optional. For the ventilation advice of the heating; without it the humidity of the weather entity is used."
+    ],
+    "weather": [
+     "Weather entity",
+     "Recommended. Its forecast is used by the heating day decision, the expected sun of the heating and the summer day of the covers. Without an outdoor sensor its current temperature applies."
+    ],
+    "language": [
+     "Language of messages",
+     "Logbook, last reason, push messages and notifications of every module. Automatic = the language of Home Assistant."
+    ],
+    "notify_services": [
+     "Notification services",
+     "Get the messages of the house, e.g. when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone)."
+    ],
+    "workday_entity": [
+     "Workday sensor",
+     "Optional, e.g. the Workday integration (knows public holidays). Without a sensor the weekend days decide."
+    ],
+    "weekend_days": [
+     "Weekend days",
+     "Only without a workday sensor: on these days e.g. the weekend time of the morning opening applies."
+    ],
+    "modules": [
+     "Modules",
+     "The parts of the house House Assistant takes care of. A module switched off keeps its settings."
+    ],
+    "show_panel": [
+     "Dashboard in the sidebar",
+     "Off: the dashboard disappears from the sidebar but stays reachable with \"Configure\" at the integration."
+    ]
+   }
+  },
+  "choices": {
+   "language": {
+    "auto": "Like Home Assistant",
+    "de": "Deutsch",
+    "en": "English"
+   },
+   "weekday": {
+    "mon": "Monday",
+    "tue": "Tuesday",
+    "wed": "Wednesday",
+    "thu": "Thursday",
+    "fri": "Friday",
+    "sat": "Saturday",
+    "sun": "Sunday"
+   },
+   "modules": {
+    "heating": "Heating",
+    "shutter": "Covers",
+    "meter": "Meters"
    }
   },
   "errors": {
@@ -5486,15 +5656,15 @@ export const HEATING = {
   "fields": {
    "outdoor_temperature": [
     "Außentemperatursensor",
-    "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität."
+    "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ],
    "outdoor_humidity": [
     "Außenfeuchtesensor",
-    "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt."
+    "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ],
    "weather": [
     "Wetter-Entität",
-    "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur."
+    "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ],
    "pv_power": [
     "PV-Leistungssensor",
@@ -6003,15 +6173,15 @@ export const HEATING = {
   "fields": {
    "outdoor_temperature": [
     "Outdoor temperature sensor",
-    "Sensor for the outdoor temperature (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used."
+    "Sensor for the outdoor temperature (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used. Only while nothing is set under Settings > House."
    ],
    "outdoor_humidity": [
     "Outdoor humidity sensor",
-    "Optional. Needed for the ventilation recommendation; without it the humidity of the weather entity is used."
+    "Optional. Needed for the ventilation recommendation; without it the humidity of the weather entity is used. Only while nothing is set under Settings > House."
    ],
    "weather": [
     "Weather entity",
-    "Optional but recommended. Its forecast is used for the nightly heating day decision and the expected sun. Without an outdoor sensor its current temperature is the outdoor temperature."
+    "Optional but recommended. Its forecast is used for the nightly heating day decision and the expected sun. Without an outdoor sensor its current temperature is the outdoor temperature. Only while nothing is set under Settings > House."
    ],
    "pv_power": [
     "PV power sensor",
@@ -6634,7 +6804,7 @@ export const SHUTTER = {
    ],
    "language": [
     "Sprache der Meldungen",
-    "Logbuch, letzter Grund und Push-Nachrichten."
+    "Logbuch, letzter Grund und Push-Nachrichten. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ],
    "lockout_protection": [
     "Aussperrschutz (Tür)",
@@ -6742,7 +6912,7 @@ export const SHUTTER = {
    ],
    "notify_services": [
     "Benachrichtigungsdienste",
-    "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy)."
+    "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ],
    "open_block_entity": [
     "Öffnungssperre",
@@ -6754,7 +6924,7 @@ export const SHUTTER = {
    ],
    "outdoor_temperature": [
     "Außentemperatur-Sensor",
-    "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden)."
+    "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ],
    "override_duration": [
     "Dauer",
@@ -6918,7 +7088,7 @@ export const SHUTTER = {
    ],
    "weather": [
     "Wetter-Entität",
-    "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist."
+    "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ],
    "weather_protection": [
     "Wetterschutz für dieses Fenster",
@@ -6926,7 +7096,7 @@ export const SHUTTER = {
    ],
    "weekend_days": [
     "Wochenendtage",
-    "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung."
+    "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ],
    "wind_entity": [
     "Windsensor",
@@ -6958,7 +7128,7 @@ export const SHUTTER = {
    ],
    "workday_entity": [
     "Werktag-Sensor",
-    "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage."
+    "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ]
   },
   "en": {
@@ -7076,7 +7246,7 @@ export const SHUTTER = {
    ],
    "language": [
     "Language of messages",
-    "Logbook, last reason and push messages."
+    "Logbook, last reason and push messages. Only while nothing is set under Settings > House."
    ],
    "lockout_protection": [
     "Lockout protection (door)",
@@ -7184,7 +7354,7 @@ export const SHUTTER = {
    ],
    "notify_services": [
     "Notification services",
-    "Get a message when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone)."
+    "Get a message when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone). Only while nothing is set under Settings > House."
    ],
    "open_block_entity": [
     "Opening block",
@@ -7196,7 +7366,7 @@ export const SHUTTER = {
    ],
    "outdoor_temperature": [
     "Outdoor temperature sensor",
-    "For the summer day and the temperature condition of every window. Without a sensor the current temperature of the weather entity is used (at least one of both)."
+    "For the summer day and the temperature condition of every window. Without a sensor the current temperature of the weather entity is used (at least one of both). Only while nothing is set under Settings > House."
    ],
    "override_duration": [
     "Duration",
@@ -7360,7 +7530,7 @@ export const SHUTTER = {
    ],
    "weather": [
     "Weather entity",
-    "Its daily forecast decides at the day change whether today is a summer day."
+    "Its daily forecast decides at the day change whether today is a summer day. Only while nothing is set under Settings > House."
    ],
    "weather_protection": [
     "Weather protection for this window",
@@ -7368,7 +7538,7 @@ export const SHUTTER = {
    ],
    "weekend_days": [
     "Weekend days",
-    "Only without a workday sensor: on these days the weekend time of the morning opening applies."
+    "Only without a workday sensor: on these days the weekend time of the morning opening applies. Only while nothing is set under Settings > House."
    ],
    "wind_entity": [
     "Wind sensor",
@@ -7400,7 +7570,7 @@ export const SHUTTER = {
    ],
    "workday_entity": [
     "Workday sensor",
-    "Optional, for the morning opening by time (e.g. Workday integration, knows public holidays). Without a sensor the weekend days decide."
+    "Optional, for the morning opening by time (e.g. Workday integration, knows public holidays). Without a sensor the weekend days decide. Only while nothing is set under Settings > House."
    ]
   }
  },

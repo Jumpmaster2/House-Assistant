@@ -34,6 +34,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import PowerConverter, TemperatureConverter
 
+from ..const import CONF_LANGUAGE
 from ..core.house import room_contacts
 from ..core.links import meter_reading
 from ..core.store import module_store
@@ -415,9 +416,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
     def opts(self) -> dict[str, Any]:
         # Built once per options object: saving options replaces it (and restarts the
         # module later), so a reply built right after saving already sees the change.
-        options = self.config_entry.options.get(MODULE_HEATING) or {}
+        options = self.config_entry.options
         if self._opts is None or self._opts_src is not options:
-            self._opts, self._opts_src = {**DEFAULTS, **options}, options
+            self._opts, self._opts_src = {**DEFAULTS, **self.module.options}, options
         return self._opts
 
     def opt(self, key: str) -> Any:
@@ -425,7 +426,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
 
     @property
     def language(self) -> str:
-        return self.hass.config.language or "en"
+        """Language of the house for the messages, else the one of Home Assistant."""
+        language = self.opt(CONF_LANGUAGE)
+        return language if language in ("de", "en") else (self.hass.config.language or "en")
 
     @property
     def prices(self) -> Prices:

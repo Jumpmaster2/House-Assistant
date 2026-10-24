@@ -11,13 +11,32 @@
           "modules": "Die Teile des Hauses, die House Assistant steuern soll. Später unter Einstellungen > Module änderbar."
         }
       },
-      "heating": {
-        "title": "Heizung",
-        "description": "Globale Sensoren, Heizperiode und Frostschutz. Die Räume werden danach angelegt.",
+      "house": {
+        "title": "Haus",
+        "description": "Diese Einstellungen gelten für alle Module. Heizung und Rollos brauchen eine Außentemperatur: einen Sensor oder eine Wetter-Entität.",
         "data": {
           "outdoor_temperature": "Außentemperatursensor",
           "outdoor_humidity": "Außenfeuchtesensor",
           "weather": "Wetter-Entität",
+          "language": "Sprache der Meldungen",
+          "notify_services": "Benachrichtigungsdienste",
+          "workday_entity": "Werktag-Sensor",
+          "weekend_days": "Wochenendtage"
+        },
+        "data_description": {
+          "outdoor_temperature": "Für Heizung und Rollos (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität.",
+          "outdoor_humidity": "Optional. Für die Lüftungsempfehlung der Heizung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt.",
+          "weather": "Empfohlen. Ihre Vorhersage nutzen die Heiztag-Entscheidung, die Sonnenprognose der Heizung und der Sommertag der Rollos. Ohne Außensensor gilt ihre aktuelle Temperatur.",
+          "language": "Logbuch, letzter Grund, Push-Nachrichten und Benachrichtigungen aller Module. Automatisch = die Sprache von Home Assistant.",
+          "notify_services": "Erhalten die Meldungen des Hauses, z. B. wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy).",
+          "workday_entity": "Optional, z. B. die Workday-Integration (berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage.",
+          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung."
+        }
+      },
+      "heating": {
+        "title": "Heizung",
+        "description": "Sensoren der Heizung, Heizperiode und Frostschutz. Die Räume werden danach angelegt.",
+        "data": {
           "pv_power": "PV-Leistungssensor",
           "pv_forecast": "PV-Prognosesensor",
           "heat_meter": "Wärmezähler",
@@ -31,9 +50,6 @@
           "season_end_month": "Heizperiode endet: Monat"
         },
         "data_description": {
-          "outdoor_temperature": "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität.",
-          "outdoor_humidity": "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt.",
-          "weather": "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur.",
           "pv_power": "Optional. PV-Leistung (W oder kW) als Indikator für Sonne. Daraus wird der Sonneneinfluss je Bereich gelernt.",
           "pv_forecast": "Optional, nur zusammen mit dem PV-Leistungssensor. Erwartete PV-Energie der nächsten Stunde (Wh oder kWh, z. B. Forecast.Solar) oder erwartete Leistung in einer Stunde (W oder kW). Ohne diesen Sensor wird die Sonne aus der stündlichen Wettervorhersage und dem Sonnenstand geschätzt.",
           "heat_meter": "Optional. Zählerstand des Wärmezählers der hier geregelten Heizkreise (Wh, kWh, MWh, MJ oder GJ, z. B. total_increasing). Die KI sieht dann die gemessene Wärme, außerdem steht sie im Panel. Seltene und grobe Werte sind kein Problem.",
@@ -104,26 +120,6 @@
         "data_description": {
           "ai_task_entity": "KI-Aufgaben-Entität, die die Bilder liest (z. B. Anthropic, OpenAI, Google oder Ollama mit Bildunterstützung). Ein Zähler kann eine eigene nutzen.",
           "notify_rejected": "Hauptschalter für die Benachrichtigungen in Home Assistant. Ab wann sie bei welchem Zähler kommen, steht beim Zähler unter „Benachrichtigungen“."
-        }
-      },
-      "shutter": {
-        "title": "Rollos",
-        "description": "Globale Sensoren. Gruppen (Himmelsrichtungen) und Fenster werden danach im Panel „House Assistant“ (Seitenleiste, Bereich Rollos) angelegt.",
-        "data": {
-          "outdoor_temperature": "Außentemperatur-Sensor",
-          "weather": "Wetter-Entität",
-          "language": "Sprache der Meldungen",
-          "notify_services": "Benachrichtigungsdienste",
-          "workday_entity": "Werktag-Sensor",
-          "weekend_days": "Wochenendtage"
-        },
-        "data_description": {
-          "outdoor_temperature": "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden).",
-          "weather": "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist.",
-          "language": "Logbuch, letzter Grund und Push-Nachrichten.",
-          "notify_services": "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy).",
-          "workday_entity": "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage.",
-          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung."
         }
       },
       "shutter_summer": {
@@ -212,6 +208,7 @@
         "title": "Einstellungen",
         "menu_options": {
           "modules": "Module",
+          "house": "Haus",
           "heating": "Heizung",
           "shutter": "Rollos",
           "meter": "Zähler"
@@ -226,6 +223,28 @@
         "data_description": {
           "modules": "Die Teile des Hauses, die House Assistant steuern soll. Ein abgeschaltetes Modul behält seine Einstellungen.",
           "show_panel": "Aus: Das Dashboard verschwindet aus der Seitenleiste, bleibt aber über „Einstellungen“ bei der Integration erreichbar."
+        }
+      },
+      "house": {
+        "title": "Haus",
+        "description": "Diese Einstellungen gelten für alle Module. Heizung und Rollos brauchen eine Außentemperatur: einen Sensor oder eine Wetter-Entität.",
+        "data": {
+          "outdoor_temperature": "Außentemperatursensor",
+          "outdoor_humidity": "Außenfeuchtesensor",
+          "weather": "Wetter-Entität",
+          "language": "Sprache der Meldungen",
+          "notify_services": "Benachrichtigungsdienste",
+          "workday_entity": "Werktag-Sensor",
+          "weekend_days": "Wochenendtage"
+        },
+        "data_description": {
+          "outdoor_temperature": "Für Heizung und Rollos (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität.",
+          "outdoor_humidity": "Optional. Für die Lüftungsempfehlung der Heizung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt.",
+          "weather": "Empfohlen. Ihre Vorhersage nutzen die Heiztag-Entscheidung, die Sonnenprognose der Heizung und der Sommertag der Rollos. Ohne Außensensor gilt ihre aktuelle Temperatur.",
+          "language": "Logbuch, letzter Grund, Push-Nachrichten und Benachrichtigungen aller Module. Automatisch = die Sprache von Home Assistant.",
+          "notify_services": "Erhalten die Meldungen des Hauses, z. B. wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy).",
+          "workday_entity": "Optional, z. B. die Workday-Integration (berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage.",
+          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt z. B. die Wochenend-Uhrzeit der Morgenöffnung."
         }
       },
       "meter": {
@@ -263,12 +282,12 @@
           "weekend_days": "Wochenendtage"
         },
         "data_description": {
-          "outdoor_temperature": "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden).",
-          "weather": "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist.",
-          "language": "Logbuch, letzter Grund und Push-Nachrichten.",
-          "notify_services": "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy).",
-          "workday_entity": "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage.",
-          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung."
+          "outdoor_temperature": "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
+          "weather": "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
+          "language": "Logbuch, letzter Grund und Push-Nachrichten. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
+          "notify_services": "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
+          "workday_entity": "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
+          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
         }
       },
       "shutter_override": {
@@ -418,9 +437,9 @@
           "season_end_month": "Heizperiode endet: Monat"
         },
         "data_description": {
-          "outdoor_temperature": "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität.",
-          "outdoor_humidity": "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt.",
-          "weather": "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur.",
+          "outdoor_temperature": "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
+          "outdoor_humidity": "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
+          "weather": "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
           "pv_power": "Optional. PV-Leistung (W oder kW) als Indikator für Sonne. Daraus wird der Sonneneinfluss je Bereich gelernt.",
           "pv_forecast": "Optional, nur zusammen mit dem PV-Leistungssensor. Erwartete PV-Energie der nächsten Stunde (Wh oder kWh, z. B. Forecast.Solar) oder erwartete Leistung in einer Stunde (W oder kW). Ohne diesen Sensor wird die Sonne aus der stündlichen Wettervorhersage und dem Sonnenstand geschätzt.",
           "heat_meter": "Optional. Zählerstand des Wärmezählers der hier geregelten Heizkreise (Wh, kWh, MWh, MJ oder GJ, z. B. total_increasing). Die KI sieht dann die gemessene Wärme, außerdem steht sie im Panel. Seltene und grobe Werte sind kein Problem.",

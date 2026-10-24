@@ -167,7 +167,12 @@ async def open_options(hass: HomeAssistant, entry: ConfigEntry, step: str) -> di
 
 
 async def start_setup(hass: HomeAssistant) -> dict:
-    """The setup of the house with only the heating: its first step."""
+    """The setup of the house with only the heating: the settings of the house, then the
+    first step of the heating."""
     flow = hass.config_entries.flow
     result = await flow.async_init(DOMAIN, context={"source": "user"})
-    return await flow.async_configure(result["flow_id"], {"modules": [MODULE_HEATING]})
+    result = await flow.async_configure(result["flow_id"], {"modules": [MODULE_HEATING]})
+    assert result["step_id"] == "house"
+    return await flow.async_configure(
+        result["flow_id"], {"outdoor_temperature": "sensor.outdoor_temperature", "language": "auto"}
+    )
