@@ -18,7 +18,8 @@
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/Jumpmaster2/House-Assistant/issues",
-  "requirements": [],
+  "loggers": ["anthropic"],
+  "requirements": ["anthropic>=0.125.0"],
   "single_config_entry": true,
-  "version": "0.3.0"
+  "version": "0.4.0"
 }

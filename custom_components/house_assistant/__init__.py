@@ -11,6 +11,7 @@ from . import modules  # noqa: F401  (the modules register themselves)
 from .const import CONF_SHOW_PANEL, DOMAIN, OPT_CORE, PLATFORMS
 from .core.panel import async_register_panel, async_set_card_resource, async_unregister_panel
 from .core.websocket import async_register_websocket
+from .heating.services import async_setup_services as async_setup_heating_services
 from .meter.services import async_setup_services as async_setup_meter_services
 from .runtime import MODULE_TYPES, HouseConfigEntry, HouseRuntime, module_options
 from .shutter.services import async_register_services as async_setup_shutter_services
@@ -20,6 +21,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the services and the panel commands once."""
+    async_setup_heating_services(hass)
     async_setup_meter_services(hass)
     async_setup_shutter_services(hass)
     async_register_websocket(hass)

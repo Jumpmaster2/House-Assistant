@@ -16,6 +16,8 @@ PLATFORMS: Final = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.CAMERA,
+    Platform.CLIMATE,
+    Platform.SELECT,
     Platform.SENSOR,
     Platform.SWITCH,
 ]
@@ -27,11 +29,13 @@ CONF_MODULES: Final = "modules"
 # Show the panel in the sidebar (it stays reachable from the integration page).
 CONF_SHOW_PANEL: Final = "show_panel"
 
+MODULE_HEATING: Final = "heating"
 MODULE_SHUTTER: Final = "shutter"
 MODULE_METER: Final = "meter"
 # order of the modules in dialogs and in the panel
-MODULE_ORDER: Final = (MODULE_SHUTTER, MODULE_METER)
+MODULE_ORDER: Final = (MODULE_HEATING, MODULE_SHUTTER, MODULE_METER)
 
+SUBENTRY_ROOM: Final = "room"
 SUBENTRY_GROUP: Final = "group"
 SUBENTRY_WINDOW: Final = "window"
 SUBENTRY_METER: Final = "meter"

@@ -1,4 +1,4 @@
-"""The dashboard card (with the tiles) as a dashboard resource."""
+"""The dashboard cards (one bundle for all modules) as a dashboard resource."""
 
 from __future__ import annotations
 

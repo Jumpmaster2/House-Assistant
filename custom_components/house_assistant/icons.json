@@ -1,39 +1,5 @@
 {
   "entity": {
-    "sensor": {
-      "rate": {
-        "default": "mdi:speedometer"
-      },
-      "rate_power": {
-        "default": "mdi:fire"
-      },
-      "rate_flow": {
-        "default": "mdi:water-pump"
-      },
-      "last_check": {
-        "default": "mdi:history"
-      },
-      "next_check": {
-        "default": "mdi:clock-outline"
-      },
-      "forecast_max": {
-        "default": "mdi:thermometer-high"
-      },
-      "last_reason": {
-        "default": "mdi:message-text-clock-outline"
-      },
-      "next_action": {
-        "default": "mdi:clock-outline"
-      },
-      "window_status": {
-        "default": "mdi:roller-shade"
-      }
-    },
-    "camera": {
-      "last_image": {
-        "default": "mdi:image-outline"
-      }
-    },
     "binary_sensor": {
       "summer_day": {
         "default": "mdi:weather-sunny-alert",
@@ -76,6 +42,108 @@
       },
       "frost_protection": {
         "default": "mdi:snowflake"
+      },
+      "heating_day": {
+        "default": "mdi:calendar-check",
+        "state": {
+          "off": "mdi:calendar-remove"
+        }
+      },
+      "ventilation_recommended": {
+        "default": "mdi:window-closed-variant",
+        "state": {
+          "on": "mdi:window-open-variant"
+        }
+      }
+    },
+    "camera": {
+      "last_image": {
+        "default": "mdi:image-outline"
+      }
+    },
+    "select": {
+      "heating_day_override": {
+        "default": "mdi:hand-back-right-outline"
+      }
+    },
+    "sensor": {
+      "rate": {
+        "default": "mdi:speedometer"
+      },
+      "rate_power": {
+        "default": "mdi:fire"
+      },
+      "rate_flow": {
+        "default": "mdi:water-pump"
+      },
+      "last_check": {
+        "default": "mdi:history"
+      },
+      "next_check": {
+        "default": "mdi:clock-outline"
+      },
+      "forecast_max": {
+        "default": "mdi:thermometer-high"
+      },
+      "last_reason": {
+        "default": "mdi:message-text-clock-outline"
+      },
+      "next_action": {
+        "default": "mdi:clock-outline"
+      },
+      "window_status": {
+        "default": "mdi:roller-shade"
+      },
+      "heat_rate": {
+        "default": "mdi:thermometer-chevron-up"
+      },
+      "cool_rate": {
+        "default": "mdi:thermometer-chevron-down"
+      },
+      "overshoot": {
+        "default": "mdi:chart-bell-curve"
+      },
+      "dead_time": {
+        "default": "mdi:timer-sand"
+      },
+      "recovery_time": {
+        "default": "mdi:timer-refresh-outline"
+      },
+      "outdoor_influence": {
+        "default": "mdi:home-thermometer-outline"
+      },
+      "sun_influence": {
+        "default": "mdi:weather-sunny"
+      },
+      "learning_progress": {
+        "default": "mdi:school-outline"
+      },
+      "ventilation": {
+        "default": "mdi:window-open-variant"
+      },
+      "decision_phase": {
+        "default": "mdi:account-switch-outline"
+      },
+      "ai_last_check": {
+        "default": "mdi:robot-outline"
+      },
+      "ai_next_check": {
+        "default": "mdi:clock-outline"
+      },
+      "ai_last_vent_check": {
+        "default": "mdi:window-open-variant"
+      },
+      "ai_next_vent_check": {
+        "default": "mdi:clock-outline"
+      },
+      "ai_cost_month": {
+        "default": "mdi:cash"
+      },
+      "heat_today": {
+        "default": "mdi:heat-wave"
+      },
+      "room_status": {
+        "default": "mdi:radiator"
       }
     },
     "switch": {
@@ -95,6 +163,12 @@
         "default": "mdi:white-balance-sunny",
         "state": {
           "off": "mdi:weather-sunny-off"
+        }
+      },
+      "ai_enabled": {
+        "default": "mdi:robot",
+        "state": {
+          "off": "mdi:robot-off"
         }
       }
     }
@@ -117,6 +191,24 @@
     },
     "set_meter_reading": {
       "service": "mdi:pencil-outline"
+    },
+    "export_parameters": {
+      "service": "mdi:export"
+    },
+    "import_parameters": {
+      "service": "mdi:import"
+    },
+    "reset_learned": {
+      "service": "mdi:restore"
+    },
+    "run_ai_check": {
+      "service": "mdi:robot-outline"
+    },
+    "run_ai_ventilation_check": {
+      "service": "mdi:window-open-variant"
+    },
+    "decide_heating_day": {
+      "service": "mdi:calendar-question"
     }
   }
 }
