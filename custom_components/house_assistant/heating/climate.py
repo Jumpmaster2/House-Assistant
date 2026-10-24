@@ -98,6 +98,8 @@ class AreaClimate(AreaEntity, ClimateEntity):
         return {
             "status": area.status,
             "draft": area.draft,
+            # the windows of the combination behind a draft or a cross ventilation
+            "draft_windows": area.draft_windows or None,
             "effective_target": area.effective_target,
             "heating_day": self.coordinator.heating_day,
             "predicted_temperature": _tenth(decision.predicted_temp) if decision else None,

@@ -39,6 +39,12 @@ CONF_LANGUAGE: Final = "language"
 CONF_NOTIFY: Final = "notify_services"
 CONF_WORKDAY: Final = "workday_entity"
 CONF_WEEKEND_DAYS: Final = "weekend_days"
+# the house plan: direction of the front, length of front and back, depth, and how far
+# from the line between two open windows a room still feels their draft (m)
+CONF_HOUSE_AZIMUTH: Final = "house_azimuth"
+CONF_HOUSE_WIDTH: Final = "house_width"
+CONF_HOUSE_DEPTH: Final = "house_depth"
+CONF_DRAFT_REACH: Final = "draft_reach"
 SHARED_KEYS: Final = (
     CONF_OUTDOOR_TEMP,
     CONF_OUTDOOR_HUMIDITY,
@@ -47,6 +53,10 @@ SHARED_KEYS: Final = (
     CONF_NOTIFY,
     CONF_WORKDAY,
     CONF_WEEKEND_DAYS,
+    CONF_HOUSE_AZIMUTH,
+    CONF_HOUSE_WIDTH,
+    CONF_HOUSE_DEPTH,
+    CONF_DRAFT_REACH,
 )
 
 MODULE_HEATING: Final = "heating"
