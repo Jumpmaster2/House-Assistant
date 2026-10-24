@@ -12,6 +12,7 @@ from ..const import (
     NAME,
     STORAGE_VERSION,
     SUBENTRY_GROUP,
+    SUBENTRY_ROOM,
     SUBENTRY_WINDOW,
 )
 
@@ -22,6 +23,7 @@ __all__ = [
     "NAME",
     "STORAGE_VERSION",
     "SUBENTRY_GROUP",
+    "SUBENTRY_ROOM",
     "SUBENTRY_WINDOW",
 ]
 
@@ -49,9 +51,11 @@ CONF_SUMMER_THRESHOLD = "summer_threshold"
 # A summer day only by the outdoor temperature needs a forecast low of the
 # coming night of at least this value.
 CONF_NIGHT_THRESHOLD = "night_threshold"
-# On while heating is wanted (e.g. the heating day of AI Heating Assistant):
+# On while heating is wanted (e.g. the heating day of another heating control):
 # then the warmth of the sun is welcome unless a room is too warm.
 CONF_HEATING_ENTITY = "heating_entity"
+# without a heating entity: the heating day of the heating module (when it is on)
+CONF_USE_HEATING_DAY = "use_heating_day"
 CONF_DAY_CHANGE = "day_change_time"
 # Kind of forecast: "auto" takes the first the weather entity supports.
 CONF_FORECAST_TYPE = "forecast_type"
@@ -106,6 +110,7 @@ DEFAULTS: Final[dict[str, object]] = {
     CONF_WEEKEND_DAYS: ["sat", "sun"],
     CONF_SUMMER_THRESHOLD: 23.0,
     CONF_NIGHT_THRESHOLD: 14.0,
+    CONF_USE_HEATING_DAY: True,
     CONF_DAY_CHANGE: "01:00:00",
     CONF_FORECAST_TYPE: FORECAST_AUTO,
     CONF_EVENING_EARLIEST: "17:00:00",

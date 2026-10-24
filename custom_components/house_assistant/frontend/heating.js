@@ -454,12 +454,13 @@ const SETTINGS = {
 // Groups of the room editor as in the dialog: [section, fields, collapsed].
 // The start values only when an area is created; an existing one shows its learned values.
 const AREA_GROUPS = [
-  ["sensors", ["temperature_sensor", "humidity_sensor", "window_sensors_small", "window_sensors", "window_sensors_large", "door_sensors"], false],
+  ["sensors", ["temperature_sensor", "humidity_sensor"], false],
   ["heating", ["heater_switch", "default_target", "min_target", "max_target", "min_on_time", "min_off_time", "heating_type"], false],
   ["start_values", ["window_delay", "recovery_time", "dead_time", "puffer"], true],
   ["learned_values", ["window_delay", "recovery_time", "dead_time", "puffer"], false],
   ["ventilation", ["ventilation_rh_threshold", "reference_temperature", "reference_humidity", "ventilation_block_entity"], true],
   ["draft", ["draft_group_1", "draft_group_2", "draft_group_3", "draft_group_4"], true],
+  ["sun_protection", ["cooling_entity"], true],
 ];
 
 // Learned values per area: [entity key, icon, digits if the frontend cannot format]
@@ -1191,7 +1192,7 @@ class HouseAssistantHeatingView extends HTMLElement {
     return `<div class="card" data-card="edit">
       <h2><button class="icon-btn" data-action="close-edit"><ha-icon icon="mdi:arrow-left"></ha-icon></button>
         <ha-icon icon="${e.data.heater_switch ? "mdi:home-thermometer-outline" : "mdi:weather-windy"}"></ha-icon>${esc(title)}</h2>
-      <div class="fields">${this._field("edit", "name", specs.name, e.title)}</div>
+      <div class="fields">${this._field("edit", "name", specs.name, e.title)}${this._field("edit", "area", specs.area, e.data.area)}</div>
       ${groups}
       ${running ? "" : `<p class="desc">${esc(ui.notRunning)}</p>`}
       <div class="actions"><span class="msg"></span>
@@ -1461,6 +1462,17 @@ class HouseAssistantHeatingView extends HTMLElement {
         return `<label class="field"><span class="lbl">${esc(name)}</span>
           <input type="text" list="${this._listId(spec)}" ${attrs("entity")} value="${esc(value ?? "")}" placeholder="${esc(domainsOf(spec)[0] || "entity")}.…" autocomplete="off">
           <span class="entity-hint ${value && !st ? "bad" : ""}">${esc(hint)}</span>${helpHtml}</label>`;
+      }
+      case "area": {
+        if (customElements.get("ha-selector")) {
+          this._selectors = this._selectors || new Map();
+          this._selectors.set(`${cardId}|${key}`, { spec, value, name });
+          return `<div class="field"><ha-selector ${attrs("selector")}></ha-selector>${helpHtml}</div>`;
+        }
+        const areas = Object.values(this._hass?.areas || {});
+        return `<label class="field"><span class="lbl">${esc(name)}</span><select ${attrs("text")}>
+          <option value=""></option>${areas.map((a) => `<option value="${esc(a.area_id)}" ${a.area_id === value ? "selected" : ""}>${esc(a.name)}</option>`).join("")}
+          </select>${helpHtml}</label>`;
       }
       default:
         return `<label class="field"><span class="lbl">${esc(name)}</span><input type="text" ${attrs("text")} value="${esc(value ?? "")}">${helpHtml}</label>`;

@@ -56,7 +56,7 @@
         },
         "data_description": {
           "vacation_entities": "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender).",
-          "vacation_temperature": "Sollwert für alle Bereiche im Urlaub.",
+          "vacation_temperature": "Sollwert für alle Räume im Urlaub.",
           "return_entity": "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist.",
           "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit."
         }
@@ -133,6 +133,7 @@
           "summer_threshold": "Sommertag ab Vorhersage-Höchsttemperatur",
           "night_threshold": "Später Sommertag nur bei Nacht ab",
           "heating_entity": "Heizbedarf",
+          "use_heating_day": "Heiztag der Heizung",
           "day_change_time": "Tageswechsel",
           "forecast_type": "Vorhersage-Art"
         },
@@ -140,6 +141,7 @@
           "summer_threshold": "Ohne Sommertag gibt es keinen Sonnenschutz. Tagsüber beginnt der Sommertag auch, wenn die Außentemperatur über diesen Wert steigt (siehe Nacht).",
           "night_threshold": "Wird der Tag erst durch die Außentemperatur zum Sommertag, zählt das nur, wenn der Vorhersage-Tiefstwert der kommenden Nacht mindestens so hoch ist. Kühlt es nachts ab (Frühling, Herbst), bleibt die Wärme im Haus. Ohne Tiefstwert in der Vorhersage gilt der Sommertag wie bisher.",
           "heating_entity": "Optional, z. B. ein input_boolean „Heizperiode“ oder der Heiztag einer Heizungssteuerung. Solange sie an ist, ist Sonnenwärme erwünscht: Sonnenschutz nur, wenn der Raum eines Fensters trotzdem zu warm ist. Fenster ohne Raumtemperatur werden dann nicht abgesenkt.",
+          "use_heating_day": "Ohne eigenen Heizbedarf: der Heiztag des Heizungsmoduls, aber nur in der Heizperiode. Gilt nur, solange das Heizungsmodul eingeschaltet ist.",
           "day_change_time": "Prüfung der Vorhersage und Zurücksetzen der Tagesmarker für Sonnenschutz und Benachrichtigungen.",
           "forecast_type": "Automatisch nimmt die erste Art, die die Wetter-Entität kann (täglich, zweimal täglich, stündlich). Aus stündlichen Werten werden Tageshöchst- und Nachttiefstwert berechnet."
         }
@@ -286,6 +288,7 @@
           "summer_threshold": "Sommertag ab Vorhersage-Höchsttemperatur",
           "night_threshold": "Später Sommertag nur bei Nacht ab",
           "heating_entity": "Heizbedarf",
+          "use_heating_day": "Heiztag der Heizung",
           "day_change_time": "Tageswechsel",
           "forecast_type": "Vorhersage-Art"
         },
@@ -293,6 +296,7 @@
           "summer_threshold": "Ohne Sommertag gibt es keinen Sonnenschutz. Tagsüber beginnt der Sommertag auch, wenn die Außentemperatur über diesen Wert steigt (siehe Nacht).",
           "night_threshold": "Wird der Tag erst durch die Außentemperatur zum Sommertag, zählt das nur, wenn der Vorhersage-Tiefstwert der kommenden Nacht mindestens so hoch ist. Kühlt es nachts ab (Frühling, Herbst), bleibt die Wärme im Haus. Ohne Tiefstwert in der Vorhersage gilt der Sommertag wie bisher.",
           "heating_entity": "Optional, z. B. ein input_boolean „Heizperiode“ oder der Heiztag einer Heizungssteuerung. Solange sie an ist, ist Sonnenwärme erwünscht: Sonnenschutz nur, wenn der Raum eines Fensters trotzdem zu warm ist. Fenster ohne Raumtemperatur werden dann nicht abgesenkt.",
+          "use_heating_day": "Ohne eigenen Heizbedarf: der Heiztag des Heizungsmoduls, aber nur in der Heizperiode. Gilt nur, solange das Heizungsmodul eingeschaltet ist.",
           "day_change_time": "Prüfung der Vorhersage und Zurücksetzen der Tagesmarker für Sonnenschutz und Benachrichtigungen.",
           "forecast_type": "Automatisch nimmt die erste Art, die die Wetter-Entität kann (täglich, zweimal täglich, stündlich). Aus stündlichen Werten werden Tageshöchst- und Nachttiefstwert berechnet."
         }
@@ -439,7 +443,7 @@
         },
         "data_description": {
           "vacation_entities": "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender).",
-          "vacation_temperature": "Sollwert für alle Bereiche im Urlaub (z. B. 17 °C).",
+          "vacation_temperature": "Sollwert für alle Räume im Urlaub (z. B. 17 °C).",
           "return_entity": "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist.",
           "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min)."
         }
@@ -455,7 +459,7 @@
           "force_on_below": "Immer heizen unter Sollwert um"
         },
         "data_description": {
-          "emergency_enabled": "An Tagen ohne Heizbetrieb darf ein Bereich trotzdem heizen, wenn die nach der Vorlaufzeit erwartete Temperatur lange und deutlich unter dem Sollwert liegt, ohne dass gelüftet wurde.",
+          "emergency_enabled": "An Tagen ohne Heizbetrieb darf ein Raum trotzdem heizen, wenn die nach der Vorlaufzeit erwartete Temperatur lange und deutlich unter dem Sollwert liegt, ohne dass gelüftet wurde.",
           "emergency_delta": "Wie weit die nach der Vorlaufzeit erwartete Temperatur unter dem Sollwert liegen muss (mindestens die Einschalthysterese).",
           "emergency_duration": "Wie lange die erwartete Temperatur so tief bleiben muss (z. B. 45 min).",
           "emergency_window_quiet": "Lüften zählt nicht: die Fenster dürfen sich so lange nicht verändert haben.",
@@ -464,7 +468,7 @@
       },
       "heating_ventilation": {
         "title": "Lüftung",
-        "description": "Schwellen der Lüftungsempfehlung. Sie sind Startwerte: Die KI-Lüftungsprüfung passt sie je Bereich anhand des gelernten Feuchteprofils jedes Raums an (Feuchte-Schwelle je Bereich).",
+        "description": "Schwellen der Lüftungsempfehlung. Sie sind Startwerte: Die KI-Lüftungsprüfung passt sie je Raum anhand des gelernten Feuchteprofils jedes Raums an (Feuchte-Schwelle je Raum).",
         "data": {
           "ventilation_min_ah_advantage": "Mindestvorteil absolute Feuchte",
           "ventilation_max_reference_excess": "Außen höchstens wärmer um",
@@ -480,7 +484,7 @@
           "ventilation_cooling_min_temp": "Kühlen erst ab Raumtemperatur",
           "night_start_hour": "Nacht beginnt um",
           "night_end_hour": "Nacht endet um",
-          "ventilation_ai_enabled": "KI passt Lüftung je Bereich an",
+          "ventilation_ai_enabled": "KI passt Lüftung je Raum an",
           "ventilation_check_interval": "Grundintervall Lüftungsprüfung",
           "ventilation_check_max_interval": "Höchstintervall Lüftungsprüfung"
         },
@@ -488,15 +492,15 @@
           "ventilation_min_ah_advantage": "Absolute Feuchte ist der Wassergehalt der Luft in g/m³, unabhängig von der Temperatur. Die Außenluft muss mindestens so viel weniger Wasser enthalten für 'Jetzt lüften' (z. B. 0,8 g/m³).",
           "ventilation_max_reference_excess": "Trocknen wird nicht empfohlen, wenn es außen um mehr als diesen Wert wärmer ist als innen.",
           "ventilation_min_cooling_advantage": "'Lüften sinnvoll', wenn es innen mindestens so viel wärmer ist als außen (nicht während Heizbetrieb).",
-          "ventilation_cooling_margin": "In der Heizperiode wird 'Lüften sinnvoll' (Kühlen) nur empfohlen, wenn der Raum mindestens so viel wärmer ist als sein Sollwert. Außerhalb der Heizperiode gilt das nicht. Bereiche ohne Heizkreis nutzen ihren Start-Sollwert.",
+          "ventilation_cooling_margin": "In der Heizperiode wird 'Lüften sinnvoll' (Kühlen) nur empfohlen, wenn der Raum mindestens so viel wärmer ist als sein Sollwert. Außerhalb der Heizperiode gilt das nicht. Räume ohne Heizkreis nutzen ihren Start-Sollwert.",
           "ventilation_cooling_min_temp": "'Lüften sinnvoll' (Kühlen) erst ab dieser Raumtemperatur, ganzjährig. 0 = aus. Zusätzlich wird Kühlen nie empfohlen, wenn die Außenluft die relative Feuchte des Raums über seine Feuchte-Schwelle bringen würde.",
           "night_start_hour": "Bei einem anderen Raum als Referenz zählt der Kühlvorteil nur nachts.",
           "night_end_hour": "Ende der Nacht (Uhrzeit, z. B. 08:00).",
-          "ventilation_ai_enabled": "Ganzjährig prüft die KI die Lüftungsschwellen jedes Bereichs mit Feuchtesensor: Sie lernt, was in jedem Raum üblich ist, wie tief die Feuchte überhaupt sinken kann und was Lüften wirklich bringt. Nutzt das gemeinsame KI-Monatsbudget.",
+          "ventilation_ai_enabled": "Ganzjährig prüft die KI die Lüftungsschwellen jedes Raums mit Feuchtesensor: Sie lernt, was in jedem Raum üblich ist, wie tief die Feuchte überhaupt sinken kann und was Lüften wirklich bringt. Nutzt das gemeinsame KI-Monatsbudget.",
           "ventilation_check_interval": "Erstes Intervall; es verdoppelt sich mit jeder Prüfung ohne relevante Änderung und beginnt von vorn, wenn ein Raum lange feucht bleibt oder sich ein Wert ändert.",
           "ventilation_check_max_interval": "Länger wird das Intervall nie.",
-          "ventilation_energy_rh_per_k": "Energiesparen: In der Heizperiode kostet Lüften Wärme, umso mehr, je kälter es draußen ist. Die Feuchte muss die Schwelle dann um so viel je Kelvin übersteigen, wie es draußen kälter ist als im Raum (z. B. 0,25 %/K: bei 21 °C innen und 1 °C außen 5 % mehr), höchstens bis 70 %; darüber wird gegen Schimmel immer gelüftet. 0 = aus. Startwert, die KI passt ihn je Bereich an.",
-          "ventilation_mould_rh": "Ab dieser relativen Feuchte wird immer zum Lüften geraten, auch bei Frost und direkt nach einer Lüftung; der Energiespar-Zuschlag geht nie darüber. Für Räume mit kalten Außenwänden niedriger setzen. Startwert, die KI passt ihn je Bereich an.",
+          "ventilation_energy_rh_per_k": "Energiesparen: In der Heizperiode kostet Lüften Wärme, umso mehr, je kälter es draußen ist. Die Feuchte muss die Schwelle dann um so viel je Kelvin übersteigen, wie es draußen kälter ist als im Raum (z. B. 0,25 %/K: bei 21 °C innen und 1 °C außen 5 % mehr), höchstens bis 70 %; darüber wird gegen Schimmel immer gelüftet. 0 = aus. Startwert, die KI passt ihn je Raum an.",
+          "ventilation_mould_rh": "Ab dieser relativen Feuchte wird immer zum Lüften geraten, auch bei Frost und direkt nach einer Lüftung; der Energiespar-Zuschlag geht nie darüber. Für Räume mit kalten Außenwänden niedriger setzen. Startwert, die KI passt ihn je Raum an.",
           "ventilation_airing_target_below": "Die vorgeschlagene Lüftdauer zielt so weit unter die Feuchte-Schwelle. Startwert für die KI.",
           "ventilation_airing_time_factor": "Skaliert die vorgeschlagene Lüftdauer. Sobald zwei Lüftungen ausgewertet sind, wird sie aus dem gelernten Luftaustausch des Raums und dem Temperaturunterschied berechnet, vorher aus der Außentemperatur (5 Minuten bei Frost bis 20 Minuten bei Wärme). Startwert für die KI.",
           "ventilation_airing_min_minutes": "Startwert für die KI.",
@@ -544,7 +548,7 @@
         },
         "data_description": {
           "theta": "Aktuelle Schwelle der Heiztag-Regel: liegt die Prognose-Höchsttemperatur darunter, wird geheizt. Eine Änderung ersetzt den gelernten Wert; danach wird von hier aus weiter gelernt.",
-          "too_cold_margin": "Bewertung: ein Bereich gilt als zu kalt unter Sollwert minus diesem Wert (Lüften ausgenommen).",
+          "too_cold_margin": "Bewertung: ein Raum gilt als zu kalt unter Sollwert minus diesem Wert (Lüften ausgenommen).",
           "too_cold_minutes": "Bewertung: so viele Minuten zu kalt bedeuten Heizbedarf."
         },
         "sections": {
@@ -560,7 +564,7 @@
             "data_description": {
               "theta_step_up": "Nach Fehler A, also wenn es an einem Tag ohne Heizen zu kalt wurde (z. B. 1,0 K).",
               "theta_step_down": "Nach Fehler B, also wenn geheizt wurde, obwohl es nicht nötig war (z. B. 1,0 K).",
-              "puffer_step_up": "Nach Fehler A für den kalten Bereich.",
+              "puffer_step_up": "Nach Fehler A für den kalten Raum.",
               "puffer_step_down": "Nach Fehler B."
             }
           },
@@ -815,31 +819,25 @@
       "step": {
         "user": {
           "title": "Raum",
-          "description": "Ein Bereich hat einen Heizkreis (oder keinen, nur für die Lüftungsempfehlung).",
+          "description": "Ein Raum des Hauses. Mit Temperatursensor bekommt er Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat. Fenster werden als Fenster angelegt und dort dem Raum zugeordnet.",
           "data": {
-            "name": "Name"
+            "name": "Name",
+            "area": "Bereich (Home Assistant)"
           },
           "data_description": {
-            "name": "Name des Bereichs, auch für das Gerät und seine Entitäten."
+            "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
+            "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
           },
           "sections": {
             "sensors": {
               "name": "Sensoren",
               "data": {
                 "temperature_sensor": "Temperatursensor",
-                "humidity_sensor": "Feuchtesensor",
-                "window_sensors_small": "Kleine Fenster",
-                "window_sensors": "Mittlere Fenster",
-                "window_sensors_large": "Große Fenster",
-                "door_sensors": "Türen (z. B. Balkontür)"
+                "humidity_sensor": "Feuchtesensor"
               },
               "data_description": {
-                "temperature_sensor": "Raumtemperatur des Bereichs.",
-                "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung.",
-                "window_sensors_small": "Fensterkontakte kleiner Fenster ('an' = offen), z. B. Dachfenster oder kleines Badfenster.",
-                "window_sensors": "Fensterkontakte normal großer Fenster ('an' = offen). Hier stehen die Fenster früherer Versionen.",
-                "window_sensors_large": "Fensterkontakte großer Fenster, z. B. zweiflügelige Fenster.",
-                "door_sensors": "Kontakte von Türen nach draußen, z. B. Balkon- oder Terrassentür. Die Größe bestimmt, wie schnell Lüften die Luft austauscht: Die vorgeschlagene Lüftdauer richtet sich danach, und zum Lüften wird die größte Öffnung vorgeschlagen."
+                "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
+                "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung."
               }
             },
             "heating": {
@@ -854,7 +852,7 @@
                 "heating_type": "Heizungsart"
               },
               "data_description": {
-                "heater_switch": "Schalter des Stellantriebs (z. B. ein Relais). Leer lassen für einen Bereich nur mit Lüftungsempfehlung.",
+                "heater_switch": "Schalter des Stellantriebs (z. B. ein Relais). Leer lassen für einen Raum nur mit Lüftungsempfehlung.",
                 "default_target": "Sollwert, bis du ihn an der Thermostatkarte änderst.",
                 "min_target": "Kleinster Wert der Thermostatkarte.",
                 "max_target": "Größter Wert der Thermostatkarte.",
@@ -865,7 +863,7 @@
             },
             "start_values": {
               "name": "Startwerte (werden gelernt)",
-              "description": "Nur beim Anlegen des Bereichs. Danach werden die gelernten Werte bearbeitet.",
+              "description": "Nur beim Anlegen des Raums. Danach werden die gelernten Werte bearbeitet.",
               "data": {
                 "window_delay": "Fensterverzögerung (Startwert)",
                 "recovery_time": "Erholungszeit nach Lüften (Startwert)",
@@ -876,7 +874,7 @@
                 "window_delay": "So lange offen pausiert die Heizung. Die KI darf den Wert anpassen.",
                 "recovery_time": "Nach dem Schließen wird so lange gewartet, weil Estrich und Wände den Raum oft selbst aufheizen. Wird danach gelernt.",
                 "dead_time": "Zeit vom Einschalten, bis der Raum wärmer wird; bei Fußbodenheizung oft 30-90 min, bei Heizkörpern 5-20 min. Wird danach gelernt.",
-                "puffer": "Heiztag-Regel: wie weit ein Bereich beim Nachtlauf über dem Sollwert liegen muss, um einen Tag ohne Heizen zu überstehen (z. B. 0,7 K). Wird danach gelernt."
+                "puffer": "Heiztag-Regel: wie weit ein Raum beim Nachtlauf über dem Sollwert liegen muss, um einen Tag ohne Heizen zu überstehen (z. B. 0,7 K). Wird danach gelernt."
               }
             },
             "ventilation": {
@@ -896,7 +894,7 @@
             },
             "draft": {
               "name": "Luftzug aus anderen Räumen",
-              "description": "Fenster anderer Räume, deren gemeinsames Öffnen auch diesen Bereich auskühlt (Querlüftung). Je Kombination die Fenster wählen, die zusammen offen sein müssen. Sobald alle Fenster einer Kombination offen sind, verhält sich der Bereich wie bei einem eigenen offenen Fenster: Die Heizung pausiert nach der Fensterverzögerung und wartet danach die Erholungszeit ab. Eine Kombination mit nur einem Fenster löst schon allein aus.",
+              "description": "Fenster anderer Räume, deren gemeinsames Öffnen auch diesen Raum auskühlt (Querlüftung). Je Kombination die Fenster wählen, die zusammen offen sein müssen. Sobald alle Fenster einer Kombination offen sind, verhält sich der Raum wie bei einem eigenen offenen Fenster: Die Heizung pausiert nach der Fensterverzögerung und wartet danach die Erholungszeit ab. Eine Kombination mit nur einem Fenster löst schon allein aus.",
               "data": {
                 "draft_group_1": "Kombination 1",
                 "draft_group_2": "Kombination 2",
@@ -906,36 +904,40 @@
               "data_description": {
                 "draft_group_1": "z. B. Kinderzimmer + Bad; eine zweite Kombination z. B. Kinderzimmer + Schlafzimmer."
               }
+            },
+            "sun_protection": {
+              "name": "Sonnenschutz",
+              "description": "Vorgaben für die Rollos der Fenster dieses Raums. Raumtemperatur und Sollwert kommen vom Temperatursensor und vom Thermostat des Raums, solange ein Fenster keine eigene Raumtemperatur hat.",
+              "data": {
+                "cooling_entity": "Klimaanlage"
+              },
+              "data_description": {
+                "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
+              }
             }
           }
         },
         "reconfigure": {
           "title": "Raum",
-          "description": "Ein Bereich hat einen Heizkreis (oder keinen, nur für die Lüftungsempfehlung).",
+          "description": "Ein Raum des Hauses. Mit Temperatursensor bekommt er Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat. Fenster werden als Fenster angelegt und dort dem Raum zugeordnet.",
           "data": {
-            "name": "Name"
+            "name": "Name",
+            "area": "Bereich (Home Assistant)"
           },
           "data_description": {
-            "name": "Name des Bereichs, auch für das Gerät und seine Entitäten."
+            "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
+            "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
           },
           "sections": {
             "sensors": {
               "name": "Sensoren",
               "data": {
                 "temperature_sensor": "Temperatursensor",
-                "humidity_sensor": "Feuchtesensor",
-                "window_sensors_small": "Kleine Fenster",
-                "window_sensors": "Mittlere Fenster",
-                "window_sensors_large": "Große Fenster",
-                "door_sensors": "Türen (z. B. Balkontür)"
+                "humidity_sensor": "Feuchtesensor"
               },
               "data_description": {
-                "temperature_sensor": "Raumtemperatur des Bereichs.",
-                "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung.",
-                "window_sensors_small": "Fensterkontakte kleiner Fenster ('an' = offen), z. B. Dachfenster oder kleines Badfenster.",
-                "window_sensors": "Fensterkontakte normal großer Fenster ('an' = offen). Hier stehen die Fenster früherer Versionen.",
-                "window_sensors_large": "Fensterkontakte großer Fenster, z. B. zweiflügelige Fenster.",
-                "door_sensors": "Kontakte von Türen nach draußen, z. B. Balkon- oder Terrassentür. Die Größe bestimmt, wie schnell Lüften die Luft austauscht: Die vorgeschlagene Lüftdauer richtet sich danach, und zum Lüften wird die größte Öffnung vorgeschlagen."
+                "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
+                "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung."
               }
             },
             "heating": {
@@ -950,7 +952,7 @@
                 "heating_type": "Heizungsart"
               },
               "data_description": {
-                "heater_switch": "Schalter des Stellantriebs (z. B. ein Relais). Leer lassen für einen Bereich nur mit Lüftungsempfehlung.",
+                "heater_switch": "Schalter des Stellantriebs (z. B. ein Relais). Leer lassen für einen Raum nur mit Lüftungsempfehlung.",
                 "default_target": "Sollwert, bis du ihn an der Thermostatkarte änderst.",
                 "min_target": "Kleinster Wert der Thermostatkarte.",
                 "max_target": "Größter Wert der Thermostatkarte.",
@@ -992,7 +994,7 @@
             },
             "draft": {
               "name": "Luftzug aus anderen Räumen",
-              "description": "Fenster anderer Räume, deren gemeinsames Öffnen auch diesen Bereich auskühlt (Querlüftung). Je Kombination die Fenster wählen, die zusammen offen sein müssen. Sobald alle Fenster einer Kombination offen sind, verhält sich der Bereich wie bei einem eigenen offenen Fenster: Die Heizung pausiert nach der Fensterverzögerung und wartet danach die Erholungszeit ab. Eine Kombination mit nur einem Fenster löst schon allein aus.",
+              "description": "Fenster anderer Räume, deren gemeinsames Öffnen auch diesen Raum auskühlt (Querlüftung). Je Kombination die Fenster wählen, die zusammen offen sein müssen. Sobald alle Fenster einer Kombination offen sind, verhält sich der Raum wie bei einem eigenen offenen Fenster: Die Heizung pausiert nach der Fensterverzögerung und wartet danach die Erholungszeit ab. Eine Kombination mit nur einem Fenster löst schon allein aus.",
               "data": {
                 "draft_group_1": "Kombination 1",
                 "draft_group_2": "Kombination 2",
@@ -1002,17 +1004,28 @@
               "data_description": {
                 "draft_group_1": "z. B. Kinderzimmer + Bad; eine zweite Kombination z. B. Kinderzimmer + Schlafzimmer."
               }
+            },
+            "sun_protection": {
+              "name": "Sonnenschutz",
+              "description": "Vorgaben für die Rollos der Fenster dieses Raums. Raumtemperatur und Sollwert kommen vom Temperatursensor und vom Thermostat des Raums, solange ein Fenster keine eigene Raumtemperatur hat.",
+              "data": {
+                "cooling_entity": "Klimaanlage"
+              },
+              "data_description": {
+                "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
+              }
             }
           }
         }
       },
       "error": {
         "name_required": "Bitte einen Namen angeben.",
-        "name_in_use": "Ein anderer Bereich heißt schon so. Bitte einen eindeutigen Namen wählen (Export und Import finden Bereiche über den Namen).",
-        "switch_in_use": "Dieser Schalter steuert bereits einen anderen Raum. Jeder Heizkreis gehört zu genau einem Bereich: wähle einen anderen Schalter oder entferne ihn zuerst aus dem anderen Bereich.",
+        "name_in_use": "Ein anderer Raum heißt schon so. Bitte einen eindeutigen Namen wählen (Export und Import finden Räume über den Namen).",
+        "switch_in_use": "Dieser Schalter steuert bereits einen anderen Raum. Jeder Heizkreis gehört zu genau einem Raum: wähle einen anderen Schalter oder entferne ihn zuerst aus dem anderen Raum.",
         "min_above_max": "Der kleinste Sollwert muss kleiner sein als der größte. Bitte einen der beiden Werte ändern (beide in °C).",
         "target_out_of_range": "Der Start-Sollwert muss zwischen dem kleinsten und dem größten Sollwert liegen. Bitte ihn oder die Grenzen anpassen.",
-        "reference_incomplete": "Referenztemperatur und Referenzfeuchte gehen nur zusammen: beide Sensoren wählen oder keinen."
+        "reference_incomplete": "Referenztemperatur und Referenzfeuchte gehen nur zusammen: beide Sensoren wählen oder keinen.",
+        "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor."
       }
     },
     "group": {
@@ -1090,6 +1103,8 @@
           "title": "Fenster",
           "data": {
             "name": "Name",
+            "room": "Raum",
+            "size": "Größe",
             "cover": "Rollo",
             "window_sensors": "Fensterkontakte",
             "tilt_sensors": "Kipp-Kontakte",
@@ -1097,8 +1112,10 @@
           },
           "data_description": {
             "name": "Wird auch für das Gerät und seine Entitäten verwendet.",
-            "cover": "100 % = offen, 0 % = zu.",
-            "window_sensors": "'on' = offen. Fenstergriffe mit den Zuständen open, tilted und closed gehen auch. Unbekannt oder nicht verfügbar zählt als offen.",
+            "room": "Optional. Die Heizung des Raums nutzt die Kontakte des Fensters; das Rollo nimmt Raumtemperatur und Klimaanlage des Raums.",
+            "size": "Wie schnell Lüften die Luft austauscht: Die vorgeschlagene Lüftdauer richtet sich danach, und zum Lüften wird die größte Öffnung vorgeschlagen. Die Größe gilt für jeden Kontakt des Fensters.",
+            "cover": "Optional. 100 % = offen, 0 % = zu. Ohne Rollo dient das Fenster nur der Heizung.",
+            "window_sensors": "'on' = offen. Fenstergriffe mit den Zuständen open, tilted und closed gehen auch. Unbekannt oder nicht verfügbar zählt als offen. Ein Kontakt gehört zu genau einem Fenster.",
             "tilt_sensors": "'on' = gekippt. Solange das Fenster nur gekippt ist, schließen die Rollos höchstens bis zur Lüftungsposition.",
             "group": "Himmelsrichtung. Ohne Gruppe hat das Fenster keinen Sonnenschutz."
           }
@@ -1338,7 +1355,10 @@
         "need_temperature_source": "Bitte einen Außentemperatur-Sensor oder eine Wetter-Entität wählen; ohne Temperatur gibt es keinen Sommertag.",
         "not_numeric": "Diese Entität meldet keinen Zahlenwert. Bitte einen Sensor mit Messwert wählen (z. B. °C, lx, W, W/m²).",
         "invalid_notify_service": "Nur Benachrichtigungsdienste (notify.…) sind erlaubt. Bitte einen Dienst aus der Liste wählen.",
-        "cover_in_use": "Dieses Rollo wird schon von einem anderen Fenster gesteuert. Bitte ein anderes Rollo wählen oder das andere Fenster ändern."
+        "cover_in_use": "Dieses Rollo wird schon von einem anderen Fenster gesteuert. Bitte ein anderes Rollo wählen oder das andere Fenster ändern.",
+        "contact_in_use": "Dieser Kontakt gehört schon zu einem anderen Fenster. Jeder Kontakt gehört zu genau einem Fenster, sonst zählte eine Öffnung doppelt.",
+        "contact_or_cover_required": "Bitte einen Fensterkontakt oder ein Rollo wählen; ohne beides tut das Fenster nichts.",
+        "unknown_room": "Diesen Raum gibt es nicht mehr. Bitte einen anderen wählen."
       },
       "abort": {
         "reconfigure_successful": "Änderungen gespeichert."
@@ -1445,12 +1465,14 @@
               "data": {
                 "interval": "Intervall",
                 "condition_entity": "Bedingung",
+                "condition_heating_day": "Tage ohne Heizen wie Bedingung aus",
                 "interval_off": "Intervall, wenn die Bedingung aus ist"
               },
               "data_description": {
                 "interval": "Zeit zwischen zwei automatischen Ablesungen.",
                 "condition_entity": "Optional. Solange diese Entität 'aus' ist, gilt das zweite Intervall (z. B. ein Heiztag-Sensor).",
-                "interval_off": "Nur zusammen mit einer Bedingung."
+                "condition_heating_day": "Das zweite Intervall gilt auch an Tagen ohne Heizen (Heiztag des Heizungsmoduls, nur in der Heizperiode). Ist die Heizung aus oder der Heiztag unbekannt, gilt das normale Intervall.",
+                "interval_off": "Nur zusammen mit einer Bedingung oder den Tagen ohne Heizen."
               }
             },
             "checks_section": {
@@ -1637,11 +1659,40 @@
     }
   },
   "selector": {
-    "modules": {
+    "effort": {
       "options": {
-        "heating": "Heizung",
-        "shutter": "Rollos",
-        "meter": "Zähler"
+        "auto": "Auto (Modell-Standard)",
+        "low": "Niedrig",
+        "medium": "Mittel",
+        "high": "Hoch"
+      }
+    },
+    "external_light_mode": {
+      "options": {
+        "capture": "Nur während der Aufnahme",
+        "permanent": "Dauerlicht"
+      }
+    },
+    "forecast_type": {
+      "options": {
+        "auto": "Automatisch",
+        "daily": "Täglich",
+        "twice_daily": "Zweimal täglich",
+        "hourly": "Stündlich"
+      }
+    },
+    "heating_type": {
+      "options": {
+        "underfloor": "Fußbodenheizung",
+        "radiator": "Heizkörper",
+        "other": "Andere (z. B. Wandheizung)"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Wie Home Assistant",
+        "de": "Deutsch",
+        "en": "English"
       }
     },
     "meter_type": {
@@ -1653,17 +1704,27 @@
         "other": "Anderer Zähler"
       }
     },
-    "external_light_mode": {
+    "modules": {
       "options": {
-        "capture": "Nur während der Aufnahme",
-        "permanent": "Dauerlicht"
+        "heating": "Heizung",
+        "shutter": "Rollos",
+        "meter": "Zähler"
       }
     },
-    "language": {
+    "month": {
       "options": {
-        "auto": "Wie Home Assistant",
-        "de": "Deutsch",
-        "en": "English"
+        "1": "Januar",
+        "2": "Februar",
+        "3": "März",
+        "4": "April",
+        "5": "Mai",
+        "6": "Juni",
+        "7": "Juli",
+        "8": "August",
+        "9": "September",
+        "10": "Oktober",
+        "11": "November",
+        "12": "Dezember"
       }
     },
     "morning_mode": {
@@ -1686,6 +1747,16 @@
         "command": "Bei jedem Befehl von Hand, auch ohne Fahrt"
       }
     },
+    "service_action": {
+      "options": {
+        "open": "Öffnen",
+        "close": "Schließen",
+        "evening": "Abendposition",
+        "sun_protection": "Sonnenschutz-Position",
+        "ventilation": "Lüftungsposition",
+        "position": "Position"
+      }
+    },
     "weekday": {
       "options": {
         "mon": "Montag",
@@ -1697,53 +1768,12 @@
         "sun": "Sonntag"
       }
     },
-    "forecast_type": {
+    "window_size": {
       "options": {
-        "auto": "Automatisch",
-        "daily": "Täglich",
-        "twice_daily": "Zweimal täglich",
-        "hourly": "Stündlich"
-      }
-    },
-    "service_action": {
-      "options": {
-        "open": "Öffnen",
-        "close": "Schließen",
-        "evening": "Abendposition",
-        "sun_protection": "Sonnenschutz-Position",
-        "ventilation": "Lüftungsposition",
-        "position": "Position"
-      }
-    },
-    "effort": {
-      "options": {
-        "auto": "Auto (Modell-Standard)",
-        "low": "Niedrig",
+        "small": "Klein (z. B. Dachfenster)",
         "medium": "Mittel",
-        "high": "Hoch"
-      }
-    },
-    "heating_type": {
-      "options": {
-        "underfloor": "Fußbodenheizung",
-        "radiator": "Heizkörper",
-        "other": "Andere (z. B. Wandheizung)"
-      }
-    },
-    "month": {
-      "options": {
-        "1": "Januar",
-        "2": "Februar",
-        "3": "März",
-        "4": "April",
-        "5": "Mai",
-        "6": "Juni",
-        "7": "Juli",
-        "8": "August",
-        "9": "September",
-        "10": "Oktober",
-        "11": "November",
-        "12": "Dezember"
+        "large": "Groß (z. B. zweiflügelig)",
+        "door": "Tür (z. B. Balkontür)"
       }
     }
   },
@@ -2094,8 +2124,8 @@
       "description": "Liefert gelernte Werte und Parameter als JSON (z. B. zum Sichern oder Übertragen).",
       "fields": {
         "entity_id": {
-          "name": "Bereiche",
-          "description": "Thermostate der Bereiche. Leer = alle."
+          "name": "Räume",
+          "description": "Thermostate der Räume. Leer = alle."
         }
       }
     },
@@ -2108,18 +2138,18 @@
           "description": "JSON-Objekt wie vom Export erzeugt."
         },
         "entity_id": {
-          "name": "Bereiche",
-          "description": "Nur diese Bereiche importieren. Leer = alle aus den Daten."
+          "name": "Räume",
+          "description": "Nur diese Räume importieren. Leer = alle aus den Daten."
         }
       }
     },
     "reset_learned": {
       "name": "Gelernte Werte zurücksetzen",
-      "description": "Setzt die gelernten Werte der gewählten Bereiche auf die Startwerte zurück.",
+      "description": "Setzt die gelernten Werte der gewählten Räume auf die Startwerte zurück.",
       "fields": {
         "entity_id": {
-          "name": "Bereiche",
-          "description": "Thermostate der Bereiche."
+          "name": "Räume",
+          "description": "Thermostate der Räume."
         },
         "include_parameters": {
           "name": "Auch Parameter zurücksetzen",

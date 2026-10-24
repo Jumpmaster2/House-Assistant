@@ -20,6 +20,7 @@ from custom_components.house_assistant.heating.const import (
     DOMAIN,
     MODULE_HEATING,
     SUBENTRY_ROOM,
+    SUBENTRY_WINDOW,
 )
 from custom_components.house_assistant.heating.logic.ai_schema import default_limits
 
@@ -76,9 +77,53 @@ async def base_states(hass: HomeAssistant, freezer) -> None:
     await hass.async_block_till_done()
 
 
+# contact fields of a former heating area -> size of the window made of them
+WINDOW_SIZES = {
+    "window_sensors_small": "small",
+    "window_sensors": "medium",
+    "window_sensors_large": "large",
+    "door_sensors": "door",
+}
+
+
+def room_subentries(areas: list[dict]) -> list[ConfigSubentryData]:
+    """Rooms (ids room_1, room_2, ...) and their windows from area data in the former
+    form: every contact becomes a window of the room with the size of its field."""
+    subentries: list[ConfigSubentryData] = []
+    for index, area in enumerate(areas, 1):
+        room_id = f"room_{index}"
+        subentries.append(
+            ConfigSubentryData(
+                data={k: v for k, v in area.items() if k not in WINDOW_SIZES},
+                subentry_id=room_id,
+                subentry_type=SUBENTRY_ROOM,
+                title=area["name"],
+                unique_id=None,
+            )
+        )
+        for key, size in WINDOW_SIZES.items():
+            for number, contact in enumerate(area.get(key) or [], 1):
+                title = f"{area['name']} {size} {number}"
+                subentries.append(
+                    ConfigSubentryData(
+                        data={
+                            "name": title,
+                            "room": room_id,
+                            "size": size,
+                            "window_sensors": [contact],
+                        },
+                        subentry_id=f"{room_id}_{size}_{number}",
+                        subentry_type=SUBENTRY_WINDOW,
+                        title=title,
+                        unique_id=None,
+                    )
+                )
+    return subentries
+
+
 def make_entry(api_key: str = "", areas: list[dict] | None = None, **options) -> MockConfigEntry:
     """Config entry of the house with the heating: one room with a circuit and one only
-    for the ventilation advice."""
+    for the ventilation advice, the window contacts as windows of the rooms."""
     areas = [AREA_DATA, VENT_ONLY_DATA] if areas is None else areas
     return MockConfigEntry(
         domain=DOMAIN,
@@ -94,12 +139,7 @@ def make_entry(api_key: str = "", areas: list[dict] | None = None, **options) ->
                 **options,
             },
         },
-        subentries_data=[
-            ConfigSubentryData(
-                data=area, subentry_type=SUBENTRY_ROOM, title=area["name"], unique_id=None
-            )
-            for area in areas
-        ],
+        subentries_data=room_subentries(areas),
     )
 
 

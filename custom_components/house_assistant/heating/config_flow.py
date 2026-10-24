@@ -17,6 +17,7 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_API_KEY
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
+    AreaSelector,
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
@@ -32,7 +33,8 @@ from homeassistant.helpers.selector import (
     TimeSelector,
 )
 
-from ..runtime import module_options
+from ..core.house import CONF_AREA, CONF_COOLING_ENTITY
+from ..runtime import enabled_modules, module_options
 from .ai_client import AiAuthError, AiError, ClaudeClient
 
 if TYPE_CHECKING:
@@ -49,7 +51,6 @@ from .const import (
     CONF_CHECK_MAX_INTERVAL,
     CONF_DEAD_TIME,
     CONF_DEFAULT_TARGET,
-    CONF_DOORS,
     CONF_DRAFT_GROUPS,
     CONF_EMERGENCY_DELTA,
     CONF_EMERGENCY_DURATION,
@@ -122,9 +123,6 @@ from .const import (
     CONF_VENT_TIME_FACTOR,
     CONF_WEATHER,
     CONF_WINDOW_DELAY,
-    CONF_WINDOWS,
-    CONF_WINDOWS_LARGE,
-    CONF_WINDOWS_SMALL,
     DEFAULTS,
     EFFORT_OPTIONS,
     HEATING_TYPES,
@@ -132,11 +130,13 @@ from .const import (
     MODEL_OPTIONS,
     MODEL_PRICE_SUGGESTIONS,
     MODULE_HEATING,
+    MODULE_SHUTTER,
     SECTION_DRAFT,
     SECTION_HEATING,
     SECTION_LEARNED,
     SECTION_SENSORS,
     SECTION_START,
+    SECTION_SUN,
     SECTION_VENTILATION,
     SOUTHERN_SEASON,
     SUBENTRY_ROOM,
@@ -813,91 +813,91 @@ def area_schema(
     v: dict[str, Any],
     learned: dict[str, float] | None = None,
     ranges: dict[str, tuple[float, float]] | None = None,
+    heating: bool = True,
+    covers: bool = True,
 ) -> vol.Schema:
-    """Form of a heating area. Start values only when it is created: an existing area
-    shows the learned values instead (``learned``, omitted when unknown)."""
+    """Form of a room. Name, Home Assistant area and sensors always; the sections of the
+    heating with the heating module, the air conditioner with the covers. Start values
+    only when the room is created: an existing room shows the learned values instead
+    (``learned``, omitted when unknown). The windows of a room are entered as windows."""
 
     def req(key: str) -> vol.Required:
         return vol.Required(key, default=v.get(key, AREA_DEFAULTS.get(key)))
 
-    # stored combinations (or those of version 1.1.0), filled up to all fields
-    drafts = draft_groups(v)
-    drafts += [[] for _ in range(len(CONF_DRAFT_GROUPS) - len(drafts))]
-    return vol.Schema(
-        {
-            vol.Required(CONF_AREA_NAME, default=v.get(CONF_AREA_NAME, "")): TextSelector(),
-            vol.Required(SECTION_SENSORS): section(
-                vol.Schema(
-                    {
-                        vol.Required(CONF_TEMP_SENSOR, default=v.get(CONF_TEMP_SENSOR)): _sensor(
-                            "temperature", TEMP_UNITS
-                        ),
-                        _opt_entity(CONF_HUMIDITY_SENSOR, v): _sensor("humidity", HUMIDITY_UNITS),
-                        **{
-                            vol.Optional(key, default=v.get(key, [])): _entity(
-                                ["binary_sensor", "input_boolean"],
-                                multiple=True,
+    fields: dict[Any, Any] = {
+        vol.Required(CONF_AREA_NAME, default=v.get(CONF_AREA_NAME, "")): TextSelector(),
+        _opt_entity(CONF_AREA, v): AreaSelector(),
+        vol.Required(SECTION_SENSORS): section(
+            vol.Schema(
+                {
+                    _opt_entity(CONF_TEMP_SENSOR, v): _sensor("temperature", TEMP_UNITS),
+                    _opt_entity(CONF_HUMIDITY_SENSOR, v): _sensor("humidity", HUMIDITY_UNITS),
+                }
+            ),
+            {"collapsed": False},
+        ),
+    }
+    if heating:
+        # stored combinations (or those of version 1.1.0), filled up to all fields
+        drafts = draft_groups(v)
+        drafts += [[] for _ in range(len(CONF_DRAFT_GROUPS) - len(drafts))]
+        fields.update(
+            {
+                vol.Required(SECTION_HEATING): section(
+                    vol.Schema(
+                        {
+                            _opt_entity(CONF_SWITCH, v): _entity(["switch", "input_boolean"]),
+                            req(CONF_DEFAULT_TARGET): _number(5, 30, 0.1, "°C"),
+                            req(CONF_MIN_TARGET): _number(5, 30, 0.5, "°C"),
+                            req(CONF_MAX_TARGET): _number(5, 30, 0.5, "°C"),
+                            req(CONF_MIN_ON): _number(0, 120, 1, "min"),
+                            req(CONF_MIN_OFF): _number(0, 120, 1, "min"),
+                            req(CONF_HEATING_TYPE): SelectSelector(
+                                SelectSelectorConfig(
+                                    options=list(HEATING_TYPES),
+                                    translation_key="heating_type",
+                                    mode=SelectSelectorMode.DROPDOWN,
+                                )
+                            ),
+                        }
+                    ),
+                    {"collapsed": False},
+                ),
+                **(_start_section(v) if learned is None else _learned_section(learned, ranges)),
+                vol.Required(SECTION_VENTILATION): section(
+                    vol.Schema(
+                        {
+                            req(CONF_VENT_RH): _number(30, 95, 1, "%"),
+                            _opt_entity(CONF_REF_TEMP, v): _sensor("temperature", TEMP_UNITS),
+                            _opt_entity(CONF_REF_HUMIDITY, v): _sensor("humidity", HUMIDITY_UNITS),
+                            # any domain stays valid; the dialog offers the ones judged
+                            # by their state (see logic.ventilation.is_blocking)
+                            _opt_entity(CONF_VENT_BLOCK, v): _entity(
+                                filters=[{"domain": list(BLOCK_DOMAINS)}]
+                            ),
+                        }
+                    ),
+                    {"collapsed": True},
+                ),
+                vol.Required(SECTION_DRAFT): section(
+                    vol.Schema(
+                        {
+                            vol.Optional(key, default=group): _entity(
+                                ["binary_sensor", "input_boolean"], multiple=True
                             )
-                            for key in (
-                                CONF_WINDOWS_SMALL,
-                                CONF_WINDOWS,
-                                CONF_WINDOWS_LARGE,
-                                CONF_DOORS,
-                            )
-                        },
-                    }
+                            for key, group in zip(CONF_DRAFT_GROUPS, drafts, strict=True)
+                        }
+                    ),
+                    {"collapsed": not any(drafts)},
                 ),
-                {"collapsed": False},
-            ),
-            vol.Required(SECTION_HEATING): section(
-                vol.Schema(
-                    {
-                        _opt_entity(CONF_SWITCH, v): _entity(["switch", "input_boolean"]),
-                        req(CONF_DEFAULT_TARGET): _number(5, 30, 0.1, "°C"),
-                        req(CONF_MIN_TARGET): _number(5, 30, 0.5, "°C"),
-                        req(CONF_MAX_TARGET): _number(5, 30, 0.5, "°C"),
-                        req(CONF_MIN_ON): _number(0, 120, 1, "min"),
-                        req(CONF_MIN_OFF): _number(0, 120, 1, "min"),
-                        req(CONF_HEATING_TYPE): SelectSelector(
-                            SelectSelectorConfig(
-                                options=list(HEATING_TYPES),
-                                translation_key="heating_type",
-                                mode=SelectSelectorMode.DROPDOWN,
-                            )
-                        ),
-                    }
-                ),
-                {"collapsed": False},
-            ),
-            **(_start_section(v) if learned is None else _learned_section(learned, ranges)),
-            vol.Required(SECTION_VENTILATION): section(
-                vol.Schema(
-                    {
-                        req(CONF_VENT_RH): _number(30, 95, 1, "%"),
-                        _opt_entity(CONF_REF_TEMP, v): _sensor("temperature", TEMP_UNITS),
-                        _opt_entity(CONF_REF_HUMIDITY, v): _sensor("humidity", HUMIDITY_UNITS),
-                        # any domain stays valid; the dialog offers the ones judged by
-                        # their state (see logic.ventilation.is_blocking)
-                        _opt_entity(CONF_VENT_BLOCK, v): _entity(
-                            filters=[{"domain": list(BLOCK_DOMAINS)}]
-                        ),
-                    }
-                ),
-                {"collapsed": True},
-            ),
-            vol.Required(SECTION_DRAFT): section(
-                vol.Schema(
-                    {
-                        vol.Optional(key, default=group): _entity(
-                            ["binary_sensor", "input_boolean"], multiple=True
-                        )
-                        for key, group in zip(CONF_DRAFT_GROUPS, drafts, strict=True)
-                    }
-                ),
-                {"collapsed": not any(drafts)},
-            ),
-        }
-    )
+            }
+        )
+    if covers:
+        fields[vol.Required(SECTION_SUN)] = section(
+            vol.Schema({_opt_entity(CONF_COOLING_ENTITY, v): _entity(["climate"])}),
+            {"collapsed": not v.get(CONF_COOLING_ENTITY)},
+        )
+    return vol.Schema(fields)
 
 
 def _start_section(v: dict[str, Any]) -> dict[Any, Any]:
@@ -931,6 +931,14 @@ def _learned_section(
     }
 
 
+def _fields_of(schema: vol.Schema) -> list[str]:
+    """Keys of a form, sections flattened."""
+    keys: list[str] = []
+    for marker, value in schema.schema.items():
+        keys.extend(_fields_of(value.schema) if isinstance(value, section) else [str(marker)])
+    return keys
+
+
 def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
     flat: dict[str, Any] = {CONF_AREA_NAME: str(user_input.get(CONF_AREA_NAME, "")).strip()}
     for key in (
@@ -939,6 +947,7 @@ def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
         SECTION_START,
         SECTION_VENTILATION,
         SECTION_DRAFT,
+        SECTION_SUN,
     ):
         flat.update(user_input.get(key) or {})
     return _clean(flat)
@@ -966,14 +975,17 @@ def _name_key(name: Any) -> str:
 
 
 def validate_area(data: dict[str, Any], others: Sequence[ConfigSubentry] = ()) -> dict[str, str]:
-    """Errors of an area form, against the other areas of the entry. One error is
-    shown at a time, in this order: name, switch, targets, reference."""
+    """Errors of a room form, against the other rooms of the entry. One error is
+    shown at a time, in this order: name, sensor, switch, targets, reference."""
     errors: dict[str, str] = {}
     if not data.get(CONF_AREA_NAME):
         errors[CONF_AREA_NAME] = "name_required"
     elif _name_key(data[CONF_AREA_NAME]) in {_name_key(o.title) for o in others}:
         # export and import find an area by its name
         errors[CONF_AREA_NAME] = "name_in_use"
+    if (data.get(CONF_SWITCH) or data.get(CONF_HUMIDITY_SENSOR)) and not data.get(CONF_TEMP_SENSOR):
+        # heating and ventilation advice work with the room temperature
+        errors.setdefault("base", "temperature_required")
     used_switches = {o.data[CONF_SWITCH] for o in others if o.data.get(CONF_SWITCH)}
     if data.get(CONF_SWITCH) and data[CONF_SWITCH] in used_switches:
         # two areas switching one circuit would work against each other
@@ -991,6 +1003,10 @@ def validate_area(data: dict[str, Any], others: Sequence[ConfigSubentry] = ()) -
 class RoomSubentryFlow(ConfigSubentryFlow):
     """Add or change one room (formerly a heating area)."""
 
+    def _modules(self) -> dict[str, bool]:
+        modules = enabled_modules(self._get_entry())
+        return {"heating": MODULE_HEATING in modules, "covers": MODULE_SHUTTER in modules}
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         errors: dict[str, str] = {}
         values: dict[str, Any] = {}
@@ -999,7 +1015,9 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             errors = validate_area(values, other_areas(self._get_entry()))
             if not errors:
                 return self.async_create_entry(title=values[CONF_AREA_NAME], data=values)
-        return self.async_show_form(step_id="user", data_schema=area_schema(values), errors=errors)
+        return self.async_show_form(
+            step_id="user", data_schema=area_schema(values, **self._modules()), errors=errors
+        )
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
@@ -1016,8 +1034,11 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         values = {CONF_AREA_NAME: subentry.title, **subentry.data}
         if user_input is not None:
             edited = user_input.pop(SECTION_LEARNED, None) or {}
-            # the start values were set when the area was created and stay as they are
-            values = {**_flatten(user_input), **keep_start_values(subentry.data)}
+            # the start values were set when the room was created and stay as they are;
+            # values of a module switched off stay as well
+            shown = set(_fields_of(area_schema(values, **self._modules())))
+            kept = {k: v for k, v in subentry.data.items() if k not in shown}
+            values = {**kept, **_flatten(user_input), **keep_start_values(subentry.data)}
             errors = validate_area(values, other_areas(entry, subentry.subentry_id))
             if not errors:
                 if coordinator is not None and edited:
@@ -1027,6 +1048,6 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 )
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=area_schema(values, learned, ranges),
+            data_schema=area_schema(values, learned, ranges, **self._modules()),
             errors=errors,
         )

@@ -21,7 +21,7 @@ const UI = {
       advanced: ["Erweitert", "Selten benötigte Einstellungen."],
       evening: ["Abendmodus", "Schließt die Rollos einmal und sperrt Auto-Hoch. Fenster können eigene Zeiten haben."],
       vacation: ["Urlaubssimulation", "Solange Urlaub ist, öffnen die Fenster morgens und schließen abends zu zufälligen Zeiten."],
-      w_basics: ["Fenster", "Rollo, Fensterkontakte und Himmelsrichtung."],
+      w_basics: ["Fenster", "Raum, Größe, Rollo, Fensterkontakte und Himmelsrichtung."],
       w_sun: ["Sonnenschutz", "Schwellen, Haltezeiten, Position und Auto-Hoch."],
       w_manual: ["Manuellen Sonnenschutz erkennen", "Ein bei Sonne von Hand heruntergefahrenes Rollo gilt als Sonnenschutz für heute."],
       w_evening: ["Abend", "Abendlauf, Nachziehen und eigene Abendzeiten."],
@@ -178,7 +178,7 @@ const UI = {
       advanced: ["Advanced", "Settings that are rarely needed."],
       evening: ["Evening mode", "Closes the covers once and blocks auto up. Windows can use own times."],
       vacation: ["Vacation simulation", "While vacation is active, the windows open in the morning and close in the evening at random times."],
-      w_basics: ["Window", "Cover, window contacts and sun direction."],
+      w_basics: ["Window", "Room, size, cover, window contacts and sun direction."],
       w_sun: ["Sun protection", "Thresholds, hold times, position and auto up."],
       w_manual: ["Detect manual sun protection", "A cover lowered by hand while the sun shines counts as sun protection for today."],
       w_evening: ["Evening", "Evening run, closing after the window is closed and own evening times."],
@@ -339,7 +339,7 @@ const SETTINGS = {
   general: [
     { id: "sensors", icon: "mdi:thermometer", fields: ["outdoor_temperature", "weather", "language", "notify_services", "workday_entity", "weekend_days"] },
     { id: "override", icon: "mdi:hand-back-right-outline", fields: ["override_trigger"] },
-    { id: "summer", icon: "mdi:white-balance-sunny", fields: ["summer_threshold", "night_threshold", "heating_entity", "day_change_time", "forecast_type"] },
+    { id: "summer", icon: "mdi:white-balance-sunny", fields: ["summer_threshold", "night_threshold", "heating_entity", "use_heating_day", "day_change_time", "forecast_type"] },
     { id: "startup", icon: "mdi:restart", fields: ["startup_delay", "catch_up_after"] },
     { id: "protection", icon: "mdi:weather-windy", fields: ["wind_entity", "wind_threshold", "rain_entity", "rain_threshold", "frost_threshold", "protection_release"] },
     { id: "advanced", icon: "mdi:cog-outline", fields: ["window_closed_delay", "command_interval", "verify_after"] },
@@ -369,7 +369,7 @@ const MORNING_MODE_FIELDS = {
 
 // Window editor: cards with the fields that apply for the current values
 const WINDOW_CARDS = [
-  { id: "w_basics", icon: "mdi:window-shutter-cog", fields: () => ["name", "cover", "window_sensors", "tilt_sensors", "group", "wall", "wall_position"] },
+  { id: "w_basics", icon: "mdi:window-shutter-cog", fields: () => ["name", "room", "size", "cover", "window_sensors", "tilt_sensors", "group", "wall", "wall_position"] },
   {
     id: "w_sun",
     icon: "mdi:sun-angle-outline",

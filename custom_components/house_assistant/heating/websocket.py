@@ -48,7 +48,6 @@ from .const import (
     CONF_PROMPTS,
     CONF_SEASON_END,
     CONF_SEASON_START,
-    CONF_TEMP_SENSOR,
     CONF_VENT_CHECK_INTERVAL,
     CONF_VENT_CHECK_MAX_INTERVAL,
     CONF_WEATHER,
@@ -63,6 +62,7 @@ from .logic.ai_schema import ALL_PARAMS, VENT_PARAMS, default_limits
 from .logic.draft import LEGACY_MODE, LEGACY_WINDOWS, draft_groups
 from .logic.physics import parse_day_month
 from .logic.prompts import PromptError, clean_prompts, prompt_defaults
+from .logic.windows import WINDOW_FIELDS
 from .sensor import AREA_SENSORS
 
 PREFIX = f"{DOMAIN}/{MODULE_HEATING}"
@@ -252,8 +252,8 @@ def apply_options(current: dict[str, Any], changes: dict[str, Any]) -> dict[str,
 def area_data(
     title: str, data: dict[str, Any], others: Sequence[ConfigSubentry] = ()
 ) -> dict[str, Any]:
-    """Validated data of a heating area; raises PanelError. ``others`` are the other
-    areas of the entry (names and switches must differ)."""
+    """Validated data of a room; raises PanelError. ``others`` are the other rooms of
+    the entry (names and switches must differ)."""
     fields = area_fields()
     title = title.strip()
     values: dict[str, Any] = {}
@@ -268,8 +268,6 @@ def area_data(
         if coerced is not None:
             values[key] = coerced
     values = {**AREA_DEFAULTS, CONF_AREA_NAME: title, **values}
-    if not values.get(CONF_TEMP_SENSOR):
-        raise PanelError("required", CONF_TEMP_SENSOR)
     errors = validate_area(values, others)
     if error := errors.get(CONF_AREA_NAME):
         raise PanelError(error)
@@ -505,8 +503,13 @@ def ws_save_area(
         return
     title = data[CONF_AREA_NAME]
     if subentry is not None:
-        # the start values were set when the area was created and stay as they are
-        data = {k: v for k, v in data.items() if k not in START_KEYS}
+        # the start values were set when the room was created and stay as they are,
+        # values the form does not have as well
+        # (not the contacts of earlier versions, they are windows now, nor the
+        # combinations of version 1.1.0, they are the draft fields now)
+        dropped = {*area_fields(), *WINDOW_FIELDS, LEGACY_WINDOWS, LEGACY_MODE}
+        kept = {k: v for k, v in subentry.data.items() if k not in dropped}
+        data = {**kept, **{k: v for k, v in data.items() if k not in START_KEYS}}
         data.update(keep_start_values(subentry.data))
         if learned:
             coordinator.set_learned(subentry.subentry_id, learned)

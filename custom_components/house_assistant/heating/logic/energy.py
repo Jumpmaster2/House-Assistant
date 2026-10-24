@@ -72,15 +72,16 @@ class HeatMeter:
         if kelvin_hours > 0:
             self.demand_kh += kelvin_hours
 
-    def update(self, kwh: float, ts: float) -> bool:
+    def update(self, kwh: float, ts: float, corrected: bool = False) -> bool:
         """Take a meter value. Returns True if it is a new reading.
 
         A falling value means a reset or a new meter: every baseline starts again
-        from it, the consumption until then is lost.
+        from it, the consumption until then is lost. A confirmed correction of a wrong
+        reading (``corrected``) is no reset: the periods keep their start.
         """
         if self.last is not None and abs(kwh - self.last.kwh) < EPS:
             return False
-        reset = self.last is not None and kwh < self.last.kwh
+        reset = self.last is not None and kwh < self.last.kwh and not corrected
         self.last = Reading(kwh, ts, self.demand_kh)
         if reset:
             self.baselines = dict.fromkeys(self.baselines, self.last)

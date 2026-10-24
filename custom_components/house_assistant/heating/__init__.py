@@ -13,11 +13,21 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import Entity
 
+from ..core.house import CONF_AREA
+from ..core.links import heating_changed
 from ..core.store import module_store
 from ..runtime import Module, register_module
 from .binary_sensor import HeatingDaySensor, VentilationRecommended
 from .climate import AreaClimate
-from .const import CONF_HEAT_METER, CONF_SWITCH, DOMAIN, LOGGER, MODULE_HEATING, SUBENTRY_ROOM
+from .const import (
+    CONF_HEAT_METER,
+    CONF_SWITCH,
+    DOMAIN,
+    LOGGER,
+    MODULE_HEATING,
+    SUBENTRY_ROOM,
+    SUBENTRY_WINDOW,
+)
 from .coordinator import HeatingCoordinator, async_delete_issues, async_turn_off_switches
 from .entity import global_device_info
 from .select import HeatingDayOverride
@@ -37,9 +47,12 @@ class HeatingModule(Module):
     """The rooms with their heating circuits, the heating day and the AI."""
 
     key = MODULE_HEATING
-    subentry_types = (SUBENTRY_ROOM,)
+    # the windows of a room give its contacts
+    subentry_types = (SUBENTRY_ROOM, SUBENTRY_WINDOW)
 
     coordinator: HeatingCoordinator | None = None
+    # what the other modules last heard: heating day and the targets of the rooms
+    _announced: Any = None
 
     def signature(self) -> str:
         # a new or removed API key starts the AI client anew
@@ -55,11 +68,36 @@ class HeatingModule(Module):
         self.coordinator = coordinator
         await coordinator.async_start()
         self._remove_stale_entities()
+        self._place_room_devices()
+
+    @callback
+    def started(self) -> None:
+        coordinator = self.coordinator
+        assert coordinator is not None
+        self.async_on_stop(coordinator.async_add_listener(self._announce))
+        self._announce()
+
+    @callback
+    def _announce(self) -> None:
+        """Tell the other modules about a new heating day or target (covers compare the
+        room temperature with the target of its thermostat)."""
+        coordinator = self.coordinator
+        if coordinator is None:
+            return
+        current = (
+            coordinator.heats_now and coordinator.heating_day,
+            sorted((a.area_id, a.target) for a in coordinator.areas.values() if a.has_circuit),
+        )
+        if current != self._announced:
+            self._announced = current
+            heating_changed(self.hass)
 
     async def async_unload(self) -> None:
         coordinator = self.coordinator
         if coordinator is None:
             return
+        # the others go on without the heating
+        heating_changed(self.hass)
         # stop the control first, so no tick switches a circuit on again
         await coordinator.async_shutdown()
         if self.switched_off or self.entry.disabled_by is not None:
@@ -101,6 +139,20 @@ class HeatingModule(Module):
             if reg_entry.platform == DOMAIN and reg_entry.unique_id in stale:
                 LOGGER.info("Removing %s: no longer provided", reg_entry.entity_id)
                 registry.async_remove(reg_entry.entity_id)
+
+    @callback
+    def _place_room_devices(self) -> None:
+        """A room device stays in the Home Assistant area chosen for the room."""
+        coordinator = self.coordinator
+        assert coordinator is not None
+        devices = dr.async_get(self.hass)
+        for area in coordinator.areas.values():
+            area_id = area.cfg.get(CONF_AREA)
+            device = devices.async_get_device_by_identifier(
+                (DOMAIN, area.area_id), self.entry.entry_id
+            )
+            if area_id and device is not None and device.area_id != area_id:
+                devices.async_update_device(device.id, area_id=area_id)
 
     def entities(self, platform: Platform) -> list[tuple[str | None, list[Entity]]]:
         coordinator = self.coordinator

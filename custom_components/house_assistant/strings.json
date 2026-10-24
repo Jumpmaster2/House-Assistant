@@ -34,7 +34,7 @@
           "outdoor_temperature": "Sensor for the outdoor temperature (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used.",
           "outdoor_humidity": "Optional. Needed for the ventilation recommendation; without it the humidity of the weather entity is used.",
           "weather": "Optional but recommended. Its forecast is used for the nightly heating day decision and the expected sun. Without an outdoor sensor its current temperature is the outdoor temperature.",
-          "pv_power": "Optional. PV power (W or kW) as an indicator for sunshine. The solar gain per area is learned from it.",
+          "pv_power": "Optional. PV power (W or kW) as an indicator for sunshine. The solar gain per room is learned from it.",
           "pv_forecast": "Optional, only together with the PV power sensor. Expected PV energy of the next hour (Wh or kWh, e.g. Forecast.Solar) or expected power in one hour (W or kW). Without it the sun is estimated from the hourly weather forecast and the sun position.",
           "heat_meter": "Optional. Meter reading of the heat meter of the circuits controlled here (Wh, kWh, MWh, MJ or GJ, e.g. total_increasing). The AI then sees the measured heat; it is also shown in the panel. Seldom and coarse readings are fine.",
           "season_start": "Outside the heating period all circuits stay off (frost protection only) and the AI is not asked.",
@@ -56,7 +56,7 @@
         },
         "data_description": {
           "vacation_entities": "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar).",
-          "vacation_temperature": "Target for all areas during vacation.",
+          "vacation_temperature": "Target for all rooms during vacation.",
           "return_entity": "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return.",
           "preheat_reserve": "Additional time added to the calculated preheating time."
         }
@@ -133,6 +133,7 @@
           "summer_threshold": "Summer day from forecast high",
           "night_threshold": "Late summer day only with a night from",
           "heating_entity": "Heating wanted",
+          "use_heating_day": "Heating day of the heating",
           "day_change_time": "Day change",
           "forecast_type": "Kind of forecast"
         },
@@ -140,6 +141,7 @@
           "summer_threshold": "Without a summer day there is no sun protection. During the day the summer day also starts when the outdoor temperature rises above this value (see night).",
           "night_threshold": "A summer day only by the outdoor temperature counts only when the forecast low of the coming night is at least this value. When the night cools down (spring, autumn), the warmth stays in the house. Without a low in the forecast the summer day counts as before.",
           "heating_entity": "Optional, e.g. an input_boolean \"heating season\" or the heating day of a heating control. While it is on, the warmth of the sun is welcome: sun protection only when the room of a window is too warm anyway. Windows without a room temperature are then not lowered.",
+          "use_heating_day": "Without an own heat need entity: the heating day of the heating module, but only within the heating period. Only while the heating module is switched on.",
           "day_change_time": "Forecast check and reset of the daily sun protection markers and notifications.",
           "forecast_type": "Automatic takes the first kind the weather entity supports (daily, twice daily, hourly). From hourly values the high of the day and the low of the night are calculated."
         }
@@ -286,6 +288,7 @@
           "summer_threshold": "Summer day from forecast high",
           "night_threshold": "Late summer day only with a night from",
           "heating_entity": "Heating wanted",
+          "use_heating_day": "Heating day of the heating",
           "day_change_time": "Day change",
           "forecast_type": "Kind of forecast"
         },
@@ -293,6 +296,7 @@
           "summer_threshold": "Without a summer day there is no sun protection. During the day the summer day also starts when the outdoor temperature rises above this value (see night).",
           "night_threshold": "A summer day only by the outdoor temperature counts only when the forecast low of the coming night is at least this value. When the night cools down (spring, autumn), the warmth stays in the house. Without a low in the forecast the summer day counts as before.",
           "heating_entity": "Optional, e.g. an input_boolean \"heating season\" or the heating day of a heating control. While it is on, the warmth of the sun is welcome: sun protection only when the room of a window is too warm anyway. Windows without a room temperature are then not lowered.",
+          "use_heating_day": "Without an own heat need entity: the heating day of the heating module, but only within the heating period. Only while the heating module is switched on.",
           "day_change_time": "Forecast check and reset of the daily sun protection markers and notifications.",
           "forecast_type": "Automatic takes the first kind the weather entity supports (daily, twice daily, hourly). From hourly values the high of the day and the low of the night are calculated."
         }
@@ -417,7 +421,7 @@
           "outdoor_temperature": "Sensor for the outdoor temperature (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used.",
           "outdoor_humidity": "Optional. Needed for the ventilation recommendation; without it the humidity of the weather entity is used.",
           "weather": "Optional but recommended. Its forecast is used for the nightly heating day decision and the expected sun. Without an outdoor sensor its current temperature is the outdoor temperature.",
-          "pv_power": "Optional. PV power (W or kW) as an indicator for sunshine. The solar gain per area is learned from it.",
+          "pv_power": "Optional. PV power (W or kW) as an indicator for sunshine. The solar gain per room is learned from it.",
           "pv_forecast": "Optional, only together with the PV power sensor. Expected PV energy of the next hour (Wh or kWh, e.g. Forecast.Solar) or expected power in one hour (W or kW). Without it the sun is estimated from the hourly weather forecast and the sun position.",
           "heat_meter": "Optional. Meter reading of the heat meter of the circuits controlled here (Wh, kWh, MWh, MJ or GJ, e.g. total_increasing). The AI then sees the measured heat; it is also shown in the panel. Seldom and coarse readings are fine.",
           "season_start": "Outside the heating period all circuits stay off (frost protection only) and the AI is not asked.",
@@ -439,7 +443,7 @@
         },
         "data_description": {
           "vacation_entities": "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar).",
-          "vacation_temperature": "Target for all areas during vacation (e.g. 17 °C).",
+          "vacation_temperature": "Target for all rooms during vacation (e.g. 17 °C).",
           "return_entity": "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return.",
           "preheat_reserve": "Additional time added to the calculated preheating time (e.g. 30 min)."
         }
@@ -455,7 +459,7 @@
           "force_on_below": "Always heat below target by"
         },
         "data_description": {
-          "emergency_enabled": "On days without heating, an area may still heat if the temperature expected after the lead time is long and clearly below its target, without airing.",
+          "emergency_enabled": "On days without heating, a room may still heat if the temperature expected after the lead time is long and clearly below its target, without airing.",
           "emergency_delta": "How far below the target the temperature expected after the lead time has to be (at least the switch-on hysteresis).",
           "emergency_duration": "How long the expected temperature has to stay that low (e.g. 45 min).",
           "emergency_window_quiet": "Airing does not count: windows must not have changed for this time.",
@@ -464,7 +468,7 @@
       },
       "heating_ventilation": {
         "title": "Ventilation",
-        "description": "Thresholds of the ventilation recommendation. They are start values: the AI ventilation check adjusts them per area from the learned humidity profile of each room (humidity threshold set per area).",
+        "description": "Thresholds of the ventilation recommendation. They are start values: the AI ventilation check adjusts them per room from the learned humidity profile of each room (humidity threshold set per room).",
         "data": {
           "ventilation_min_ah_advantage": "Minimum drying advantage",
           "ventilation_max_reference_excess": "Maximum outside warmer by",
@@ -480,7 +484,7 @@
           "ventilation_cooling_min_temp": "Cool only from room temperature",
           "night_start_hour": "Night starts at",
           "night_end_hour": "Night ends at",
-          "ventilation_ai_enabled": "AI adjusts ventilation per area",
+          "ventilation_ai_enabled": "AI adjusts ventilation per room",
           "ventilation_check_interval": "Ventilation check base interval",
           "ventilation_check_max_interval": "Ventilation check maximum interval"
         },
@@ -488,15 +492,15 @@
           "ventilation_min_ah_advantage": "Absolute humidity is the water content of the air in g/m³, independent of temperature. Outside air must contain at least this much less water for 'ventilate now' (e.g. 0.8 g/m³).",
           "ventilation_max_reference_excess": "Drying is not recommended if outside is warmer than inside by more than this.",
           "ventilation_min_cooling_advantage": "'Ventilation useful' if inside is warmer than outside by at least this (not while heating).",
-          "ventilation_cooling_margin": "Within the heating period 'ventilation useful' (cooling) is only recommended if the room is at least this much warmer than its target. Not used outside the heating period. Areas without a heating circuit use their initial target.",
+          "ventilation_cooling_margin": "Within the heating period 'ventilation useful' (cooling) is only recommended if the room is at least this much warmer than its target. Not used outside the heating period. Rooms without a heating circuit use their initial target.",
           "ventilation_cooling_min_temp": "'Ventilation useful' (cooling) only from this room temperature on, all year. 0 = off. In addition cooling is never recommended if the outside air would raise the relative humidity of the room above its humidity threshold.",
           "night_start_hour": "Used when the reference is another room: cooling advantage only counts at night.",
           "night_end_hour": "End of the night (time, e.g. 08:00).",
-          "ventilation_ai_enabled": "All year the AI reviews the ventilation thresholds of every area with a humidity sensor: it learns what is usual in each room, how low the humidity can get and what airing really achieves. Shares the monthly AI budget.",
+          "ventilation_ai_enabled": "All year the AI reviews the ventilation thresholds of every room with a humidity sensor: it learns what is usual in each room, how low the humidity can get and what airing really achieves. Shares the monthly AI budget.",
           "ventilation_check_interval": "First interval; it doubles with every check that changed nothing relevant and starts over when a room stays humid or a value changes.",
           "ventilation_check_max_interval": "The interval never grows beyond this.",
-          "ventilation_energy_rh_per_k": "Energy saving: within the heating period airing costs heat, the more the colder it is outside. The humidity must then exceed the threshold by this much per Kelvin outside is colder than the room (e.g. 0.25 %/K: at 21 °C inside and 1 °C outside 5 % more), at most up to 70 %, above which airing is always recommended against mould. 0 = off. Start value, the AI adjusts it per area.",
-          "ventilation_mould_rh": "From this relative humidity airing is always recommended, even in frost and right after an airing; the energy saving surcharge never goes beyond it. Lower it for rooms with cold exterior walls. Start value, the AI adjusts it per area.",
+          "ventilation_energy_rh_per_k": "Energy saving: within the heating period airing costs heat, the more the colder it is outside. The humidity must then exceed the threshold by this much per Kelvin outside is colder than the room (e.g. 0.25 %/K: at 21 °C inside and 1 °C outside 5 % more), at most up to 70 %, above which airing is always recommended against mould. 0 = off. Start value, the AI adjusts it per room.",
+          "ventilation_mould_rh": "From this relative humidity airing is always recommended, even in frost and right after an airing; the energy saving surcharge never goes beyond it. Lower it for rooms with cold exterior walls. Start value, the AI adjusts it per room.",
           "ventilation_airing_target_below": "The suggested airing time aims at this far below the humidity threshold. Start value for the AI.",
           "ventilation_airing_time_factor": "Scales the suggested airing time. Once two airings are evaluated it is computed from the learned air exchange of the room and the temperature difference, before that from the outside temperature (5 min in frost up to 20 min when warm). Start value for the AI.",
           "ventilation_airing_min_minutes": "Start value for the AI.",
@@ -544,7 +548,7 @@
         },
         "data_description": {
           "theta": "Current threshold of the heating day rule: if the forecast maximum is below it, heating is needed. A change replaces the learned value; learning continues from there.",
-          "too_cold_margin": "Evaluation: an area counts as too cold below target minus this (airing excluded).",
+          "too_cold_margin": "Evaluation: a room counts as too cold below target minus this (airing excluded).",
           "too_cold_minutes": "Evaluation: this many minutes too cold mean heating was needed."
         },
         "sections": {
@@ -560,7 +564,7 @@
             "data_description": {
               "theta_step_up": "After error A, i.e. it got too cold on a day without heating (e.g. 1.0 K).",
               "theta_step_down": "After error B, i.e. heating ran although it was not needed (e.g. 1.0 K).",
-              "puffer_step_up": "After error A for the cold area.",
+              "puffer_step_up": "After error A for the cold room.",
               "puffer_step_down": "After error B."
             }
           },
@@ -815,31 +819,25 @@
       "step": {
         "user": {
           "title": "Room",
-          "description": "One area has one heating circuit (or none for ventilation only).",
+          "description": "A room of the house. With a temperature sensor it gets heating and ventilation advice, with a heating circuit also a thermostat. Windows are added as windows and assigned to the room there.",
           "data": {
-            "name": "Name"
+            "name": "Name",
+            "area": "Area"
           },
           "data_description": {
-            "name": "Name of the area, also used for the device and its entities."
+            "name": "Name of the room, also used for the device and its entities.",
+            "area": "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
           },
           "sections": {
             "sensors": {
               "name": "Sensors",
               "data": {
                 "temperature_sensor": "Temperature sensor",
-                "humidity_sensor": "Humidity sensor",
-                "window_sensors_small": "Small windows",
-                "window_sensors": "Medium windows",
-                "window_sensors_large": "Large windows",
-                "door_sensors": "Doors (e.g. balcony door)"
+                "humidity_sensor": "Humidity sensor"
               },
               "data_description": {
-                "temperature_sensor": "Room temperature of the area.",
-                "humidity_sensor": "Relative humidity, needed for the ventilation recommendation.",
-                "window_sensors_small": "Window contacts of small windows ('on' = open), e.g. a skylight or a small bathroom window.",
-                "window_sensors": "Window contacts of normal sized windows ('on' = open). Windows of earlier versions are here.",
-                "window_sensors_large": "Window contacts of large windows, e.g. double casements.",
-                "door_sensors": "Contacts of doors to the outside, e.g. a balcony or patio door. The size decides how fast airing exchanges the air: the suggested airing time follows it, and the largest opening is suggested for airing."
+                "temperature_sensor": "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers).",
+                "humidity_sensor": "Relative humidity, needed for the ventilation recommendation."
               }
             },
             "heating": {
@@ -854,7 +852,7 @@
                 "heating_type": "Heating type"
               },
               "data_description": {
-                "heater_switch": "Switch of the actuator (e.g. a relay). Leave empty for an area with ventilation recommendation only.",
+                "heater_switch": "Switch of the actuator (e.g. a relay). Leave empty for a room with ventilation recommendation only.",
                 "default_target": "Target until you change it on the thermostat card.",
                 "min_target": "Lowest value of the thermostat card.",
                 "max_target": "Highest value of the thermostat card.",
@@ -865,7 +863,7 @@
             },
             "start_values": {
               "name": "Start values (learned later)",
-              "description": "Only when the area is created. Afterwards the learned values are edited.",
+              "description": "Only when the room is created. Afterwards the learned values are edited.",
               "data": {
                 "window_delay": "Window delay (start value)",
                 "recovery_time": "Recovery time after airing (start value)",
@@ -876,7 +874,7 @@
                 "window_delay": "Window open this long pauses heating. The AI may adjust it.",
                 "recovery_time": "After closing, heating waits this long because floor and walls often reheat the room. Learned afterwards.",
                 "dead_time": "Time from switching on until the room gets warmer; underfloor heating often 30-90 min, radiators 5-20 min. Learned afterwards.",
-                "puffer": "Heating day rule: how far above the target an area must be at the nightly run to manage a day without heating (e.g. 0.7 K). Learned afterwards."
+                "puffer": "Heating day rule: how far above the target a room must be at the nightly run to manage a day without heating (e.g. 0.7 K). Learned afterwards."
               }
             },
             "ventilation": {
@@ -896,7 +894,7 @@
             },
             "draft": {
               "name": "Draft from other rooms",
-              "description": "Windows of other rooms whose opening together also cools this area (cross ventilation). Per combination choose the windows that must be open together. As soon as every window of one combination is open, the area behaves as with its own window open: heating pauses after the window delay and waits the recovery time. A combination with a single window triggers on its own.",
+              "description": "Windows of other rooms whose opening together also cools this room (cross ventilation). Per combination choose the windows that must be open together. As soon as every window of one combination is open, the room behaves as with its own window open: heating pauses after the window delay and waits the recovery time. A combination with a single window triggers on its own.",
               "data": {
                 "draft_group_1": "Combination 1",
                 "draft_group_2": "Combination 2",
@@ -906,36 +904,40 @@
               "data_description": {
                 "draft_group_1": "e.g. kids' room + bathroom; a second combination e.g. kids' room + bedroom."
               }
+            },
+            "sun_protection": {
+              "name": "Sun protection",
+              "description": "Defaults for the covers of the windows of this room. Room temperature and target come from the temperature sensor and the thermostat of the room unless a window has its own room temperature.",
+              "data": {
+                "cooling_entity": "Air conditioner"
+              },
+              "data_description": {
+                "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
+              }
             }
           }
         },
         "reconfigure": {
           "title": "Room",
-          "description": "One area has one heating circuit (or none for ventilation only).",
+          "description": "A room of the house. With a temperature sensor it gets heating and ventilation advice, with a heating circuit also a thermostat. Windows are added as windows and assigned to the room there.",
           "data": {
-            "name": "Name"
+            "name": "Name",
+            "area": "Area"
           },
           "data_description": {
-            "name": "Name of the area, also used for the device and its entities."
+            "name": "Name of the room, also used for the device and its entities.",
+            "area": "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
           },
           "sections": {
             "sensors": {
               "name": "Sensors",
               "data": {
                 "temperature_sensor": "Temperature sensor",
-                "humidity_sensor": "Humidity sensor",
-                "window_sensors_small": "Small windows",
-                "window_sensors": "Medium windows",
-                "window_sensors_large": "Large windows",
-                "door_sensors": "Doors (e.g. balcony door)"
+                "humidity_sensor": "Humidity sensor"
               },
               "data_description": {
-                "temperature_sensor": "Room temperature of the area.",
-                "humidity_sensor": "Relative humidity, needed for the ventilation recommendation.",
-                "window_sensors_small": "Window contacts of small windows ('on' = open), e.g. a skylight or a small bathroom window.",
-                "window_sensors": "Window contacts of normal sized windows ('on' = open). Windows of earlier versions are here.",
-                "window_sensors_large": "Window contacts of large windows, e.g. double casements.",
-                "door_sensors": "Contacts of doors to the outside, e.g. a balcony or patio door. The size decides how fast airing exchanges the air: the suggested airing time follows it, and the largest opening is suggested for airing."
+                "temperature_sensor": "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers).",
+                "humidity_sensor": "Relative humidity, needed for the ventilation recommendation."
               }
             },
             "heating": {
@@ -950,7 +952,7 @@
                 "heating_type": "Heating type"
               },
               "data_description": {
-                "heater_switch": "Switch of the actuator (e.g. a relay). Leave empty for an area with ventilation recommendation only.",
+                "heater_switch": "Switch of the actuator (e.g. a relay). Leave empty for a room with ventilation recommendation only.",
                 "default_target": "Target until you change it on the thermostat card.",
                 "min_target": "Lowest value of the thermostat card.",
                 "max_target": "Highest value of the thermostat card.",
@@ -992,7 +994,7 @@
             },
             "draft": {
               "name": "Draft from other rooms",
-              "description": "Windows of other rooms whose opening together also cools this area (cross ventilation). Per combination choose the windows that must be open together. As soon as every window of one combination is open, the area behaves as with its own window open: heating pauses after the window delay and waits the recovery time. A combination with a single window triggers on its own.",
+              "description": "Windows of other rooms whose opening together also cools this room (cross ventilation). Per combination choose the windows that must be open together. As soon as every window of one combination is open, the room behaves as with its own window open: heating pauses after the window delay and waits the recovery time. A combination with a single window triggers on its own.",
               "data": {
                 "draft_group_1": "Combination 1",
                 "draft_group_2": "Combination 2",
@@ -1002,17 +1004,28 @@
               "data_description": {
                 "draft_group_1": "e.g. kids' room + bathroom; a second combination e.g. kids' room + bedroom."
               }
+            },
+            "sun_protection": {
+              "name": "Sun protection",
+              "description": "Defaults for the covers of the windows of this room. Room temperature and target come from the temperature sensor and the thermostat of the room unless a window has its own room temperature.",
+              "data": {
+                "cooling_entity": "Air conditioner"
+              },
+              "data_description": {
+                "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
+              }
             }
           }
         }
       },
       "error": {
         "name_required": "Please enter a name.",
-        "name_in_use": "Another area already has this name. Please choose a unique name (export and import find areas by name).",
-        "switch_in_use": "This switch already controls another room. Each circuit can belong to one area only: choose another switch, or remove it from the other area first.",
+        "name_in_use": "Another room already has this name. Please choose a unique name (export and import find rooms by name).",
+        "switch_in_use": "This switch already controls another room. Each circuit can belong to one room only: choose another switch, or remove it from the other room first.",
         "min_above_max": "The smallest target must be below the largest target. Please change one of the two values (both in °C).",
         "target_out_of_range": "The start target must lie between the smallest and the largest target. Please adjust it or the limits.",
-        "reference_incomplete": "Reference temperature and reference humidity only work together: choose both sensors or neither."
+        "reference_incomplete": "Reference temperature and reference humidity only work together: choose both sensors or neither.",
+        "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room."
       }
     },
     "group": {
@@ -1090,6 +1103,8 @@
           "title": "Window",
           "data": {
             "name": "Name",
+            "room": "Room",
+            "size": "Size",
             "cover": "Cover",
             "window_sensors": "Window contacts",
             "tilt_sensors": "Tilt contacts",
@@ -1097,8 +1112,10 @@
           },
           "data_description": {
             "name": "Also used for the device and its entities.",
-            "cover": "100 % = open, 0 % = closed.",
-            "window_sensors": "'on' = open. Window handles with the states open, tilted and closed work as well. Unknown or unavailable counts as open.",
+            "room": "Optional. The heating of the room uses the contacts of the window; the cover takes room temperature and air conditioner of the room.",
+            "size": "How fast airing exchanges the air: the suggested airing time follows it, and the largest opening is suggested for airing. The size applies to every contact of the window.",
+            "cover": "Optional. 100 % = open, 0 % = closed. Without a cover the window only serves the heating.",
+            "window_sensors": "'on' = open. Window handles with the states open, tilted and closed work as well. Unknown or unavailable counts as open. A contact belongs to one window only.",
             "tilt_sensors": "'on' = tilted. While the window is only tilted, covers close no further than the ventilation position.",
             "group": "Direction of the sun. Without a group the window has no sun protection."
           }
@@ -1338,7 +1355,10 @@
         "need_temperature_source": "Choose an outdoor temperature sensor or a weather entity; without a temperature there is no summer day.",
         "not_numeric": "This entity does not report a number. Choose a sensor with a measured value (e.g. °C, lx, W, W/m²).",
         "invalid_notify_service": "Only notification services (notify.…) are allowed. Choose a service from the list.",
-        "cover_in_use": "This cover is already controlled by another window. Choose another cover or change the other window."
+        "cover_in_use": "This cover is already controlled by another window. Choose another cover or change the other window.",
+        "contact_in_use": "This contact already belongs to another window. A contact belongs to one window only, otherwise one opening would count twice.",
+        "contact_or_cover_required": "Choose a window contact or a cover; without either the window does nothing.",
+        "unknown_room": "This room does not exist any more. Choose another one."
       },
       "abort": {
         "reconfigure_successful": "Changes saved."
@@ -1445,12 +1465,14 @@
               "data": {
                 "interval": "Interval",
                 "condition_entity": "Condition",
+                "condition_heating_day": "Days without heating like condition off",
                 "interval_off": "Interval while the condition is off"
               },
               "data_description": {
                 "interval": "Time between two automatic readings.",
                 "condition_entity": "Optional. While this entity is 'off', the second interval applies (e.g. a heating day sensor).",
-                "interval_off": "Only used together with a condition."
+                "condition_heating_day": "The second interval also applies on days without heating (heating day of the heating module, only within the heating period). With the heating off or an unknown heating day the normal interval applies.",
+                "interval_off": "Only together with a condition or the days without heating."
               }
             },
             "checks_section": {
@@ -1637,11 +1659,40 @@
     }
   },
   "selector": {
-    "modules": {
+    "effort": {
       "options": {
-        "heating": "Heating",
-        "shutter": "Covers",
-        "meter": "Meters"
+        "auto": "Auto (model default)",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      }
+    },
+    "external_light_mode": {
+      "options": {
+        "capture": "Only while taking pictures",
+        "permanent": "Always on"
+      }
+    },
+    "forecast_type": {
+      "options": {
+        "auto": "Automatic",
+        "daily": "Daily",
+        "twice_daily": "Twice daily",
+        "hourly": "Hourly"
+      }
+    },
+    "heating_type": {
+      "options": {
+        "underfloor": "Underfloor heating",
+        "radiator": "Radiators",
+        "other": "Other (e.g. wall heating)"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Like Home Assistant",
+        "de": "Deutsch",
+        "en": "English"
       }
     },
     "meter_type": {
@@ -1653,17 +1704,27 @@
         "other": "Other meter"
       }
     },
-    "external_light_mode": {
+    "modules": {
       "options": {
-        "capture": "Only while taking pictures",
-        "permanent": "Always on"
+        "heating": "Heating",
+        "shutter": "Covers",
+        "meter": "Meters"
       }
     },
-    "language": {
+    "month": {
       "options": {
-        "auto": "Like Home Assistant",
-        "de": "Deutsch",
-        "en": "English"
+        "1": "January",
+        "2": "February",
+        "3": "March",
+        "4": "April",
+        "5": "May",
+        "6": "June",
+        "7": "July",
+        "8": "August",
+        "9": "September",
+        "10": "October",
+        "11": "November",
+        "12": "December"
       }
     },
     "morning_mode": {
@@ -1686,6 +1747,16 @@
         "command": "With every command by hand, also without movement"
       }
     },
+    "service_action": {
+      "options": {
+        "open": "Open",
+        "close": "Close",
+        "evening": "Evening position",
+        "sun_protection": "Sun protection position",
+        "ventilation": "Ventilation position",
+        "position": "Position"
+      }
+    },
     "weekday": {
       "options": {
         "mon": "Monday",
@@ -1697,53 +1768,12 @@
         "sun": "Sunday"
       }
     },
-    "forecast_type": {
+    "window_size": {
       "options": {
-        "auto": "Automatic",
-        "daily": "Daily",
-        "twice_daily": "Twice daily",
-        "hourly": "Hourly"
-      }
-    },
-    "service_action": {
-      "options": {
-        "open": "Open",
-        "close": "Close",
-        "evening": "Evening position",
-        "sun_protection": "Sun protection position",
-        "ventilation": "Ventilation position",
-        "position": "Position"
-      }
-    },
-    "effort": {
-      "options": {
-        "auto": "Auto (model default)",
-        "low": "Low",
+        "small": "Small (e.g. skylight)",
         "medium": "Medium",
-        "high": "High"
-      }
-    },
-    "heating_type": {
-      "options": {
-        "underfloor": "Underfloor heating",
-        "radiator": "Radiators",
-        "other": "Other (e.g. wall heating)"
-      }
-    },
-    "month": {
-      "options": {
-        "1": "January",
-        "2": "February",
-        "3": "March",
-        "4": "April",
-        "5": "May",
-        "6": "June",
-        "7": "July",
-        "8": "August",
-        "9": "September",
-        "10": "October",
-        "11": "November",
-        "12": "December"
+        "large": "Large (e.g. double casement)",
+        "door": "Door (e.g. balcony door)"
       }
     }
   },
@@ -2094,8 +2124,8 @@
       "description": "Returns learned values and parameters as JSON (e.g. to save or move them).",
       "fields": {
         "entity_id": {
-          "name": "Areas",
-          "description": "Thermostats of the areas. Empty = all."
+          "name": "Rooms",
+          "description": "Thermostats of the rooms. Empty = all."
         }
       }
     },
@@ -2108,18 +2138,18 @@
           "description": "JSON object as produced by the export."
         },
         "entity_id": {
-          "name": "Areas",
-          "description": "Only import these areas. Empty = all in the data."
+          "name": "Rooms",
+          "description": "Only import these rooms. Empty = all in the data."
         }
       }
     },
     "reset_learned": {
       "name": "Reset learned values",
-      "description": "Resets the learned values of the selected areas to the start values.",
+      "description": "Resets the learned values of the selected rooms to the start values.",
       "fields": {
         "entity_id": {
-          "name": "Areas",
-          "description": "Thermostats of the areas."
+          "name": "Rooms",
+          "description": "Thermostats of the rooms."
         },
         "include_parameters": {
           "name": "Also reset parameters",

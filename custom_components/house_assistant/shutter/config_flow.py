@@ -1,5 +1,6 @@
 """Settings of the cover module (setup and options steps) and the subentry flows for
-groups and windows."""
+groups and windows. A window belongs to the house: room, size and contacts serve the
+heating as well, the cover is optional."""
 
 from __future__ import annotations
 
@@ -29,6 +30,14 @@ from homeassistant.helpers.selector import (
     TimeSelector,
 )
 
+from ..core.house import (
+    CONF_ROOM,
+    CONF_SIZE,
+    DEFAULT_SIZE,
+    SIZES,
+    rooms,
+    window_errors,
+)
 from ..runtime import module_options
 from .const import (
     ACTIVE_STATES_DEFAULT,
@@ -112,6 +121,7 @@ from .const import (
     CONF_TRIGGER_MIN_POSITION,
     CONF_TRIGGER_OFF_DELAY,
     CONF_TRIGGER_ON_DELAY,
+    CONF_USE_HEATING_DAY,
     CONF_VAC_EVENING,
     CONF_VAC_EVENING_WINDOW,
     CONF_VAC_MORNING,
@@ -153,7 +163,6 @@ from .const import (
     SECTION_VENTILATION,
     SENSOR_KINDS,
     SUBENTRY_GROUP,
-    SUBENTRY_WINDOW,
     THRESHOLD_KEYS,
     WEEKDAYS,
     WINDOW_DEFAULTS,
@@ -319,6 +328,7 @@ def _summer_schema(v: dict[str, Any], unit: str) -> vol.Schema:
             _req(CONF_SUMMER_THRESHOLD, v, temps): _temperature(unit, 0, 45),
             _req(CONF_NIGHT_THRESHOLD, v, temps): _temperature(unit, -10, 30),
             _opt(CONF_HEATING_ENTITY, v): _entity(["binary_sensor", "input_boolean", "switch"]),
+            _req(CONF_USE_HEATING_DAY, v): BooleanSelector(),
             _req(CONF_DAY_CHANGE, v): TimeSelector(),
             _req(CONF_FORECAST_TYPE, v): _choice(FORECAST_TYPES, "forecast_type"),
         }
@@ -672,36 +682,40 @@ def _wreq(key: str, values: dict[str, Any], base: dict[str, Any] | None = None) 
     return vol.Required(key, default=values.get(key, base.get(key)))
 
 
-def cover_in_use(entry: ConfigEntry, cover: Any, own_id: str | None) -> str | None:
-    """Title of another window that already controls ``cover``."""
-    for sub_id, sub in entry.subentries.items():
-        if (
-            sub.subentry_type == SUBENTRY_WINDOW
-            and sub_id != own_id
-            and cover
-            and sub.data.get(CONF_COVER) == cover
-        ):
-            return sub.title
-    return None
+def _choices(items: dict[str, str]) -> SelectSelector:
+    options = [SelectOptionDict(value=key, label=title) for key, title in items.items()]
+    return SelectSelector(SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN))
 
 
-def window_basics_fields(values: dict[str, Any], groups: dict[str, str]) -> dict[Any, Any]:
-    """Name, cover, contacts and (if there are groups) the group."""
+def window_basics_fields(
+    values: dict[str, Any], groups: dict[str, str], room_titles: dict[str, str] | None = None
+) -> dict[Any, Any]:
+    """Name, room, size, cover (optional), contacts and (if there are groups) the group."""
     fields: dict[Any, Any] = {
         vol.Required(CONF_NAME, default=values.get(CONF_NAME, "")): TextSelector(),
-        vol.Required(CONF_COVER, default=values.get(CONF_COVER)): _entity(["cover"]),
-        vol.Optional(CONF_WINDOW_SENSORS, default=values.get(CONF_WINDOW_SENSORS, [])): _entity(
-            CONTACT_DOMAINS, True
-        ),
-        vol.Optional(CONF_TILT_SENSORS, default=values.get(CONF_TILT_SENSORS, [])): _entity(
-            CONTACT_DOMAINS, True
-        ),
     }
+    if room_titles:
+        fields[_opt(CONF_ROOM, values)] = _choices(room_titles)
+    fields.update(
+        {
+            vol.Required(CONF_SIZE, default=values.get(CONF_SIZE, DEFAULT_SIZE)): _choice(
+                list(SIZES), "window_size"
+            ),
+            _opt(CONF_COVER, values): _entity(["cover"]),
+        }
+    )
+    fields.update(
+        {
+            vol.Optional(CONF_WINDOW_SENSORS, default=values.get(CONF_WINDOW_SENSORS, [])): _entity(
+                CONTACT_DOMAINS, True
+            ),
+            vol.Optional(CONF_TILT_SENSORS, default=values.get(CONF_TILT_SENSORS, [])): _entity(
+                CONTACT_DOMAINS, True
+            ),
+        }
+    )
     if groups:
-        options = [SelectOptionDict(value=sub_id, label=title) for sub_id, title in groups.items()]
-        fields[_opt(CONF_GROUP, values)] = SelectSelector(
-            SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN)
-        )
+        fields[_opt(CONF_GROUP, values)] = _choices(groups)
     return fields
 
 
@@ -866,7 +880,8 @@ def _flatten(user_input: dict[str, Any], sections: tuple[str, ...]) -> dict[str,
 
 
 class WindowSubentryFlow(ConfigSubentryFlow):
-    """Add or change a window: basics, sun protection, behaviour, morning opening."""
+    """Add or change a window: basics, then with a cover sun protection, behaviour and
+    morning opening."""
 
     def __init__(self) -> None:
         self._values: dict[str, Any] = {}
@@ -885,8 +900,13 @@ class WindowSubentryFlow(ConfigSubentryFlow):
     def _unit(self) -> str:
         return temperature_unit(self.hass)
 
+    def _room_titles(self) -> dict[str, str]:
+        return {sub_id: sub.title for sub_id, sub in rooms(self._get_entry()).items()}
+
     def _finish(self) -> SubentryFlowResult:
-        data = _clean({**window_defaults(self._unit), **self._values})
+        # the settings of the cover only for a window with a cover
+        defaults = window_defaults(self._unit) if self._values.get(CONF_COVER) else {}
+        data = _clean({**defaults, **self._values})
         title = str(data.get(CONF_NAME, "")).strip()
         if self._reconfigure:
             return self.async_update_and_abort(
@@ -906,6 +926,8 @@ class WindowSubentryFlow(ConfigSubentryFlow):
         subentry = self._get_reconfigure_subentry()
         self._reconfigure = True
         self._values = {CONF_NAME: subentry.title, **subentry.data}
+        if not self._values.get(CONF_COVER):
+            return await self.async_step_basics()
         options = ["basics"]
         if self._values.get(CONF_GROUP) in self._groups():
             options.append("sun")
@@ -921,18 +943,16 @@ class WindowSubentryFlow(ConfigSubentryFlow):
         if user_input is not None:
             name = str(user_input.get(CONF_NAME, "")).strip()
             own_id = self._get_reconfigure_subentry().subentry_id if self._reconfigure else None
-            other = cover_in_use(self._get_entry(), user_input.get(CONF_COVER), own_id)
-            if not name:
-                errors[CONF_NAME] = "name_required"
-            elif other is not None:
-                errors[CONF_COVER] = "cover_in_use"
-            else:
-                self._values.pop(CONF_GROUP, None)
+            errors = window_errors(self._get_entry(), {**user_input, CONF_NAME: name}, own_id)
+            if not errors:
+                # cleared optional fields are missing in the input
+                for key in (CONF_GROUP, CONF_ROOM, CONF_COVER):
+                    self._values.pop(key, None)
                 self._values.update({**user_input, CONF_NAME: name})
                 has_group = self._values.get(CONF_GROUP) in self._groups()
                 if not has_group:
                     self._values.pop(CONF_GROUP, None)
-                if self._reconfigure:
+                if self._reconfigure or not self._values.get(CONF_COVER):
                     return self._finish()
                 if has_group:
                     return await self.async_step_sun()
@@ -941,7 +961,9 @@ class WindowSubentryFlow(ConfigSubentryFlow):
         return self.async_show_form(
             step_id="basics",
             data_schema=vol.Schema(
-                window_basics_fields({**self._values, **(user_input or {})}, groups)
+                window_basics_fields(
+                    {**self._values, **(user_input or {})}, groups, self._room_titles()
+                )
             ),
             errors=errors,
             last_step=self._reconfigure,

@@ -19,7 +19,7 @@ from .binary_sensor import (
     SunProtectionToday,
     WeatherProtection,
 )
-from .const import MODULE_SHUTTER, SUBENTRY_GROUP, SUBENTRY_WINDOW
+from .const import MODULE_SHUTTER, SUBENTRY_GROUP, SUBENTRY_ROOM, SUBENTRY_WINDOW
 from .engine import ShutterEngine
 from .entity import global_device_info
 from .logic.protection import KINDS
@@ -32,7 +32,8 @@ class ShutterModule(Module):
     """All covers with their windows and the groups (directions of the sun)."""
 
     key = MODULE_SHUTTER
-    subentry_types = (SUBENTRY_GROUP, SUBENTRY_WINDOW)
+    # the room of a window gives its temperature sensor and air conditioner
+    subentry_types = (SUBENTRY_GROUP, SUBENTRY_WINDOW, SUBENTRY_ROOM)
 
     engine: ShutterEngine | None = None
 

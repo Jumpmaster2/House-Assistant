@@ -25,6 +25,7 @@ from .const import (
     CONF_BRIGHTNESS_2,
     CONF_CAMERA,
     CONF_CONDITION,
+    CONF_CONDITION_HEATING_DAY,
     CONF_CONFIRMATIONS,
     CONF_CROP_BOTTOM,
     CONF_CROP_LEFT,
@@ -170,6 +171,7 @@ def meter_sections(v: dict[str, Any]) -> dict[str, vol.Schema]:
             {
                 req(CONF_INTERVAL): _number(5, 1440, 5, "min"),
                 _opt(CONF_CONDITION, v): _entity(),
+                req(CONF_CONDITION_HEATING_DAY): BooleanSelector(),
                 req(CONF_INTERVAL_OFF): _number(5, 1440, 5, "min"),
             }
         ),

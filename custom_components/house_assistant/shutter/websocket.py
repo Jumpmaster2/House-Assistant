@@ -19,6 +19,7 @@ from homeassistant.helpers.selector import (
 )
 
 from ..core.entry import house_entry, running_module, update_section
+from ..core.house import CONF_ROOM, CONF_SIZE, rooms, window_errors, window_size, windows
 from ..runtime import module_options
 from .config_flow import (
     _advanced_schema,
@@ -36,7 +37,6 @@ from .config_flow import (
     _validate_evening,
     _validate_group,
     _validate_vacation,
-    cover_in_use,
     validate_general,
     validate_morning,
     window_basics_fields,
@@ -162,6 +162,8 @@ WINDOW_KEYS = {
     CONF_EVENING_LATEST,
     CONF_WALL,
     CONF_WALL_POSITION,
+    CONF_ROOM,
+    CONF_SIZE,
     CONF_WIND_POSITION,
     CONF_WINDOW_WIND_THRESHOLD,
     CONF_RAIN_POSITION,
@@ -253,7 +255,8 @@ def _window_fields(
 ) -> dict[Any, Any]:
     """The fields that apply to a window with these values."""
     groups = {sub_id: sub.title for sub_id, sub in _groups(entry).items()}
-    fields = {**window_basics_fields(values, groups), **WINDOW_WALL_FIELDS}
+    room_titles = {sub_id: sub.title for sub_id, sub in rooms(entry).items()}
+    fields = {**window_basics_fields(values, groups, room_titles), **WINDOW_WALL_FIELDS}
     if group_data is not None:
         fields.update(window_sun_fields(values, group_data, unit))
     options = _options(entry)
@@ -318,10 +321,11 @@ def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
         "loaded": _engine(hass) is not None,
         "options": {**defaults(unit), **_options(entry)},
         "groups": [item(sub_id, sub) for sub_id, sub in _groups(entry).items()],
+        # windows without a cover are edited in the house section
         "windows": [
             {**item(sub_id, sub), "entities": entity_ids(sub_id, WINDOW_ENTITIES)}
-            for sub_id, sub in entry.subentries.items()
-            if sub.subentry_type == SUBENTRY_WINDOW
+            for sub_id, sub in windows(entry).items()
+            if sub.data.get(CONF_COVER)
         ],
         "entities": entity_ids(entry.entry_id, GLOBAL_ENTITIES),
         "notify_services": _notify_services(hass),
@@ -409,6 +413,8 @@ def _save_window(
             values[key] = _options(entry).get(key, DEFAULTS[key])
     values[CONF_NAME] = str(values.get(CONF_NAME) or "").strip()
     values = {k: v for k, v in values.items() if not _empty(v)}
+    # a window of an earlier version has no size yet
+    values[CONF_SIZE] = window_size(values)
     group = _groups(entry).get(str(values.get(CONF_GROUP, "")))
     group_data = {**GROUP_DEFAULTS, **group.data} if group else None
     fields = _window_fields(entry, values, group_data, unit)
@@ -431,8 +437,10 @@ def _save_window(
     if data.get(CONF_EVENING_CUSTOM):
         errors.update(_validate_evening(data))
     errors.update(validate_morning(data, group_data))
-    if cover_in_use(entry, data.get(CONF_COVER), sub_id) is not None:
-        errors[CONF_COVER] = "cover_in_use"
+    if not data.get(CONF_COVER):
+        # the cover section only edits windows with a cover
+        errors[CONF_COVER] = "required"
+    errors.update({k: v for k, v in window_errors(entry, data, sub_id).items() if k != CONF_NAME})
     return data, errors
 
 
@@ -550,8 +558,8 @@ def card_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
                 "group": sub.data.get(CONF_GROUP),
                 "entities": entity_ids(sub_id, WINDOW_ENTITIES),
             }
-            for sub_id, sub in entry.subentries.items()
-            if sub.subentry_type == SUBENTRY_WINDOW
+            for sub_id, sub in windows(entry).items()
+            if sub.data.get(CONF_COVER)
         ],
     }
 
