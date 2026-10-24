@@ -32,6 +32,10 @@
 - Meters warn on vacation (leak warning per meter): amount used since the start and mean flow or power, counted from the last valid reading before the vacation; once per vacation and case with a message, a logbook entry, the event `house_assistant_vacation_alert` and the attribute `vacation_alerts`. On by default for water meters (20 L, 5 L/h), off for gas and electricity, never for the heat meter.
 - The panel shows a banner while it is vacation.
 
+### Fixed
+
+- Dashboard cards sometimes showed “configuration error” (often in the companion app, sometimes in the browser after a reload): a dashboard that opened while Home Assistant was starting asked for the cards before they were served, and the browser kept that failed load until the page was reloaded. The cards are now served and added to the frontend when the integration is set up, before its modules start; the dashboard resource has an address of its own (`cards-resource.js`), so one failed early load does not block the other; all files lie below a folder with the version (cached, never mixed after an update); the cover card loads only its own texts (1 KB instead of the 330 KB of the panel).
+
 ## 0.1.0
 
 ### Added

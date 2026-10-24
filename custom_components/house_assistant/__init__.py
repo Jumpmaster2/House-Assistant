@@ -9,7 +9,12 @@ from homeassistant.helpers.typing import ConfigType
 
 from . import modules  # noqa: F401  (the modules register themselves)
 from .const import CONF_SHOW_PANEL, DOMAIN, OPT_CORE, PLATFORMS
-from .core.panel import async_register_panel, async_set_card_resource, async_unregister_panel
+from .core.panel import (
+    async_register_frontend,
+    async_register_panel,
+    async_unregister_cards,
+    async_unregister_panel,
+)
 from .core.services import async_setup_services as async_setup_house_services
 from .core.websocket import async_register_websocket
 from .heating.services import async_setup_services as async_setup_heating_services
@@ -21,7 +26,9 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register the services and the panel commands once."""
+    """Register the services, the panel commands and the cards once. The cards first:
+    a dashboard may already be open (the frontend starts before the integrations)."""
+    await async_register_frontend(hass)
     async_setup_house_services(hass)
     async_setup_heating_services(hass)
     async_setup_meter_services(hass)
@@ -67,7 +74,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> bo
 async def async_remove_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> None:
     """Every module removes what it stored (and switches off what it controlled)."""
     async_unregister_panel(hass)
-    await async_set_card_resource(hass, None)
+    await async_unregister_cards(hass)
     for domain, issue_id in list(ir.async_get(hass).issues):
         if domain == DOMAIN:
             ir.async_delete_issue(hass, DOMAIN, issue_id)
