@@ -1,18 +1,122 @@
 {
   "entity": {
     "sensor": {
-      "rate": { "default": "mdi:speedometer" },
-      "rate_power": { "default": "mdi:fire" },
-      "rate_flow": { "default": "mdi:water-pump" },
-      "last_check": { "default": "mdi:history" },
-      "next_check": { "default": "mdi:clock-outline" }
+      "rate": {
+        "default": "mdi:speedometer"
+      },
+      "rate_power": {
+        "default": "mdi:fire"
+      },
+      "rate_flow": {
+        "default": "mdi:water-pump"
+      },
+      "last_check": {
+        "default": "mdi:history"
+      },
+      "next_check": {
+        "default": "mdi:clock-outline"
+      },
+      "forecast_max": {
+        "default": "mdi:thermometer-high"
+      },
+      "last_reason": {
+        "default": "mdi:message-text-clock-outline"
+      },
+      "next_action": {
+        "default": "mdi:clock-outline"
+      },
+      "window_status": {
+        "default": "mdi:roller-shade"
+      }
     },
     "camera": {
-      "last_image": { "default": "mdi:image-outline" }
+      "last_image": {
+        "default": "mdi:image-outline"
+      }
+    },
+    "binary_sensor": {
+      "summer_day": {
+        "default": "mdi:weather-sunny-alert",
+        "state": {
+          "off": "mdi:weather-sunny-off"
+        }
+      },
+      "evening_mode": {
+        "default": "mdi:weather-night"
+      },
+      "override": {
+        "default": "mdi:hand-back-right-outline",
+        "state": {
+          "off": "mdi:hand-back-right-off-outline"
+        }
+      },
+      "sun_condition": {
+        "default": "mdi:white-balance-sunny",
+        "state": {
+          "off": "mdi:weather-partly-cloudy"
+        }
+      },
+      "sun_protection_today": {
+        "default": "mdi:roller-shade-closed",
+        "state": {
+          "off": "mdi:roller-shade"
+        }
+      },
+      "evening_closed": {
+        "default": "mdi:window-shutter",
+        "state": {
+          "off": "mdi:window-shutter-open"
+        }
+      },
+      "wind_protection": {
+        "default": "mdi:weather-windy"
+      },
+      "rain_protection": {
+        "default": "mdi:weather-pouring"
+      },
+      "frost_protection": {
+        "default": "mdi:snowflake"
+      }
+    },
+    "switch": {
+      "automatic": {
+        "default": "mdi:roller-shade",
+        "state": {
+          "off": "mdi:roller-shade-closed"
+        }
+      },
+      "window_automatic": {
+        "default": "mdi:window-shutter-auto",
+        "state": {
+          "off": "mdi:window-shutter-alert"
+        }
+      },
+      "window_sun_protection": {
+        "default": "mdi:white-balance-sunny",
+        "state": {
+          "off": "mdi:weather-sunny-off"
+        }
+      }
     }
   },
   "services": {
-    "read_meter": { "service": "mdi:camera-iris" },
-    "set_meter_reading": { "service": "mdi:pencil-outline" }
+    "move_cover": {
+      "service": "mdi:window-shutter-cog"
+    },
+    "start_cover_override": {
+      "service": "mdi:hand-back-right-outline"
+    },
+    "end_cover_override": {
+      "service": "mdi:hand-back-right-off-outline"
+    },
+    "resume_cover": {
+      "service": "mdi:play-circle-outline"
+    },
+    "read_meter": {
+      "service": "mdi:camera-iris"
+    },
+    "set_meter_reading": {
+      "service": "mdi:pencil-outline"
+    }
   }
 }

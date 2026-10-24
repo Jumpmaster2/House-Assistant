@@ -2,6 +2,7 @@
 // section with its own tabs (the former panels of the integrations). Plain web
 // component without build step; uses only the hass object and the WebSocket commands.
 
+import "./shutter.js";
 import "./meter.js";
 
 const DOMAIN = "house_assistant";
@@ -9,13 +10,13 @@ const DOMAIN = "house_assistant";
 const UI = {
   de: {
     title: "House Assistant",
-    sections: { meter: "Zähler" },
+    sections: { shutter: "Rollos", meter: "Zähler" },
     noModules: "Es ist noch kein Modul eingeschaltet. Unter Einstellungen > Geräte & Dienste > House Assistant > Konfigurieren > Module lassen sie sich einschalten.",
     loadError: "Die Einstellungen konnten nicht geladen werden",
   },
   en: {
     title: "House Assistant",
-    sections: { meter: "Meters" },
+    sections: { shutter: "Covers", meter: "Meters" },
     noModules: "No module is switched on yet. Switch them on under Settings > Devices & services > House Assistant > Configure > Modules.",
     loadError: "The settings could not be loaded",
   },
@@ -23,6 +24,7 @@ const UI = {
 
 // section -> icon and the element that shows it
 const SECTIONS = {
+  shutter: ["mdi:window-shutter-auto", "house-assistant-shutter-view"],
   meter: ["mdi:counter", "house-assistant-meter-view"],
 };
 
