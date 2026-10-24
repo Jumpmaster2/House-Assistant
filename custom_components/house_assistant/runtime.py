@@ -19,7 +19,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import CONF_MODULES, LOGGER, MODULE_ORDER, OPT_CORE
+from .const import CONF_LANGUAGE, CONF_MODULES, LOGGER, MODULE_ORDER, OPT_CORE, SHARED_KEYS
 from .core.store import module_store
 
 type HouseConfigEntry = ConfigEntry[HouseRuntime]
@@ -36,6 +36,18 @@ def register_module(cls: type[Module]) -> type[Module]:
 def module_options(entry: ConfigEntry, key: str) -> dict[str, Any]:
     """Options of one section (a module or the house)."""
     return dict(entry.options.get(key) or {})
+
+
+def shared_options(entry: ConfigEntry) -> dict[str, Any]:
+    """The settings of the house set for every module (an empty value and the language
+    "auto" leave the choice to the modules)."""
+    house = module_options(entry, OPT_CORE)
+    return {
+        key: house[key]
+        for key in SHARED_KEYS
+        if house.get(key) not in (None, "", [])
+        and not (key == CONF_LANGUAGE and house[key] == "auto")
+    }
 
 
 def enabled_modules(entry: ConfigEntry) -> list[str]:
@@ -68,7 +80,8 @@ class Module:
 
     @property
     def options(self) -> dict[str, Any]:
-        return module_options(self.entry, self.key)
+        """Options of the module; a setting of the house set for all modules wins."""
+        return {**module_options(self.entry, self.key), **shared_options(self.entry)}
 
     def subentries(self, subentry_type: str | None = None) -> dict[str, ConfigSubentry]:
         types = (subentry_type,) if subentry_type else self.subentry_types

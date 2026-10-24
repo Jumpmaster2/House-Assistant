@@ -26,6 +26,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from ..const import CONF_LANGUAGE
 from ..core.links import heating_day
 from ..core.store import module_store
 from .const import (
@@ -469,7 +470,7 @@ class Meter:
             LOGGER.warning("%s: no AI task entity configured", self.title)
             return rd.ERROR
         notes = context_notes(
-            self.hass.config.language,
+            self.manager.language,
             2 if second else 1,
             self._history_for_ai() if self.opt(CONF_HISTORY_HINT) else None,
             self.unit,
@@ -481,7 +482,7 @@ class Meter:
             self.unit,
             self.decimals,
             self.opt(CONF_HINTS),
-            self.hass.config.language,
+            self.manager.language,
         )
         attachments = [
             {"media_content_id": self.media_content_id, "media_content_type": "image/jpeg"}
@@ -495,7 +496,7 @@ class Meter:
                     "media_content_type": "image/jpeg",
                 }
             )
-        de = (self.hass.config.language or "").startswith("de")
+        de = self.manager.language.startswith("de")
         task_name = f"{self.title} ablesen" if de else f"Read {self.title}"
         try:
             response = await self.hass.services.async_call(
@@ -641,7 +642,7 @@ class Meter:
         now: datetime,
         count: int,
     ) -> None:
-        de = (self.hass.config.language or "").startswith("de")
+        de = self.manager.language.startswith("de")
         texts = STATUS_TEXT["de" if de else "en"]
         when = dt_util.as_local(now).strftime("%d.%m. %H:%M")
         unit = f" {self.unit}" if self.unit else ""
@@ -737,6 +738,11 @@ class MeterManager:
         self._unsub: Callable[[], None] | None = None
         media = self.hass.config.media_dirs.get("local") or self.hass.config.path("media")
         self.media_root = Path(media) / MEDIA_FOLDER
+
+    @property
+    def language(self) -> str:
+        """Language of the house for messages and AI hints, else the one of Home Assistant."""
+        return str(self.options.get(CONF_LANGUAGE) or self.hass.config.language or "en")
 
     async def async_setup(self) -> None:
         stored = await self._store.async_load() or {}

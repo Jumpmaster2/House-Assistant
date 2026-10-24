@@ -221,8 +221,13 @@ def house_labels(translation: dict[str, Any]) -> dict[str, Any]:
         _add(room_fields, sec)
     window_fields: dict[str, list[str]] = {}
     _add(window_fields, window["step"]["basics"])
+    settings: dict[str, list[str]] = {}
+    _add(settings, translation["options"]["step"]["house"])
+    _add(settings, translation["options"]["step"]["modules"])
+    selectors = translation["selector"]
     return {
-        "fields": {"room": room_fields, "window": window_fields},
+        "fields": {"room": room_fields, "window": window_fields, "settings": settings},
+        "choices": {key: selectors[key]["options"] for key in ("language", "weekday", "modules")},
         "errors": {**room["error"], **window["error"]},
         "sizes": translation["selector"]["window_size"]["options"],
     }

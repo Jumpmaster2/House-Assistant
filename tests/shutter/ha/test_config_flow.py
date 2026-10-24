@@ -34,7 +34,8 @@ EVENING = {
 
 async def test_user_flow(hass: HomeAssistant, base_states) -> None:
     result = await start_setup(hass)
-    assert result["step_id"] == "shutter"
+    # outdoor temperature, weather, language and notifications are the house's
+    assert result["step_id"] == "house"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], GENERAL)
     assert result["step_id"] == "shutter_summer"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], SUMMER)
@@ -51,7 +52,8 @@ async def test_user_flow(hass: HomeAssistant, base_states) -> None:
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
     entry = result["result"]
-    assert entry.options["shutter"]["outdoor_temperature"] == OUTDOOR
+    assert entry.options["core"]["outdoor_temperature"] == OUTDOOR
+    assert "outdoor_temperature" not in entry.options["shutter"]
     assert entry.options["shutter"]["vacation_morning_start"] == "07:00:00"
     # groups and windows are added in the panel afterwards
     assert "next_flow" not in result
@@ -62,7 +64,7 @@ async def test_options_flow(hass: HomeAssistant, base_states) -> None:
     await setup_entry(hass, entry)
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["modules", "shutter"]
+    assert result["menu_options"] == ["modules", "house", "shutter"]
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": "shutter"}
     )

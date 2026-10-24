@@ -33,8 +33,9 @@ from homeassistant.helpers.selector import (
     TimeSelector,
 )
 
+from ..const import OPT_CORE
 from ..core.house import CONF_AREA, CONF_COOLING_ENTITY
-from ..runtime import enabled_modules, module_options
+from ..runtime import enabled_modules, module_options, shared_options
 from .ai_client import AiAuthError, AiError, ClaudeClient
 
 if TYPE_CHECKING:
@@ -240,19 +241,27 @@ def _join_season(user_input: dict[str, Any]) -> dict[str, Any]:
     return values
 
 
-def general_schema(v: dict[str, Any], season_text: bool = False) -> vol.Schema:
+def general_schema(v: dict[str, Any], season_text: bool = False, shared: bool = True) -> vol.Schema:
     """``season_text``: the period as text fields (the panel); the dialogs use day and
-    month fields."""
+    month fields. ``shared``: with the outdoor values and the weather, which the house
+    sets for every module (the setup asks for them with the house)."""
     season = (
         {_req(CONF_SEASON_START, v): TextSelector(), _req(CONF_SEASON_END, v): TextSelector()}
         if season_text
         else _season_fields(v)
     )
-    return vol.Schema(
+    outdoor = (
         {
             _opt_entity(CONF_OUTDOOR_TEMP, v): _sensor("temperature", TEMP_UNITS),
             _opt_entity(CONF_OUTDOOR_HUMIDITY, v): _sensor("humidity", HUMIDITY_UNITS),
             _opt_entity(CONF_WEATHER, v): _entity(["weather"]),
+        }
+        if shared
+        else {}
+    )
+    return vol.Schema(
+        {
+            **outdoor,
             _opt_entity(CONF_PV_POWER, v): _sensor("power", POWER_UNITS),
             _opt_entity(CONF_PV_FORECAST, v): _entity(
                 ["sensor"],
@@ -450,9 +459,13 @@ def decision_schema_expert(v: dict[str, Any]) -> vol.Schema:
     )
 
 
-def _validate_general(user_input: dict[str, Any]) -> dict[str, str]:
+def _validate_general(
+    user_input: dict[str, Any], house: dict[str, Any] | None = None
+) -> dict[str, str]:
+    """``house``: the settings of the house, its outdoor sensor or weather counts as well."""
     errors: dict[str, str] = {}
-    if not user_input.get(CONF_OUTDOOR_TEMP) and not user_input.get(CONF_WEATHER):
+    sources = {**(house or {}), **user_input}
+    if not sources.get(CONF_OUTDOOR_TEMP) and not sources.get(CONF_WEATHER):
         # the outdoor temperature drives prediction and learning
         errors[CONF_OUTDOOR_TEMP] = "outdoor_required"
     for key, (day_key, _) in SEASON_PARTS.items():
@@ -534,14 +547,16 @@ class HeatingSetupSteps:
         errors: dict[str, str] = {}
         if user_input is not None:
             user_input = _join_season(user_input)
-            errors = _validate_general(user_input)
+            errors = _validate_general(user_input, self._options.get(OPT_CORE))
             if not errors:
                 self._heating().update(_clean(user_input))
                 return await self.async_step_heating_vacation()
         if user_input is None and self.hass.config.latitude < 0:
             user_input = dict(SOUTHERN_SEASON)  # winter is in the middle of the year
         return self.async_show_form(  # type: ignore[attr-defined]
-            step_id="heating", data_schema=general_schema(user_input or {}), errors=errors
+            step_id="heating",
+            data_schema=general_schema(user_input or {}, shared=False),
+            errors=errors,
         )
 
     async def async_step_heating_vacation(
@@ -716,7 +731,7 @@ class HeatingOptionsSteps:
         errors: dict[str, str] = {}
         if user_input is not None:
             user_input = _join_season(user_input)
-            errors = _validate_general(user_input)
+            errors = _validate_general(user_input, shared_options(self.config_entry))
             if not errors:
                 return self._heating_save(
                     _clean(user_input),

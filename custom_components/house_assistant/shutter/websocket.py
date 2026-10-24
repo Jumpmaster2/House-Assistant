@@ -20,7 +20,7 @@ from homeassistant.helpers.selector import (
 
 from ..core.entry import house_entry, running_module, update_section
 from ..core.house import CONF_ROOM, CONF_SIZE, rooms, window_errors, window_size, windows
-from ..runtime import module_options
+from ..runtime import module_options, shared_options
 from .config_flow import (
     _advanced_schema,
     _evening_schema,
@@ -369,7 +369,8 @@ def ws_save_options(
     checked, errors = _check(_option_fields(hass, values), values)
     if not errors:
         errors = {
-            **validate_general(hass, checked),
+            # the outdoor temperature or weather of the house counts as well
+            **validate_general(hass, {**checked, **shared_options(entry)}),
             **_validate_evening(checked),
             **_validate_vacation(checked),
         }

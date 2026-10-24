@@ -190,7 +190,7 @@ async def open_options(hass: HomeAssistant, entry: MockConfigEntry, step: str) -
 
 
 async def start_setup(hass: HomeAssistant) -> dict:
-    """The setup of the house with only the covers: their first step."""
+    """The setup of the house with only the covers: the settings of the house first."""
     flow = hass.config_entries.flow
     result = await flow.async_init(DOMAIN, context={"source": "user"})
     return await flow.async_configure(result["flow_id"], {"modules": [MODULE_SHUTTER]})

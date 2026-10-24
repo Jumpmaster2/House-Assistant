@@ -58,14 +58,21 @@ async def test_user_flow(hass: HomeAssistant, base) -> None:
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"modules": ["meter"]}
     )
-    # the settings of the meter module follow the choice of the modules
+    # the settings of the house, then the ones of the meter module
+    assert result["step_id"] == "house"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"language": "de"})
     assert result["step_id"] == "meter"
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"ai_task_entity": "ai_task.claude", "notify_rejected": False}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["options"] == {
-        "core": {"modules": ["meter"]},
+        "core": {
+            "modules": ["meter"],
+            "language": "de",
+            "notify_services": [],
+            "weekend_days": ["sat", "sun"],
+        },
         "meter": {"ai_task_entity": "ai_task.claude", "notify_rejected": False},
     }
     # only once
@@ -134,7 +141,7 @@ async def test_options_flow(hass: HomeAssistant, base) -> None:
     entry = await setup_entry(hass, meters=[])
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["modules", "meter"]
+    assert result["menu_options"] == ["modules", "house", "meter"]
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": "meter"}
     )

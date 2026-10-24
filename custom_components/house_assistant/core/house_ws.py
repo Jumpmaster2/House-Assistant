@@ -1,8 +1,10 @@
-"""WebSocket API of the house section of the panel: rooms and windows.
+"""WebSocket API of the house section of the panel: rooms, windows and the settings of
+the house.
 
 The house section edits what every module builds on: name, area and sensors of a room,
-room, size, contacts and cover of a window. The settings of the modules (heating of a
-room, sun protection of a window) are edited in their sections; saving here keeps them.
+room, size, contacts and cover of a window, the shared settings and the modules. The
+settings of the modules (heating of a room, sun protection of a window) are edited in
+their sections; saving here keeps them.
 """
 
 from __future__ import annotations
@@ -18,12 +20,24 @@ from homeassistant.data_entry_flow import section
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import Selector
 
-from ..const import DOMAIN, SUBENTRY_GROUP, SUBENTRY_ROOM, SUBENTRY_WINDOW
+from ..const import (
+    CONF_MODULES,
+    CONF_SHOW_PANEL,
+    DOMAIN,
+    MODULE_HEATING,
+    MODULE_ORDER,
+    MODULE_SHUTTER,
+    OPT_CORE,
+    SHARED_KEYS,
+    SUBENTRY_GROUP,
+    SUBENTRY_ROOM,
+    SUBENTRY_WINDOW,
+)
 from ..heating.config_flow import area_schema, other_areas, validate_area
-from ..runtime import enabled_modules
+from ..runtime import enabled_modules, module_options
 from ..shutter.config_flow import window_basics_fields
 from ..shutter.websocket import WINDOW_WALL_FIELDS
-from .entry import house_entry
+from .entry import house_entry, update_section
 from .house import (
     CONF_NAME,
     CONF_ROOM,
@@ -35,6 +49,7 @@ from .house import (
     windows,
 )
 from .schema import PanelError, coerce, spec
+from .settings import house_schema, validate_house
 
 PREFIX = f"{DOMAIN}/house"
 
@@ -72,9 +87,13 @@ def _specs(fields: dict[Any, Any]) -> dict[str, Any]:
 def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
     registry = er.async_get(hass)
     house_windows = windows(entry)
+    core = module_options(entry, OPT_CORE)
     return {
         "entry_id": entry.entry_id,
         "modules": enabled_modules(entry),
+        "available": list(MODULE_ORDER),
+        "show_panel": bool(core.get(CONF_SHOW_PANEL, True)),
+        "settings": {key: core[key] for key in SHARED_KEYS if key in core},
         "rooms": [
             {
                 "id": sub_id,
@@ -95,7 +114,11 @@ def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
             }
             for sub_id, sub in house_windows.items()
         ],
-        "fields": {"room": _specs(room_fields()), "window": _specs(window_fields(entry))},
+        "fields": {
+            "room": _specs(room_fields()),
+            "window": _specs(window_fields(entry)),
+            "settings": _specs(house_schema(hass, core).schema),
+        },
     }
 
 
@@ -231,4 +254,42 @@ def ws_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
     connection.send_result(msg["id"], {"config": config_payload(hass, entry)})
 
 
-COMMANDS = (ws_config, ws_save, ws_delete)
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{PREFIX}/save_settings",
+        vol.Required("settings"): dict,
+        vol.Optional("modules"): [vol.In(MODULE_ORDER)],
+        vol.Optional("show_panel"): bool,
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_save_settings(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """The settings of the house (a value set applies to every module) and the modules."""
+    entry = house_entry(hass)
+    if entry is None:
+        connection.send_error(msg["id"], "not_found", "House Assistant is not set up")
+        return
+    core = module_options(entry, OPT_CORE)
+    modules = msg.get("modules", core.get(CONF_MODULES) or [])
+    try:
+        settings = _check(house_schema(hass, core).schema, msg["settings"])
+    except PanelError as err:
+        _error(connection, msg["id"], err)
+        return
+    own = [module_options(entry, key) for key in (MODULE_HEATING, MODULE_SHUTTER)]
+    for key, error in validate_house(hass, settings, modules, [v for v in own if v]).items():
+        _error(connection, msg["id"], PanelError(error, key))
+        return
+    core = {k: v for k, v in core.items() if k not in SHARED_KEYS}
+    core.update(settings)
+    core[CONF_MODULES] = [key for key in MODULE_ORDER if key in modules]
+    if "show_panel" in msg:
+        core[CONF_SHOW_PANEL] = msg["show_panel"]
+    update_section(hass, entry, OPT_CORE, core)
+    connection.send_result(msg["id"], config_payload(hass, entry))
+
+
+COMMANDS = (ws_config, ws_save, ws_delete, ws_save_settings)

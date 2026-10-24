@@ -45,6 +45,8 @@ class HouseAssistantPanel extends HTMLElement {
     this._view = null;
     this.attachShadow({ mode: "open" });
     this.shadowRoot.addEventListener("click", (ev) => this._onClick(ev));
+    // the modules changed in the house section: show their sections
+    this.shadowRoot.addEventListener("house-assistant-reload", () => this._load());
   }
 
   set hass(hass) {

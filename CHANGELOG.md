@@ -19,6 +19,7 @@
 - Covers use the heating day of the heating module as heat need when no own entity is set (option "Heating day of the heating", on by default; only within the heating period).
 - Meters can use the days without heating as their condition (option per meter).
 - The heating reads a heat meter of the meter module with the time it was read; a confirmed correction downwards is no meter reset.
+- Settings of the house for every module (setup step and Settings > House, panel House > General): outdoor temperature and humidity, weather, language of the messages, notification services, workday sensor and weekend days. A value set there applies to every module; without one the value in the settings of the module applies. The setup asks for them once, before the modules; the covers start with the summer day. Logbook and notifications of heating and meters follow the language of the house as well.
 
 ## 0.1.0
 
