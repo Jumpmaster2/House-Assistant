@@ -1,0 +1,2947 @@
+"""Central engine: control loop, learning, heating day decision and AI scheduling."""
+
+from __future__ import annotations
+
+import asyncio
+import math
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime, time, timedelta
+from typing import TYPE_CHECKING, Any
+
+from homeassistant.const import (
+    ATTR_ENTITY_ID,
+    ATTR_UNIT_OF_MEASUREMENT,
+    CONF_API_KEY,
+    STATE_OFF,
+    STATE_ON,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+    UnitOfPower,
+    UnitOfTemperature,
+)
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, State, callback
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.debounce import Debouncer
+from homeassistant.helpers.event import (
+    async_track_point_in_utc_time,
+    async_track_state_change_event,
+    async_track_time_change,
+)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
+from homeassistant.util.unit_conversion import PowerConverter, TemperatureConverter
+
+from ..core.store import module_store
+from .ai_client import AiAuthError, AiError, ClaudeClient
+from .const import (
+    CONF_AI_CHECK_DAYS,
+    CONF_AI_EFFORT,
+    CONF_AI_MODEL,
+    CONF_BUDGET,
+    CONF_CHECK_INTERVAL,
+    CONF_CHECK_MAX_INTERVAL,
+    CONF_DEAD_TIME,
+    CONF_DEFAULT_TARGET,
+    CONF_EMERGENCY_DELTA,
+    CONF_EMERGENCY_DURATION,
+    CONF_EMERGENCY_ENABLED,
+    CONF_EMERGENCY_QUIET,
+    CONF_FALLBACK_ERRORS,
+    CONF_FORCE_ON_BELOW,
+    CONF_FORECAST_TRUST,
+    CONF_FROST_TEMP,
+    CONF_HEAT_METER,
+    CONF_HEATING_TYPE,
+    CONF_HUMIDITY_SENSOR,
+    CONF_LIMITS,
+    CONF_MAX_OUTPUT_TOKENS,
+    CONF_MIN_OFF,
+    CONF_MIN_ON,
+    CONF_NIGHT_END,
+    CONF_NIGHT_START,
+    CONF_NIGHTLY_TIME,
+    CONF_OUTDOOR_HUMIDITY,
+    CONF_OUTDOOR_TEMP,
+    CONF_PHASE_MAX_ERRORS,
+    CONF_PREHEAT_RESERVE,
+    CONF_PRICE_CACHE_READ,
+    CONF_PRICE_CACHE_WRITE,
+    CONF_PRICE_INPUT,
+    CONF_PRICE_OUTPUT,
+    CONF_PROMPTS,
+    CONF_PUFFER,
+    CONF_PUFFER_DOWN,
+    CONF_PUFFER_UP,
+    CONF_PV_FORECAST,
+    CONF_PV_POWER,
+    CONF_RECOVERY,
+    CONF_REF_HUMIDITY,
+    CONF_REF_TEMP,
+    CONF_RETURN_ENTITY,
+    CONF_RULE_AGREEMENT,
+    CONF_RULE_DAYS,
+    CONF_SEASON_END,
+    CONF_SEASON_START,
+    CONF_SHARED_AGREEMENT,
+    CONF_SHARED_DAYS,
+    CONF_SWITCH,
+    CONF_TEMP_SENSOR,
+    CONF_THETA_DOWN,
+    CONF_THETA_START,
+    CONF_THETA_UP,
+    CONF_TOO_COLD_MARGIN,
+    CONF_TOO_COLD_MINUTES,
+    CONF_VACATION_ENTITIES,
+    CONF_VACATION_TEMP,
+    CONF_VENT_AI,
+    CONF_VENT_BLOCK,
+    CONF_VENT_CHECK_INTERVAL,
+    CONF_VENT_CHECK_MAX_INTERVAL,
+    CONF_VENT_COOL_MARGIN,
+    CONF_VENT_COOL_MIN_TEMP,
+    CONF_VENT_ENERGY,
+    CONF_VENT_MAX_EXCESS,
+    CONF_VENT_MAX_MINUTES,
+    CONF_VENT_MIN_AH,
+    CONF_VENT_MIN_COOLING,
+    CONF_VENT_MIN_MINUTES,
+    CONF_VENT_MOULD_RH,
+    CONF_VENT_PAUSE,
+    CONF_VENT_RH,
+    CONF_VENT_TARGET_BELOW,
+    CONF_VENT_TIME_FACTOR,
+    CONF_WEATHER,
+    CONF_WINDOW_DELAY,
+    DEFAULTS,
+    DOMAIN,
+    EVENT_LOGBOOK,
+    LOGGER,
+    MODEL_PRICE_SUGGESTIONS,
+    MODULE_HEATING,
+    NAME,
+    SUBENTRY_ROOM,
+    TICK_SECONDS,
+)
+from .logic import heating_day as hd
+from .logic.ai_policy import (
+    Budget,
+    Prices,
+    cost_usd,
+    estimate_cost,
+    humid_issue,
+    next_interval_hours,
+    overheat_issue,
+    update_stable_count,
+)
+from .logic.ai_schema import (
+    CHECK_SCHEMA,
+    GLOBAL,
+    NIGHTLY_SCHEMA,
+    PARAMS,
+    VENT_CHECK_SCHEMA,
+    VENT_PARAMS,
+    AnswerError,
+    default_limits,
+    validate_check,
+    validate_nightly,
+)
+from .logic.controller import (
+    AreaRuntime,
+    AreaSettings,
+    AreaStatus,
+    ControlDecision,
+    ControlInput,
+    ControlParams,
+    LearnedValues,
+    emergency_limit,
+    preheat_start,
+    step,
+)
+from .logic.draft import draft_groups, has_draft
+from .logic.energy import HeatMeter, to_kwh
+from .logic.humidity_learning import HumidityProfile
+from .logic.learning import (
+    DEAD_TIME_BOUNDS,
+    MIN_RECOVERY_EVENTS,
+    P_START,
+    RECOVERY_BOUNDS,
+    AreaLearner,
+    Ewma,
+    RecoveryModel,
+    Sample,
+)
+from .logic.physics import absolute_humidity, clamp, in_season, parse_day_month
+from .logic.prompts import check_messages, nightly_messages, r, vent_check_messages
+from .logic.start_values import (
+    LEARNED_BOUNDS,
+    apply_start_values,
+    apply_vent_start_values,
+    read_record,
+    read_vent_record,
+)
+from .logic.sun import (
+    FORECAST_TRUST,
+    Point,
+    SunScale,
+    clear_sky_index,
+    cloud_factor,
+    cloud_pct,
+    expected_now,
+    planning_pv,
+    sensor_point,
+    solar_elevation,
+    weather_points,
+)
+from .logic.vent_check import count_vent, new_vent_stats, stats_payload
+from .logic.ventilation import (
+    VentilationInput,
+    VentilationResult,
+    VentilationSettings,
+    VentilationState,
+    is_blocking,
+    recommend,
+)
+from .logic.windows import WINDOW_FIELDS, largest, open_area, own_windows
+from .messages import label_of, text
+
+if TYPE_CHECKING:
+    from . import HeatingModule
+
+SAVE_DELAY = 30
+HISTORY_DAYS = 60
+EXTERNAL_SWITCH_GRACE = 120  # s within which a switch change counts as our own command
+CHECK_COLD_MARGIN = 0.3
+OVERHEAT_MARGIN = 0.2  # K above target tolerated before heat counts as wasted
+OVERHEAT_AFTER_S = 4 * 3600.0  # s after switch-off in which overheating is due to heating
+SUN_OVERHEAT_KW = 0.3  # PV power from which overheating counts as caused by sun as well
+CHECK_HISTORY = 6  # earlier checks shown to the AI
+SAVE_EVERY_TICKS = 10
+WEATHER_PV_REFRESH_S = 1800  # s between hourly forecast requests for the expected sun
+VIRTUAL_MIN_COOL_UPDATES = 24  # model updates without heating before the virtual room is trusted
+TWILIGHT_INDEX = 0.05  # clear sky index (about 5 degrees elevation) below which PV counts as 0
+PV_NEGLIGIBLE_KW = 0.05  # expected PV power below which a missing PV value counts as 0
+# Once the clear sky PV power of the plant is learned, the thresholds above are taken
+# relative to it, so they fit small and large plants alike.
+SUN_OVERHEAT_SHARE = 0.1
+PV_NEGLIGIBLE_SHARE = 0.02
+MIN_SUN_OVERHEAT_KW = 0.05
+PV_MISSING_WARN_MIN = 60.0  # daytime minutes without a PV value before a warning
+OUTAGE_ISSUE_S = 15 * 60  # s a sensor or switch may be missing before a repair issue
+CMD_RETRY_MIN = (1, 2, 4, 8, 15)  # min before a switch command without effect is repeated
+CMD_ISSUE_ATTEMPTS = 3  # commands without effect before a repair issue
+# Repair issues of this integration (translation keys; the issue id adds the area id).
+SWITCH_OFF_TIMEOUT = 10  # s to wait for a circuit to switch off when control ends
+TEMP_RANGE = (-50.0, 80.0)  # °C a temperature sensor can plausibly report
+FORECAST_TIMEOUT = 10  # s to wait for the weather service
+TARGET_CHANGE_K = 0.5  # target change that makes the AI look again soon
+DECIDE_RETRY_S = 15 * 60  # pause after a failed heating day decision before the next try
+ISSUE_KEYS = (
+    "sensor_unavailable",
+    "actuator_unavailable",
+    "actuator_not_responding",
+    "outdoor_unavailable",
+)
+
+
+@dataclass
+class Area:
+    """Runtime representation of one heating area (config subentry)."""
+
+    area_id: str
+    name: str
+    prompt_id: str
+    cfg: dict[str, Any]
+    params: ControlParams
+    settings: AreaSettings
+    learner: AreaLearner | None
+    runtime: AreaRuntime
+    target: float
+    hvac_on: bool
+    day: hd.DayAreaStats
+    check: dict[str, float]
+    temp: float | None = None
+    humidity: float | None = None
+    window_open: bool = False  # own window or draft: the controller pauses either way
+    own_window_open: bool = False
+    opening: float = 0.0  # relative opening area of the own windows open now
+    suggested_window: str | None = None  # window to open for the suggested airing
+    draft: bool = False  # draft through windows open in other rooms
+    switch_on: bool = False
+    switch_available: bool = False
+    last_switch_change: float | None = None
+    on_since: float | None = None
+    off_at: float | None = None  # last real switch-off seen (not restored after a restart)
+    commanded: tuple[bool, float] | None = None
+    cmd_attempts: int = 0  # commands sent that the switch has not followed yet
+    next_cmd_at: float | None = None  # earliest time to repeat such a command
+    effective_target: float | None = None
+    vacation: bool = False
+    preheat: bool = False
+    decision: ControlDecision | None = None
+    ventilation: VentilationResult | None = None
+    status: str = AreaStatus.IDLE
+    learned_values: LearnedValues = field(default_factory=LearnedValues)
+    start: dict[str, float] = field(default_factory=dict)  # start values last applied
+    vent_params: VentilationSettings = field(default_factory=VentilationSettings)
+    vent_check: dict[str, float] = field(default_factory=new_vent_stats)
+    vent_start: dict[str, float] = field(default_factory=dict)  # ventilation start values
+    humidity_profile: HumidityProfile = field(default_factory=HumidityProfile)
+    ref_temp: float | None = None  # reference air of the ventilation recommendation
+    ref_humidity: float | None = None
+
+    @property
+    def has_humidity(self) -> bool:
+        return bool(self.cfg.get(CONF_HUMIDITY_SENSOR))
+
+    @property
+    def has_circuit(self) -> bool:
+        return bool(self.cfg.get(CONF_SWITCH))
+
+    @property
+    def airing(self) -> bool:
+        rt = self.runtime
+        return self.window_open or rt.window_paused or rt.recovery_until is not None
+
+
+def _start_values(cfg: dict[str, Any]) -> dict[str, float]:
+    """Configured start values in the units the learner and the parameters use."""
+    return {
+        "dead_time": float(cfg.get(CONF_DEAD_TIME, 30)) * 60,
+        "recovery": float(cfg.get(CONF_RECOVERY, 30)) * 60,
+        "window_delay_min": float(cfg.get(CONF_WINDOW_DELAY, 5)),
+        "puffer": float(cfg.get(CONF_PUFFER, 0.7)),
+    }
+
+
+# Divisor and unit for the logbook: seconds are shown as minutes.
+_START_UNITS = {
+    "dead_time": (60.0, "min"),
+    "recovery": (60.0, "min"),
+    "window_delay_min": (1.0, "min"),
+    "puffer": (1.0, "K"),
+}
+
+# Start value of the area configuration -> learned value or parameter that replaces it.
+LEARNED_NAMES = {
+    CONF_WINDOW_DELAY: "window_delay_min",
+    CONF_RECOVERY: "recovery",
+    CONF_DEAD_TIME: "dead_time",
+    CONF_PUFFER: "puffer",
+}
+
+
+def _new_check_stats() -> dict[str, float]:
+    return {
+        "minutes": 0.0,
+        "cold_min": 0.0,
+        "max_over": -99.0,
+        "cycles": 0.0,
+        "on_min": 0.0,
+        "min_t": 99.0,
+        "max_t": -99.0,
+        "window_min": 0.0,
+        "draft_min": 0.0,
+        "cross_min": 0.0,
+        "airings": 0.0,
+        "rec_min": 0.0,
+        "rec_cold_min": 0.0,
+        "over_kh": 0.0,
+        "sun_over_kh": 0.0,
+        "deg_h": 0.0,
+    }
+
+
+class HeatingCoordinator(DataUpdateCoordinator[int]):
+    """Runs the control loop every minute and on relevant state changes."""
+
+    def __init__(self, module: HeatingModule) -> None:
+        hass = module.hass
+        super().__init__(
+            hass,
+            LOGGER,
+            config_entry=module.entry,
+            name=f"{NAME} heating",
+            update_interval=timedelta(seconds=TICK_SECONDS),
+            always_update=True,
+            request_refresh_debouncer=Debouncer(hass, LOGGER, cooldown=3, immediate=False),
+        )
+        self.module = module
+        self.store = module_store(hass, module.entry, MODULE_HEATING)
+        self.areas: dict[str, Area] = {}
+        self.day_state: dict[str, Any] = {}
+        self.ai_state: dict[str, Any] = {}
+        self.budget = Budget()
+        self.meter = HeatMeter()
+        self.client: ClaudeClient | None = None
+        self.global_device_id: str | None = None
+        self.outdoor_temp: float | None = None
+        self.pv_kw: float | None = 0.0  # None: sensor configured but without a value by day
+        self.pv_assumed: float = 0.0  # pv_kw, or the expected power while it is unknown
+        self._pv_measured = False  # pv_kw comes from the sensor (calibration allowed)
+        self._pv_missing_min = 0.0  # daytime minutes the PV sensor had no value
+        self._pv_warned = False
+        self.sun_scale = SunScale()
+        self._pv_points: list[Point] = []
+        self._hourly: list[dict[str, Any]] = []
+        self._hourly_ts: float | None = None
+        self.season_active = False
+        self.vacation = False
+        self._last_tick: float | None = None
+        self._unsubs: list[Callable[[], None]] = []
+        self._unsub_check: Callable[[], None] | None = None
+        self._unsub_vent: Callable[[], None] | None = None
+        self._vent_checking = False
+        self._deciding = False
+        self._opts: dict[str, Any] | None = None
+        self._opts_src: Any = None
+        self._decide_failed_at: float | None = None
+        self._checking = False
+        self._tick_count = 0
+        self._shut_down = False
+        self._warned: set[str] = set()  # entities already warned about an odd unit or value
+        # switches no area controls any more that are not known to be off yet
+        self._pending_release: list[str] = []
+        self._missing_since: dict[str, float] = {}  # repair issue id -> start of the outage
+        self._issues: set[str] = set()  # repair issues raised by this coordinator
+
+    # ------------------------------------------------------------------ config
+
+    @property
+    def opts(self) -> dict[str, Any]:
+        # Built once per options object: saving options replaces it (and restarts the
+        # module later), so a reply built right after saving already sees the change.
+        options = self.config_entry.options.get(MODULE_HEATING) or {}
+        if self._opts is None or self._opts_src is not options:
+            self._opts, self._opts_src = {**DEFAULTS, **options}, options
+        return self._opts
+
+    def opt(self, key: str) -> Any:
+        return self.opts.get(key, DEFAULTS.get(key))
+
+    @property
+    def language(self) -> str:
+        return self.hass.config.language or "en"
+
+    @property
+    def prices(self) -> Prices:
+        return Prices(
+            float(self.opt(CONF_PRICE_INPUT)),
+            float(self.opt(CONF_PRICE_OUTPUT)),
+            float(self.opt(CONF_PRICE_CACHE_WRITE)),
+            float(self.opt(CONF_PRICE_CACHE_READ)),
+        )
+
+    @property
+    def limits(self) -> dict[str, dict[str, float]]:
+        limits = default_limits()
+        for key, value in (self.opt(CONF_LIMITS) or {}).items():
+            if key in limits and isinstance(value, dict):
+                limits[key].update(
+                    {k: float(v) for k, v in value.items() if k in ("min", "max", "step")}
+                )
+        return limits
+
+    @property
+    def ai_configured(self) -> bool:
+        return bool(self.config_entry.data.get(CONF_API_KEY))
+
+    @property
+    def ai_enabled(self) -> bool:
+        return self.ai_configured and bool(self.ai_state.get("enabled", True))
+
+    @property
+    def vent_state(self) -> dict[str, Any]:
+        """State of the AI ventilation check (schedule, stability, history)."""
+        state = self.ai_state.get("vent")
+        if not isinstance(state, dict):
+            state = self.ai_state["vent"] = {}
+        return state
+
+    @property
+    def vent_ai_active(self) -> bool:
+        """The AI ventilation check runs (all year) if enabled and a room has humidity."""
+        return (
+            self.ai_enabled
+            and bool(self.opt(CONF_VENT_AI))
+            and any(a.has_humidity for a in self.areas.values())
+        )
+
+    @property
+    def theta(self) -> float:
+        return float(self.day_state.get("theta", self.opt(CONF_THETA_START)))
+
+    @property
+    def phase(self) -> hd.Phase:
+        try:
+            return hd.Phase(self.day_state.get("phase", hd.Phase.AI_LEADS))
+        except ValueError:
+            return hd.Phase.AI_LEADS
+
+    @property
+    def current_day(self) -> dict[str, Any] | None:
+        return self.day_state.get("current")
+
+    @property
+    def heating_day(self) -> bool:
+        """Today's decision. Without a valid decision heating is allowed (safe default)."""
+        override = self.day_state.get("override", hd.Override.AUTO)
+        if override == hd.Override.HEAT:
+            return True
+        if override == hd.Override.OFF:
+            return False
+        current = self.current_day
+        if current is None:
+            return True
+        return bool(current.get("heat", True))
+
+    @property
+    def heats_now(self) -> bool:
+        """Heating is allowed: within the heating period, or "heat today" chosen by hand
+        outside it (for that day only; the AI stays off outside the period)."""
+        return self.season_active or self.day_state.get("override") == hd.Override.HEAT
+
+    def _eval_settings(self) -> hd.EvalSettings:
+        limits = self.limits
+        return hd.EvalSettings(
+            too_cold_minutes=float(self.opt(CONF_TOO_COLD_MINUTES)),
+            theta_up=float(self.opt(CONF_THETA_UP)),
+            theta_down=float(self.opt(CONF_THETA_DOWN)),
+            puffer_up=float(self.opt(CONF_PUFFER_UP)),
+            puffer_down=float(self.opt(CONF_PUFFER_DOWN)),
+            theta_min=limits["theta"]["min"],
+            theta_max=limits["theta"]["max"],
+            puffer_min=limits["puffer"]["min"],
+            puffer_max=limits["puffer"]["max"],
+        )
+
+    def _phase_settings(self) -> hd.PhaseSettings:
+        return hd.PhaseSettings(
+            shared_min_days=int(self.opt(CONF_SHARED_DAYS)),
+            shared_min_agreement=float(self.opt(CONF_SHARED_AGREEMENT)) / 100,
+            shared_max_rule_errors=int(self.opt(CONF_PHASE_MAX_ERRORS)),
+            rule_min_days=int(self.opt(CONF_RULE_DAYS)),
+            rule_min_agreement=float(self.opt(CONF_RULE_AGREEMENT)) / 100,
+            rule_max_rule_errors=int(self.opt(CONF_PHASE_MAX_ERRORS)),
+            fallback_errors_7d=int(self.opt(CONF_FALLBACK_ERRORS)),
+            ai_check_every_days=int(self.opt(CONF_AI_CHECK_DAYS)),
+        )
+
+    # ------------------------------------------------------------------ setup
+
+    async def _async_setup(self) -> None:
+        """Load stored state, build areas, start timers and listeners."""
+        stored = await self.store.async_load() or {}
+        self.day_state = stored.get("day", {})
+        self.ai_state = stored.get("ai", {})
+        self.budget = Budget.from_dict(self.ai_state.get("budget"))
+        # Judged again at the next call: the budget may have been raised meanwhile.
+        self.budget.blocked = False
+        self.meter = HeatMeter.from_dict(stored.get("meter"))
+        scale = (stored.get("sun") or {}).get("scale")
+        self.sun_scale = SunScale(float(scale) if isinstance(scale, int | float) else None)
+        stored_areas: dict[str, Any] = stored.get("areas", {})
+
+        for index, subentry in enumerate(
+            s for s in self.config_entry.subentries.values() if s.subentry_type == SUBENTRY_ROOM
+        ):
+            self.areas[subentry.subentry_id] = self._build_area(
+                subentry.subentry_id,
+                subentry.title,
+                dict(subentry.data),
+                stored_areas.get(subentry.subentry_id, {}),
+                index,
+            )
+
+        if self.ai_configured:
+            self.client = await ClaudeClient.create(
+                self.hass,
+                self.config_entry.data[CONF_API_KEY],
+                str(self.opt(CONF_AI_MODEL)),
+                str(self.opt(CONF_AI_EFFORT)),
+            )
+
+        self._clamp_to_limits()
+        self._release_circuits(stored.get("circuits"), stored.get("release"))
+        self._drop_stale_issues()
+        self._register_listeners()
+        nightly = _parse_time(str(self.opt(CONF_NIGHTLY_TIME)))
+        self._unsubs.append(
+            async_track_time_change(
+                self.hass,
+                self._nightly_callback,
+                hour=nightly.hour,
+                minute=nightly.minute,
+                second=nightly.second,
+            )
+        )
+        self._restore_check_schedule()
+        self._restore_vent_schedule()
+        self._save()  # applied start values are on record from now on
+
+    async def async_start(self) -> None:
+        """Set up and run the control once. ``async_config_entry_first_refresh`` only
+        works while the entry is being set up; the module also starts later (switched on
+        in the settings, restarted after a change)."""
+        await self._async_setup()
+        await self.async_refresh()
+
+    def _build_area(
+        self, area_id: str, title: str, cfg: dict[str, Any], stored: dict[str, Any], index: int
+    ) -> Area:
+        start = _start_values(cfg)
+        params = ControlParams.from_dict(
+            stored.get("params"),
+            window_delay_min=start["window_delay_min"],
+            puffer=start["puffer"],
+        )
+        settings = AreaSettings(
+            min_on_s=float(cfg.get(CONF_MIN_ON, 10)) * 60,
+            min_off_s=float(cfg.get(CONF_MIN_OFF, 10)) * 60,
+            emergency_enabled=bool(self.opt(CONF_EMERGENCY_ENABLED)),
+            emergency_delta=float(self.opt(CONF_EMERGENCY_DELTA)),
+            emergency_duration_s=float(self.opt(CONF_EMERGENCY_DURATION)) * 60,
+            emergency_window_quiet_s=float(self.opt(CONF_EMERGENCY_QUIET)) * 60,
+            force_on_below=float(self.opt(CONF_FORCE_ON_BELOW)),
+        )
+        learner = (
+            AreaLearner.from_dict(stored.get("learner"), start["dead_time"], start["recovery"])
+            if cfg.get(CONF_SWITCH)
+            else None
+        )
+        area = Area(
+            area_id=area_id,
+            name=title,
+            prompt_id=f"a{index + 1}",
+            cfg=cfg,
+            params=params,
+            settings=settings,
+            learner=learner,
+            runtime=AreaRuntime.from_dict(stored.get("runtime")),
+            # Without a circuit there is no thermostat card: the configured value is the reference.
+            target=float(
+                stored.get("target", cfg.get(CONF_DEFAULT_TARGET, 21.0))
+                if cfg.get(CONF_SWITCH)
+                else cfg.get(CONF_DEFAULT_TARGET, 21.0)
+            ),
+            hvac_on=bool(stored.get("hvac_on", True)),
+            day=hd.DayAreaStats.from_dict(stored.get("day")),
+            check=stored.get("check") or _new_check_stats(),
+        )
+        self._apply_start_values(area, start, stored.get("start"))
+        vent_start = self._vent_start_values(cfg)
+        area.vent_params = VentilationSettings.from_dict(stored.get("vent_params"), **vent_start)
+        area.vent_check = stored.get("vent_check") or new_vent_stats()
+        area.humidity_profile = HumidityProfile.from_dict(stored.get("humidity"))
+        self._apply_vent_start_values(area, vent_start, stored.get("vent_start"))
+        return area
+
+    def _vent_start_values(self, cfg: dict[str, Any]) -> dict[str, float]:
+        """Configured thresholds of the ventilation recommendation of an area."""
+        return {
+            "rh_threshold": float(cfg.get(CONF_VENT_RH, 60.0)),
+            "min_ah_advantage": float(self.opt(CONF_VENT_MIN_AH)),
+            "max_reference_excess": float(self.opt(CONF_VENT_MAX_EXCESS)),
+            "energy_rh_per_k": float(self.opt(CONF_VENT_ENERGY)),
+            "mould_rh": float(self.opt(CONF_VENT_MOULD_RH)),
+            "airing_target_below": float(self.opt(CONF_VENT_TARGET_BELOW)),
+            "airing_time_factor": float(self.opt(CONF_VENT_TIME_FACTOR)),
+            "airing_min_minutes": float(self.opt(CONF_VENT_MIN_MINUTES)),
+            "airing_max_minutes": float(self.opt(CONF_VENT_MAX_MINUTES)),
+            "airing_pause_min": float(self.opt(CONF_VENT_PAUSE)),
+            "min_cooling_advantage": float(self.opt(CONF_VENT_MIN_COOLING)),
+            "cooling_margin": float(self.opt(CONF_VENT_COOL_MARGIN)),
+            "cooling_min_temp": float(self.opt(CONF_VENT_COOL_MIN_TEMP)),
+        }
+
+    def _apply_vent_start_values(
+        self, area: Area, configured: dict[str, float], stored: Any
+    ) -> None:
+        """A threshold changed in the configuration replaces the value of the AI."""
+        applied = apply_vent_start_values(configured, read_vent_record(stored), area.vent_params)
+        if applied:
+            self._forget_vent_history(area)
+        for name, old, new in applied:
+            self._log(
+                "start_value",
+                area,
+                name=label_of(self.language, "parameter", name),
+                old=f"{old:g}",
+                new=f"{new:g}",
+                unit=VENT_PARAMS[name].unit,
+            )
+        area.vent_start = configured
+
+    def _apply_start_values(self, area: Area, configured: dict[str, float], stored: Any) -> None:
+        """A start value changed in the configuration replaces the stored one, and the
+        configuration is then on record (see ``logic.start_values``)."""
+        applied = apply_start_values(configured, read_record(stored), area.learner, area.params)
+        if applied:
+            self._forget_check_history(area)
+        for name, old, new in applied:
+            divisor, unit = _START_UNITS[name]
+            self._log(
+                "start_value",
+                area,
+                name=text(self.language, name),
+                old=f"{old / divisor:g}",
+                new=f"{new / divisor:g}",
+                unit=unit,
+            )
+        area.start = configured
+
+    @property
+    def pending_release(self) -> list[str]:
+        """Switches dropped from the areas that are not known to be off yet."""
+        return list(self._pending_release)
+
+    def _clamp_to_limits(self) -> None:
+        """Bring the parameters into the AI limits, which may have been narrowed."""
+        limits = self.limits
+        for area in self.areas.values():
+            for key, spec, target in (
+                *((k, p, area.params) for k, p in PARAMS.items()),
+                *((k, p, area.vent_params) for k, p in VENT_PARAMS.items()),
+            ):
+                if spec.scope != "area" or key not in limits:
+                    continue
+                old = float(getattr(target, key))
+                new = clamp(old, limits[key]["min"], limits[key]["max"])
+                if new != old:
+                    setattr(target, key, new)
+                    self._log(
+                        "limit_clamp",
+                        area,
+                        parameter=label_of(self.language, "parameter", key),
+                        old=f"{old:g}",
+                        new=f"{new:g}",
+                    )
+        # also the configured start value, as long as nothing was learned
+        old = self.theta
+        new = clamp(old, limits["theta"]["min"], limits["theta"]["max"])
+        if new != old:
+            self.day_state["theta"] = new
+            self._log(
+                "limit_clamp",
+                parameter=label_of(self.language, "parameter", "theta"),
+                old=f"{old:g}",
+                new=f"{new:g}",
+            )
+
+    @callback
+    def _release_circuits(self, stored: Any, pending: Any) -> None:
+        """Switch off circuits of the last run that no area controls any more (area
+        deleted or another switch chosen); otherwise one left on would heat forever.
+        A switch not reachable now is tried again at the next start."""
+        previous = (
+            {s for s in stored.values() if isinstance(s, str)}
+            if isinstance(stored, dict)
+            else set()
+        )
+        if isinstance(pending, list):
+            previous.update(s for s in pending if isinstance(s, str))
+        current = {a.cfg[CONF_SWITCH] for a in self.areas.values() if a.has_circuit}
+        dropped = sorted(previous - current)
+        self._pending_release = dropped
+        if not dropped:
+            return
+
+        async def release() -> None:
+            switched = await async_turn_off_switches(self.hass, dropped)
+            for entity_id in switched:
+                self._log("circuit_released", entity_id=entity_id)
+            # A switch that took the command counts as released, even if its state still
+            # reads "on" for a moment (the device reports back later).
+            self._pending_release = [
+                e
+                for e in dropped
+                if e not in switched
+                and ((st := self.hass.states.get(e)) is None or st.state != STATE_OFF)
+            ]
+            self._save()
+
+        # waited for when the module stops: a circuit must not stay on half released
+        self.module.create_task(release(), f"{DOMAIN} release circuits", cancel=False)
+
+    def _forget_check_history(self, area: Area) -> None:
+        """Earlier checks of an area say nothing about its values after a reset."""
+        for entry in self.ai_state.get("check_history", []):
+            entry.get("areas", {}).pop(area.prompt_id, None)
+
+    def _forget_vent_history(self, area: Area) -> None:
+        for entry in self.vent_state.get("history", []):
+            entry.get("areas", {}).pop(area.prompt_id, None)
+
+    def _register_listeners(self) -> None:
+        watched: set[str] = set()
+        for key in (CONF_OUTDOOR_TEMP, CONF_RETURN_ENTITY):
+            if self.opt(key):
+                watched.add(self.opt(key))
+        if not self.opt(CONF_OUTDOOR_TEMP) and self.opt(CONF_WEATHER):
+            watched.add(self.opt(CONF_WEATHER))  # the outdoor temperature comes from it
+        watched.update(self.opt(CONF_VACATION_ENTITIES) or [])
+        switches: dict[str, str] = {}
+        for area in self.areas.values():
+            for key in (CONF_TEMP_SENSOR, CONF_VENT_BLOCK):
+                if area.cfg.get(key):
+                    watched.add(area.cfg[key])
+            watched.update(own_windows(area.cfg))
+            for group in draft_groups(area.cfg):
+                watched.update(group)
+            if area.has_circuit:
+                switches[area.cfg[CONF_SWITCH]] = area.area_id
+        self._switch_map = switches
+        if watched:
+            self._unsubs.append(
+                async_track_state_change_event(self.hass, sorted(watched), self._on_input_change)
+            )
+        if switches:
+            self._unsubs.append(
+                async_track_state_change_event(self.hass, sorted(switches), self._on_switch_change)
+            )
+
+    @callback
+    def _on_input_change(self, event: Event[EventStateChangedData]) -> None:
+        self.module.create_task(self.async_request_refresh(), f"{DOMAIN} heating refresh")
+
+    @callback
+    def _on_switch_change(self, event: Event[EventStateChangedData]) -> None:
+        area = self.areas.get(self._switch_map.get(event.data["entity_id"], ""))
+        old: State | None = event.data["old_state"]
+        new: State | None = event.data["new_state"]
+        if area is None or new is None or old is None:
+            return
+        if (
+            old.state not in ("on", "off")
+            or new.state not in ("on", "off")
+            or old.state == new.state
+        ):
+            return
+        turned_on = new.state == STATE_ON
+        ts = new.last_changed.timestamp()
+        run_hours = (ts - area.on_since) / 3600 if (not turned_on and area.on_since) else 0.0
+        if area.learner is not None:
+            area.learner.on_switch(ts, area.temp, turned_on, run_hours)
+        area.on_since = ts if turned_on else None
+        area.off_at = None if turned_on else ts
+        self._command_done(area)
+        if turned_on:
+            area.check["cycles"] = area.check.get("cycles", 0) + 1
+        own = (
+            area.commanded is not None
+            and area.commanded[0] == turned_on
+            and ts - area.commanded[1] < EXTERNAL_SWITCH_GRACE
+        )
+        area.commanded = None
+        if not own:
+            if turned_on:
+                area.day.manual_heat = True
+            self._log(
+                "external_switch", area, state=text(self.language, "on" if turned_on else "off")
+            )
+        self._save()
+        self.module.create_task(self.async_request_refresh(), f"{DOMAIN} heating refresh")
+
+    async def async_shutdown(self) -> None:
+        if self._shut_down:  # also registered with the entry: runs once only
+            return
+        self._shut_down = True
+        for unsub in self._unsubs:
+            unsub()
+        self._unsubs.clear()
+        if self._unsub_check:
+            self._unsub_check()
+            self._unsub_check = None
+        if self._unsub_vent:
+            self._unsub_vent()
+            self._unsub_vent = None
+        if self.client:
+            await self.client.close()
+        await self.store.async_save(self._data_to_save())
+        await super().async_shutdown()
+
+    # ------------------------------------------------------------------ helpers
+
+    @callback
+    def _track_outage(
+        self, key: str, area: Area | None, entity_id: str, missing: bool, ts: float
+    ) -> None:
+        """Raise a repair issue once a source has been missing for a while and remove
+        it again as soon as the source is back."""
+        issue_id = f"{key}_{area.area_id}" if area else key
+        if not missing:
+            self._missing_since.pop(issue_id, None)
+            self._clear_issue(issue_id)
+            return
+        since = self._missing_since.setdefault(issue_id, ts)
+        if ts - since >= OUTAGE_ISSUE_S:
+            self._raise_issue(key, area, entity_id)
+
+    @callback
+    def _raise_issue(self, key: str, area: Area | None, entity_id: str) -> None:
+        issue_id = f"{key}_{area.area_id}" if area else key
+        if issue_id in self._issues:
+            return
+        self._issues.add(issue_id)
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=key,
+            translation_placeholders={"area": area.name if area else NAME, "entity_id": entity_id},
+        )
+        self._log(key, area, entity_id=entity_id)
+
+    @callback
+    def _clear_issue(self, issue_id: str) -> None:
+        # Also an issue of an earlier run: after a restart it is only inactive, and it
+        # keeps a dismissal until the source is back.
+        self._issues.discard(issue_id)
+        ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+
+    @callback
+    def _drop_stale_issues(self) -> None:
+        """Remove issues of an area without a circuit (deleted, or the switch removed)
+        and of a source no longer configured. All others stay until their source is
+        back, so a dismissal survives a restart."""
+        valid = {
+            f"{key}_{area.area_id}"
+            for area in self.areas.values()
+            if area.has_circuit
+            for key in ISSUE_KEYS
+        }
+        if self.opt(CONF_OUTDOOR_TEMP) or self.opt(CONF_WEATHER):
+            valid.add("outdoor_unavailable")
+        for issue_id in integration_issues(self.hass):
+            if issue_id not in valid:
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+
+    @callback
+    def _command_done(self, area: Area) -> None:
+        """The switch follows the commands (again)."""
+        area.cmd_attempts = 0
+        area.next_cmd_at = None
+        self._clear_issue(f"actuator_not_responding_{area.area_id}")
+
+    def _state(self, entity_id: str | None) -> State | None:
+        return self.hass.states.get(entity_id) if entity_id else None
+
+    def _float(self, entity_id: str | None) -> float | None:
+        state = self._state(entity_id)
+        if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE, ""):
+            return None
+        try:
+            value = float(state.state)
+        except ValueError:
+            return None
+        return value if math.isfinite(value) else None
+
+    def _humidity(self, entity_id: str | None) -> float | None:
+        """Relative humidity in %, None outside 0-100 (defective sensor)."""
+        value = self._float(entity_id)
+        return value if value is None or 0 <= value <= 100 else self._implausible(entity_id, value)
+
+    def _implausible(self, entity_id: str | None, value: float) -> None:
+        """Ignore an impossible reading; warn once per entity."""
+        self._warn_once(
+            f"{entity_id} value",
+            "%s reports the implausible value %s; it is ignored",
+            entity_id,
+            value,
+        )
+        return None
+
+    def _temp(self, entity_id: str | None) -> float | None:
+        """Temperature of a sensor in °C, whatever unit the sensor reports."""
+        value = self._float(entity_id)
+        if value is None:
+            return None
+        state = self._state(entity_id)
+        unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) if state else None
+        celsius = self._to_celsius(value, unit, str(entity_id))
+        if celsius is not None and not TEMP_RANGE[0] <= celsius <= TEMP_RANGE[1]:
+            return self._implausible(entity_id, value)
+        return celsius
+
+    def _to_celsius(self, value: float, unit: str | None, source: str) -> float | None:
+        """Convert a temperature to °C. Without a unit the unit system of HA applies;
+        a unit that is no temperature unit makes the value unknown (warned once)."""
+        unit = unit or self.hass.config.units.temperature_unit
+        if unit == UnitOfTemperature.CELSIUS:
+            return value
+        try:
+            return TemperatureConverter.convert(value, unit, UnitOfTemperature.CELSIUS)
+        except HomeAssistantError:
+            self._warn_once(
+                source,
+                "%s reports the unit %r instead of a temperature unit (°C, °F or K); "
+                "its value is ignored",
+                source,
+                unit,
+            )
+            return None
+
+    def _weather_temp(self) -> float | None:
+        """Current temperature of the weather entity in °C (in its temperature_unit)."""
+        weather_id = self.opt(CONF_WEATHER)
+        state = self._state(weather_id)
+        if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            return None
+        value = state.attributes.get("temperature")
+        if not isinstance(value, int | float) or isinstance(value, bool):
+            return None
+        if not math.isfinite(value):
+            return None
+        celsius = self._to_celsius(
+            float(value), state.attributes.get("temperature_unit"), weather_id
+        )
+        if celsius is not None and not TEMP_RANGE[0] <= celsius <= TEMP_RANGE[1]:
+            return self._implausible(weather_id, value)
+        return celsius
+
+    def _is_on(self, entity_id: str | None) -> bool:
+        state = self._state(entity_id)
+        return state is not None and state.state == STATE_ON
+
+    def _is_blocking(self, entity_id: str | None) -> bool:
+        """Does the ventilation block entity block right now (see ``is_blocking``)?"""
+        state = self._state(entity_id)
+        return state is not None and is_blocking(state.domain, state.state)
+
+    def _pv_kw(self) -> float | None:
+        """Current PV power in kW. None if the sensor is configured but has no value."""
+        entity_id = self.opt(CONF_PV_POWER)
+        if not entity_id:
+            return 0.0
+        state = self._state(entity_id)
+        value = self._float(entity_id)
+        if value is None:
+            return None
+        unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) if state else None
+        if not unit:
+            self._warn_once(entity_id, "%s reports no unit; its value is read as W", entity_id)
+            unit = UnitOfPower.WATT
+        try:
+            kw = PowerConverter.convert(value, unit, UnitOfPower.KILO_WATT)
+        except HomeAssistantError:
+            self._warn_once(
+                entity_id,
+                "%s reports the unit %r instead of a power unit (W, kW); its value is ignored",
+                entity_id,
+                unit,
+            )
+            return None
+        return max(0.0, kw)
+
+    def _warn_once(self, key: str, message: str, *args: Any) -> None:
+        """A sensor reporting odd units or values is logged once, not every minute."""
+        if key not in self._warned:
+            self._warned.add(key)
+            LOGGER.warning(message, *args)
+
+    def _return_ts(self) -> float | None:
+        state = self._state(self.opt(CONF_RETURN_ENTITY))
+        if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            return None
+        stamp = state.attributes.get("timestamp")
+        if isinstance(stamp, int | float) and state.attributes.get("has_date", True):
+            return float(stamp)
+        parsed = dt_util.parse_datetime(state.state)
+        if parsed is None:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=dt_util.get_default_time_zone())
+        return parsed.timestamp()
+
+    def _season(self) -> bool:
+        try:
+            start = parse_day_month(str(self.opt(CONF_SEASON_START)))
+            end = parse_day_month(str(self.opt(CONF_SEASON_END)))
+        except ValueError:
+            return True
+        return in_season(dt_util.now().date(), start, end)
+
+    def climate_entity_id(self, area: Area) -> str | None:
+        return er.async_get(self.hass).async_get_entity_id(
+            "climate", DOMAIN, f"{area.area_id}_climate"
+        )
+
+    @callback
+    def _log(self, key: str, area: Area | None = None, **kwargs: Any) -> None:
+        message = text(self.language, key, **kwargs)
+        data: dict[str, Any] = {"message": message, "name": area.name if area else NAME}
+        if area is not None and (entity_id := self.climate_entity_id(area)):
+            data[ATTR_ENTITY_ID] = entity_id
+        self.hass.bus.async_fire(EVENT_LOGBOOK, data)
+        LOGGER.info("%s: %s", data["name"], message)
+
+    def _save(self) -> None:
+        self.store.async_delay_save(self._data_to_save, SAVE_DELAY)
+
+    def _data_to_save(self) -> dict[str, Any]:
+        self.ai_state["budget"] = self.budget.as_dict()
+        return {
+            "areas": {
+                area.area_id: {
+                    "target": area.target,
+                    "hvac_on": area.hvac_on,
+                    "params": area.params.as_dict(),
+                    "learner": area.learner.as_dict() if area.learner else None,
+                    "runtime": area.runtime.as_dict(),
+                    "day": area.day.as_dict(),
+                    "check": area.check,
+                    "start": area.start,
+                    "vent_params": area.vent_params.as_dict(),
+                    "vent_check": area.vent_check,
+                    "vent_start": area.vent_start,
+                    "humidity": area.humidity_profile.as_dict(),
+                }
+                for area in self.areas.values()
+            },
+            "day": self.day_state,
+            "ai": self.ai_state,
+            "sun": {"scale": self.sun_scale.value},
+            # switches controlled by this run: one dropped later is switched off
+            "circuits": {
+                a.area_id: a.cfg[CONF_SWITCH] for a in self.areas.values() if a.has_circuit
+            },
+            "release": self._pending_release,
+            "meter": self.meter.as_dict(),
+        }
+
+    def diagnostics(self) -> dict[str, Any]:
+        return self._data_to_save()
+
+    # ------------------------------------------------------------------ control loop
+
+    async def _async_update_data(self) -> int:
+        now = dt_util.utcnow()
+        ts = now.timestamp()
+        minutes = 0.0 if self._last_tick is None else clamp((ts - self._last_tick) / 60, 0.0, 5.0)
+        self._last_tick = ts
+
+        # without an outdoor sensor the current temperature of the weather entity
+        outdoor_id = self.opt(CONF_OUTDOOR_TEMP)
+        self.outdoor_temp = self._temp(outdoor_id) if outdoor_id else self._weather_temp()
+        if source := outdoor_id or self.opt(CONF_WEATHER):
+            self._track_outage("outdoor_unavailable", None, source, self.outdoor_temp is None, ts)
+        self.pv_kw = self._pv_kw()
+        self._pv_measured = self.pv_kw is not None
+        await self._update_pv_forecast(ts)
+        if self.pv_kw is None:
+            self._pv_missing(minutes, ts)
+            if self._pv_negligible(ts):
+                self.pv_kw = 0.0  # inverter asleep: no sun worth mentioning, no power
+        else:
+            self._pv_missing_min, self._pv_warned = 0.0, False
+        self.pv_assumed = self.pv_kw if self.pv_kw is not None else (self._pv_estimate(ts) or 0.0)
+        self.season_active = self._season()
+        self.budget.roll(dt_util.now().strftime("%Y-%m"))  # the cost sensor shows the new month
+        self.vacation = any(self._is_on(e) for e in self.opt(CONF_VACATION_ENTITIES) or [])
+        return_ts = self._return_ts() if self.vacation else None
+        heating_day = self.heating_day
+
+        for area in self.areas.values():
+            await self._tick_area(area, ts, minutes, heating_day, return_ts)
+        self._update_meter(ts, minutes)
+
+        # Missing or expired decision (first start, HA was down at the nightly run).
+        # Started after the areas were read so the decision sees current values. Outside
+        # the heating period only to end a manual override of a past day, which would
+        # otherwise keep heating until the next nightly run.
+        if (
+            (
+                self.season_active
+                or self.day_state.get("override", hd.Override.AUTO) != hd.Override.AUTO
+            )
+            and not self._deciding
+            and (self._decide_failed_at is None or ts - self._decide_failed_at >= DECIDE_RETRY_S)
+            and self._decision_expired(now)
+        ):
+            self.module.create_task(
+                self.async_decide_heating_day("startup"), f"{DOMAIN} heating day"
+            )
+
+        self._tick_count += 1
+        if self._tick_count % SAVE_EVERY_TICKS == 0:
+            self._save()
+        return self._tick_count
+
+    def _update_meter(self, ts: float, minutes: float) -> None:
+        """Heating demand of this tick and the latest heat meter reading."""
+        entity_id = self.opt(CONF_HEAT_METER)
+        if not entity_id:
+            if self.meter.entity:
+                self.meter = HeatMeter()  # set again later: the gap would count as one span
+            return
+        if self.meter.entity != entity_id:
+            self.meter = HeatMeter(entity=entity_id)  # readings of another meter do not compare
+        controlled = [a for a in self.areas.values() if a.has_circuit and a.hvac_on]
+        if self.season_active and controlled and self.outdoor_temp is not None and minutes > 0:
+            # The meter covers all circuits: the demand is the mean over the areas.
+            diff = sum(
+                max(0.0, (a.effective_target or a.target) - self.outdoor_temp) for a in controlled
+            ) / len(controlled)
+            self.meter.add_demand(diff * minutes / 60)
+        # Calendar periods roll before taking the value: a reading that arrives after
+        # midnight already belongs to the new day.
+        today = dt_util.now().date()
+        self.meter.roll(
+            "today", today.isoformat(), "yesterday", (today - timedelta(days=1)).isoformat()
+        )
+        first = today.replace(day=1)
+        self.meter.roll(
+            "month",
+            first.strftime("%Y-%m"),
+            "last_month",
+            (first - timedelta(days=1)).strftime("%Y-%m"),
+        )
+        value = self._float(entity_id)
+        state = self._state(entity_id)
+        unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) if state else None
+        kwh = None if value is None else to_kwh(value, unit)
+        if value is not None and kwh is None:
+            self._warn_once(
+                entity_id,
+                "%s reports the unit %r instead of an energy unit (Wh, kWh, MWh, MJ, GJ); "
+                "the heat is not counted",
+                entity_id,
+                unit,
+            )
+        if kwh is not None:
+            self.meter.update(kwh, ts)
+            for name in ("check", "day", "today", "month"):  # periods start with the first reading
+                if name not in self.meter.baselines:
+                    self.meter.rebase(name)
+
+    def _heat_payload(self) -> dict[str, Any] | None:
+        """Measured heat since the last check, between two meter readings."""
+        if not self.opt(CONF_HEAT_METER):
+            return None
+        span = self.meter.since("check")
+        if span is None:
+            return None
+        return {
+            "kwh": r(span.kwh, 1),
+            "hours": r(span.hours, 1),
+            "kwh_per_kh": r(span.kwh_per_kh, 3),
+        }
+
+    def _decision_expired(self, now: datetime) -> bool:
+        current = self.current_day
+        if current is None:
+            return True
+        until = dt_util.parse_datetime(str(current.get("valid_until", "")))
+        return until is None or until <= now
+
+    async def _update_pv_forecast(self, ts: float) -> None:
+        """Expected PV power of the next hours. Empty: only the current PV power is used."""
+        self._pv_points = []
+        if not self.opt(CONF_PV_POWER):
+            return
+        if forecast_id := self.opt(CONF_PV_FORECAST):
+            state = self._state(forecast_id)
+            unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) if state else None
+            if (point := sensor_point(ts, self._float(forecast_id), unit)) is not None:
+                self._pv_points = [point]
+            return
+        weather = self._state(self.opt(CONF_WEATHER))
+        if weather is None:
+            return
+        lat, lon = self.hass.config.latitude, self.hass.config.longitude
+        if self._pv_measured and self.pv_kw is not None:
+            self.sun_scale.update(self.pv_kw, self._sun_index(ts), self._cloud_now())
+        if self.sun_scale.value is None:
+            return
+        if self._hourly_ts is None or ts - self._hourly_ts >= WEATHER_PV_REFRESH_S:
+            # In the background: a slow weather service must not hold up the control.
+            # The time stamp keeps a second refresh from starting meanwhile.
+            self._hourly_ts = ts
+            self.module.create_task(self._refresh_hourly(), f"{DOMAIN} hourly forecast")
+        self._pv_points = weather_points(self._hourly, self.sun_scale.value, lat, lon)
+
+    async def _refresh_hourly(self) -> None:
+        self._hourly = await self._forecast("hourly")
+
+    def _sun_index(self, ts: float) -> float:
+        """Clear sky index at the configured location (0 while the sun is down)."""
+        return clear_sky_index(
+            solar_elevation(ts, self.hass.config.latitude, self.hass.config.longitude)
+        )
+
+    def _cloud_now(self) -> float | None:
+        weather = self._state(self.opt(CONF_WEATHER))
+        if weather is None:
+            return None
+        return cloud_pct({"condition": weather.state, **weather.attributes})
+
+    def _pv_estimate(self, ts: float, trust: float | None = None) -> float | None:
+        """PV power expected now: from the forecast points, else from sun position, clouds
+        and the learned clear sky scale; None without any basis. ``trust`` defaults to
+        the option the control relies on."""
+        trust = self._trust if trust is None else trust
+        if (expected := expected_now(self._pv_points, ts, trust)) is not None:
+            return expected
+        scale = self.sun_scale.value
+        index = self._sun_index(ts)
+        if scale is None:
+            return None
+        if index <= 0:
+            return 0.0
+        cloud = self._cloud_now()
+        return scale * index * cloud_factor(100.0 if cloud is None else cloud) * trust
+
+    @property
+    def _trust(self) -> float:
+        """Share of the expected sun that is relied on (forecasts are uncertain)."""
+        return float(self.opt(CONF_FORECAST_TRUST)) / 100
+
+    def _pv_threshold(self, absolute_kw: float, share: float, minimum: float = 0.0) -> float:
+        """A PV power threshold: a share of the learned clear sky power, else absolute."""
+        scale = self.sun_scale.value
+        if scale is None or scale <= 0:
+            return absolute_kw
+        return max(minimum, share * scale)
+
+    def _pv_negligible(self, ts: float) -> bool:
+        """A missing PV value may be read as zero: the sun is low or little is expected."""
+        if self._sun_index(ts) < TWILIGHT_INDEX:
+            return True
+        # Judged with the fixed trust: the option only sets how much the control relies
+        # on the sun; otherwise at 0 % a sunny sensor gap would be learned as no sun.
+        expected = self._pv_estimate(ts, FORECAST_TRUST)
+        return expected is not None and expected < self._pv_threshold(
+            PV_NEGLIGIBLE_KW, PV_NEGLIGIBLE_SHARE
+        )
+
+    def _pv_missing(self, minutes: float, ts: float) -> None:
+        """Warn once when the PV sensor has had no value for a while by day."""
+        if self._sun_index(ts) < TWILIGHT_INDEX:
+            return
+        self._pv_missing_min += minutes
+        if self._pv_missing_min >= PV_MISSING_WARN_MIN and not self._pv_warned:
+            self._pv_warned = True
+            LOGGER.warning(
+                "PV power sensor %s has had no value for %.0f minutes by day: sun and model "
+                "are not learned until it delivers again",
+                self.opt(CONF_PV_POWER),
+                self._pv_missing_min,
+            )
+
+    def _learned_values(self, area: Area, run_hours: float, ts: float) -> LearnedValues:
+        learner = area.learner
+        if learner is None:
+            return LearnedValues()
+        diff = (
+            (area.temp - self.outdoor_temp)
+            if (area.temp is not None and self.outdoor_temp is not None)
+            else 10.0
+        )
+        model = learner.model
+        # Cooling over the lead time uses the sun expected in that time, not only the
+        # current PV power. Heating rates (preheating) keep the current value.
+        pv_now = self.pv_assumed
+        lead_s = learner.dead_time.value * area.params.lead_factor
+        pv_plan = planning_pv(ts, pv_now, self._pv_points, lead_s, self._trust)
+        return LearnedValues(
+            cool_rate_kph=model.cool_rate(diff, pv_plan, area.params.sun_factor),
+            heat_rate_kph=model.heat_rate(diff, pv_now, area.params.sun_factor),
+            dead_time_s=learner.dead_time.value,
+            # follows the airing running now once enough airings are known
+            recovery_s=learner.recovery_s(area.temp),
+            overshoot_k=learner.expected_overshoot(run_hours),
+            pv_plan_kw=round(pv_plan, 2),
+        )
+
+    async def _tick_area(
+        self, area: Area, ts: float, minutes: float, heating_day: bool, return_ts: float | None
+    ) -> None:
+        cfg = area.cfg
+        area.temp = self._temp(cfg.get(CONF_TEMP_SENSOR))
+        area.humidity = self._humidity(cfg.get(CONF_HUMIDITY_SENSOR))
+        area.opening = open_area(own_windows(cfg), self._is_on)
+        area.own_window_open = area.opening > 0
+        area.draft = self._draft(cfg)
+        area.window_open = area.own_window_open or area.draft
+
+        if area.has_circuit:
+            switch_state = self._state(cfg[CONF_SWITCH])
+            area.switch_available = switch_state is not None and switch_state.state in ("on", "off")
+            area.switch_on = switch_state is not None and switch_state.state == STATE_ON
+            area.last_switch_change = (
+                switch_state.last_changed.timestamp() if switch_state else None
+            )
+            if area.switch_on and area.on_since is None:
+                area.on_since = area.last_switch_change
+            sensor_id, switch_id = cfg[CONF_TEMP_SENSOR], cfg[CONF_SWITCH]
+            self._track_outage("sensor_unavailable", area, sensor_id, area.temp is None, ts)
+            self._track_outage(
+                "actuator_unavailable", area, switch_id, not area.switch_available, ts
+            )
+            await self._control_area(area, ts, minutes, heating_day, return_ts)
+        else:
+            area.status = AreaStatus.NO_CIRCUIT
+            area.effective_target = None
+
+        self._ventilation(area, heating_day, ts, minutes)
+
+    def _draft(self, cfg: dict[str, Any]) -> bool:
+        """Draft through windows of other rooms: every window of one combination open.
+        A sensor that is also an own window counts only there."""
+        return has_draft(draft_groups(cfg, own_windows(cfg)), self._is_on)
+
+    async def _control_area(
+        self, area: Area, ts: float, minutes: float, heating_day: bool, return_ts: float | None
+    ) -> None:
+        assert area.learner is not None
+        rt = area.runtime
+        run_hours = (ts - area.on_since) / 3600 if (area.switch_on and area.on_since) else 0.0
+        learned = self._learned_values(area, run_hours, ts)
+        area.learned_values = learned
+
+        # vacation and preheating for the return
+        area.vacation = self.vacation
+        area.preheat = False
+        target = area.target
+        if self.vacation:
+            # A return time in the past (e.g. vacation switched on manually with an old
+            # date) is ignored, otherwise the vacation temperature would never apply.
+            if return_ts is not None and return_ts > ts:
+                start = preheat_start(
+                    return_ts,
+                    area.temp,
+                    area.target,
+                    learned.heat_rate_kph,
+                    learned.dead_time_s,
+                    float(self.opt(CONF_PREHEAT_RESERVE)) * 60,
+                )
+                area.preheat = ts >= start
+            if not area.preheat:
+                target = float(self.opt(CONF_VACATION_TEMP))
+        area.effective_target = target
+
+        window_open_since = rt.window_open_since
+        temp_before = rt.temp_before_open
+        decision = step(
+            ControlInput(
+                now=ts,
+                temp=area.temp,
+                target=target,
+                hvac_on=area.hvac_on,
+                season_active=self.heats_now,
+                heating_day=heating_day or area.preheat,
+                frost_temp=float(self.opt(CONF_FROST_TEMP)),
+                window_open=area.window_open,
+                switch_on=area.switch_on,
+                last_switch_change=area.last_switch_change,
+                vacation=self.vacation,
+                preheat=area.preheat,
+            ),
+            area.params,
+            area.settings,
+            learned,
+            rt,
+        )
+        area.decision = decision
+        area.status = decision.status
+        if not area.switch_available:
+            area.status = AreaStatus.ACTUATOR_UNAVAILABLE
+        self._handle_events(area, ts, window_open_since, temp_before)
+
+        if area.switch_available and decision.want_on == area.switch_on:
+            self._command_done(area)
+        elif (
+            area.switch_available
+            and decision.may_switch
+            and (area.next_cmd_at is None or ts >= area.next_cmd_at)
+        ):
+            await self._switch(area, decision.want_on, ts)
+
+        area.learner.add_sample(
+            Sample(
+                ts,
+                area.temp,
+                area.switch_on,
+                self.outdoor_temp,
+                self.pv_assumed,
+                area.airing or area.temp is None,
+                pv_unknown=self.pv_kw is None,
+                window_open=area.window_open,
+                opening=area.opening,
+                draft=area.draft,
+            )
+        )
+        # The virtual room first: on the first tick of a day it starts at the real
+        # temperature even if the circuit is running at that moment.
+        self._track_virtual(area, minutes, target)
+        self._count(area, minutes, target, ts)
+
+    def _handle_events(
+        self, area: Area, ts: float, open_since: float | None, temp_before: float | None
+    ) -> None:
+        assert area.learner is not None
+        for event in area.runtime.events:
+            if event == "window_opened":
+                # the controller has just set the temperature the room has to get back to
+                area.learner.on_window_opened(ts, area.runtime.temp_before_open)
+                area.check["airings"] = area.check.get("airings", 0.0) + 1
+            elif event == "window_closed":
+                open_seconds = ts - open_since if open_since else 0.0
+                until = area.runtime.recovery_until
+                area.learner.on_window_closed(
+                    ts,
+                    temp_before,
+                    open_seconds,
+                    None if until is None else until - ts,
+                    temp=area.temp,
+                    expected_s=area.learned_values.recovery_s,
+                )
+            elif event == "window_pause":
+                self._log("window_pause", area)
+            elif event == "recovery_start" and area.runtime.recovery_until:
+                until = dt_util.as_local(dt_util.utc_from_timestamp(area.runtime.recovery_until))
+                self._log("recovery_start", area, until=until.strftime("%H:%M"))
+            elif event == "recovery_end":
+                self._log("recovery_end", area)
+            elif event == "emergency":
+                # The rule fires on the expected temperature; for the day's evaluation only
+                # a room that is really that cold counts as observed need.
+                target = area.effective_target or area.target
+                limit = emergency_limit(target, area.params, area.settings)
+                area.day.emergency = area.temp is not None and area.temp < limit
+                self._log(
+                    "emergency",
+                    area,
+                    temp=area.temp,
+                    predicted=area.decision.predicted_temp if area.decision else None,
+                    limit=round(limit, 2),
+                )
+            elif event in ("frost_start", "frost_end"):
+                self._log(event, area, temp=area.temp)
+
+    async def _switch(self, area: Area, turn_on: bool, ts: float) -> None:
+        entity_id = area.cfg[CONF_SWITCH]
+        domain = entity_id.split(".", 1)[0]
+        area.commanded = (turn_on, ts)
+        # A switch that does not follow is asked again with growing pauses.
+        area.cmd_attempts += 1
+        wait_min = CMD_RETRY_MIN[min(area.cmd_attempts, len(CMD_RETRY_MIN)) - 1]
+        area.next_cmd_at = ts + wait_min * 60
+        if area.cmd_attempts >= CMD_ISSUE_ATTEMPTS:
+            self._raise_issue("actuator_not_responding", area, entity_id)
+        try:
+            await self.hass.services.async_call(
+                domain,
+                "turn_on" if turn_on else "turn_off",
+                {ATTR_ENTITY_ID: entity_id},
+                blocking=False,
+            )
+        except HomeAssistantError as err:
+            LOGGER.warning("Switching %s failed: %s", entity_id, err)
+
+    def _count(self, area: Area, minutes: float, target: float, ts: float) -> None:
+        if minutes <= 0 or area.temp is None:
+            return
+        margin = float(self.opt(CONF_TOO_COLD_MARGIN))
+        day, check = area.day, area.check
+        if area.window_open:
+            day.window_min += minutes
+            check["window_min"] = check.get("window_min", 0.0) + minutes
+            if area.draft:
+                # draft through other rooms: alone, or across with an own window
+                key = "cross_min" if area.own_window_open else "draft_min"
+                check[key] = check.get(key, 0.0) + minutes
+        elif area.runtime.recovery_until is not None:
+            check["rec_min"] = check.get("rec_min", 0.0) + minutes
+            if area.hvac_on and area.temp < target - CHECK_COLD_MARGIN:
+                check["rec_cold_min"] = check.get("rec_cold_min", 0.0) + minutes
+        if area.switch_on:
+            day.relay_min += minutes
+            check["on_min"] = check.get("on_min", 0.0) + minutes
+        if area.hvac_on and not area.airing:
+            day.observed_min += minutes
+            if area.temp < target - margin:
+                day.too_cold_min += minutes
+            if area.temp < target - CHECK_COLD_MARGIN:
+                check["cold_min"] = check.get("cold_min", 0.0) + minutes
+            # Heat above the target shortly after heating was wasted; warmth from sun
+            # alone on a day without heating costs nothing.
+            excess = area.temp - target - OVERHEAT_MARGIN
+            heated = area.switch_on or (
+                area.off_at is not None and 0 <= ts - area.off_at < OVERHEAT_AFTER_S
+            )
+            if excess > 0 and heated:
+                over = excess * minutes / 60
+                day.over_kh += over
+                check["over_kh"] = check.get("over_kh", 0.0) + over
+                if self.pv_assumed >= self._pv_threshold(
+                    SUN_OVERHEAT_KW, SUN_OVERHEAT_SHARE, MIN_SUN_OVERHEAT_KW
+                ):
+                    check["sun_over_kh"] = check.get("sun_over_kh", 0.0) + over
+            if self.outdoor_temp is not None and target > self.outdoor_temp:
+                check["deg_h"] = (
+                    check.get("deg_h", 0.0) + (target - self.outdoor_temp) * minutes / 60
+                )
+        check["minutes"] = check.get("minutes", 0.0) + minutes
+        check["max_over"] = max(check.get("max_over", -99.0), area.temp - target)
+        check["min_t"] = min(check.get("min_t", 99.0), area.temp)
+        check["max_t"] = max(check.get("max_t", -99.0), area.temp)
+
+    def _track_virtual(self, area: Area, minutes: float, target: float) -> None:
+        """Follow the temperature the area would have without any heating today.
+
+        The evaluation of a heating day needs it: once a circuit ran, the real room was
+        kept warm by the decision itself. The virtual room cools with the learned model
+        and is never warmer than the real one.
+        """
+        if area.temp is None or area.learner is None:
+            return
+        model = area.learner.model
+        outdoor, pv, sun = self.outdoor_temp, self.pv_assumed, area.params.sun_factor
+        hd.track_virtual(
+            area.day,
+            area.temp,
+            minutes,
+            lambda t: model.cool_rate((t - outdoor) if outdoor is not None else 10.0, pv, sun),
+            target,
+            float(self.opt(CONF_TOO_COLD_MARGIN)),
+            ready=model.n_cool >= VIRTUAL_MIN_COOL_UPDATES,
+            counting=area.hvac_on and not area.airing,
+            airing=area.airing,
+        )
+
+    def _ventilation(self, area: Area, heating_day: bool, ts: float, minutes: float) -> None:
+        cfg = area.cfg
+        indoor_ref = bool(cfg.get(CONF_REF_TEMP))
+        if indoor_ref:
+            ref_temp = self._temp(cfg.get(CONF_REF_TEMP))
+            ref_hum = self._humidity(cfg.get(CONF_REF_HUMIDITY))
+        else:
+            ref_temp = self.outdoor_temp
+            ref_hum = self._humidity(self.opt(CONF_OUTDOOR_HUMIDITY))
+            if ref_hum is None and (weather := self._state(self.opt(CONF_WEATHER))):
+                humidity = weather.attributes.get("humidity")
+                ref_hum = float(humidity) if isinstance(humidity, int | float) else None
+        now = dt_util.now().time()
+        start = _night_time(self.opt(CONF_NIGHT_START), 20)
+        end = _night_time(self.opt(CONF_NIGHT_END), 8)
+        is_night = (now >= start or now < end) if start > end else (start <= now < end)
+        heating_active = self.heats_now and heating_day and (area.hvac_on or not area.has_circuit)
+        area.ref_temp, area.ref_humidity = ref_temp, ref_hum
+        ref_ah = (
+            absolute_humidity(ref_temp, ref_hum)
+            if ref_temp is not None and ref_hum is not None
+            else None
+        )
+        profile = area.humidity_profile
+        previous = area.ventilation
+        # an own window together with windows in other rooms: cross ventilation
+        cross = area.own_window_open and area.draft
+        delta_t = area.temp - ref_temp if area.temp is not None and ref_temp is not None else None
+        if area.has_humidity and minutes > 0:  # extra ticks on state changes count once
+            profile.add_sample(
+                ts,
+                dt_util.now().date().isoformat(),
+                self._humidity_season,
+                is_night,
+                area.temp,
+                area.humidity,
+                ref_ah,
+                area.own_window_open,
+                delta_t=delta_t,
+                suggested=previous.airing_minutes if previous else None,
+                opening=area.opening or 1.0,
+                cross=cross,
+            )
+        # The airing time is meant for the windows open now, otherwise for the largest
+        # window of the room (short, intense airing).
+        biggest = largest(own_windows(cfg))
+        area.suggested_window = None if area.own_window_open or biggest is None else biggest[0]
+        opening = area.opening or (biggest[1] if biggest else 1.0)
+        vp = area.vent_params
+        area.ventilation = recommend(
+            VentilationInput(
+                temp=area.temp,
+                humidity=area.humidity,
+                ref_temp=ref_temp,
+                ref_humidity=ref_hum,
+                # only an own window: a draft from elsewhere is closed in the other rooms
+                window_open=area.own_window_open,
+                heating_active=heating_active,
+                blocked=self._is_blocking(cfg.get(CONF_VENT_BLOCK)),
+                reference_is_indoor=indoor_ref,
+                is_night=is_night,
+                target=area.effective_target or area.target,
+                season_active=self.season_active,
+                was_rh_high=previous is not None and previous.rh_high,
+                was_drying=previous is not None
+                and previous.state == VentilationState.VENTILATE_NOW,
+                achievable_rh=profile.achievable_rh(area.temp, area.humidity, ref_ah),
+                learned_airing_minutes=profile.airing_minutes(
+                    area.temp,
+                    area.humidity,
+                    ref_ah,
+                    delta_t,
+                    vp.rh_threshold - vp.airing_target_below,
+                    opening,
+                    cross,
+                ),
+                opening=opening,
+                minutes_since_airing=(ts - profile.last_closed) / 60
+                if profile.last_closed is not None
+                else None,
+            ),
+            area.vent_params,
+        )
+        count_vent(
+            area.vent_check,
+            minutes,
+            area.humidity,
+            area.ventilation,
+            previous.state if previous else None,
+            area.own_window_open,
+            heating_active and area.has_circuit,
+            vp.mould_rh,
+            cross,
+        )
+
+    @property
+    def _humidity_season(self) -> str:
+        """Season of the learned humidity profile."""
+        return "heating" if self.season_active else "summer"
+
+    # ------------------------------------------------------------------ user actions
+
+    async def async_set_target(self, area_id: str, value: float) -> None:
+        area = self.areas[area_id]
+        old, area.target = area.target, round(float(value), 2)
+        if round(abs(area.target - old), 2) >= TARGET_CHANGE_K:  # 16.4 - 15.9 < 0.5
+            self._config_changed()
+        else:
+            # Small steps (often from automations) would otherwise keep the AI interval
+            # from ever growing.
+            self._save()
+        self.async_update_listeners()
+        await self.async_request_refresh()
+
+    async def async_set_hvac(self, area_id: str, on: bool) -> None:
+        area = self.areas[area_id]
+        area.hvac_on = on
+        self._config_changed()
+        self.async_update_listeners()
+        await self.async_request_refresh()
+
+    async def async_set_ai_enabled(self, enabled: bool) -> None:
+        self.ai_state["enabled"] = enabled
+        if not enabled:
+            self._schedule_check(None)
+            self._schedule_vent_check(None)
+        else:
+            if self.heating_day and self.season_active:
+                self._schedule_check(dt_util.utcnow() + timedelta(minutes=5))
+            if self.vent_ai_active:
+                self._schedule_vent_check(dt_util.utcnow() + timedelta(minutes=5))
+        self._save()
+        self.async_update_listeners()
+
+    async def async_set_override(self, option: str) -> None:
+        override = hd.Override(option)
+        today = dt_util.now().date().isoformat()
+        self.day_state["override"] = override
+        self.day_state["override_date"] = today
+        if override != hd.Override.AUTO:
+            # Marks the day being decided and, before the nightly run, also the day
+            # still running: both ran partly under the override.
+            days = {today, str((self.current_day or {}).get("date") or today)}
+            manual = [d for d in self.day_state.get("manual_days", []) if d not in days]
+            self.day_state["manual_days"] = (manual + sorted(days))[-5:]
+        self._config_changed()  # heating day may have changed: plan a check again (and save)
+        self.async_update_listeners()
+        await self.async_request_refresh()
+
+    def _config_changed(self) -> None:
+        """A user change makes the AI look again soon."""
+        self.ai_state["stable"] = 0
+        if self.ai_enabled and self.heating_day and self.season_active:
+            now = dt_util.utcnow()
+            soon = now + timedelta(hours=float(self.opt(CONF_CHECK_INTERVAL)))
+            current = dt_util.parse_datetime(str(self.ai_state.get("next_check") or ""))
+            if current is None or current <= now or current > soon:
+                self._schedule_check(soon)
+        self._vent_soon()
+        self._save()
+
+    def _vent_soon(self) -> None:
+        """A change of the ventilation values makes the AI look at them again soon."""
+        state = self.vent_state
+        state["stable"] = 0
+        if not self.vent_ai_active:
+            return
+        now = dt_util.utcnow()
+        soon = now + timedelta(hours=float(self.opt(CONF_VENT_CHECK_INTERVAL)))
+        current = dt_util.parse_datetime(str(state.get("next_check") or ""))
+        if current is None or current <= now or current > soon:
+            self._schedule_vent_check(soon)
+
+    # ------------------------------------------------------------------ heating day
+
+    @callback
+    def _nightly_callback(self, now: datetime) -> None:
+        self.module.create_task(self.async_decide_heating_day("nightly"), f"{DOMAIN} nightly")
+
+    @property
+    def next_nightly(self) -> datetime:
+        """Time of the next nightly run (UTC)."""
+        return self._valid_until()
+
+    def _valid_until(self) -> datetime:
+        nightly = _parse_time(str(self.opt(CONF_NIGHTLY_TIME)))
+        local_now = dt_util.now()
+        candidate = local_now.replace(
+            hour=nightly.hour, minute=nightly.minute, second=nightly.second, microsecond=0
+        )
+        if candidate <= local_now + timedelta(minutes=1):
+            candidate += timedelta(days=1)
+        return dt_util.as_utc(candidate)
+
+    async def _forecast(self, kind: str) -> list[dict[str, Any]]:
+        weather = self.opt(CONF_WEATHER)
+        if not weather or self._state(weather) is None:
+            return []
+        try:
+            async with asyncio.timeout(FORECAST_TIMEOUT):
+                response = await self.hass.services.async_call(
+                    "weather",
+                    "get_forecasts",
+                    {"type": kind},
+                    target={ATTR_ENTITY_ID: weather},
+                    blocking=True,
+                    return_response=True,
+                )
+        except (HomeAssistantError, ValueError) as err:
+            LOGGER.debug("No %s forecast from %s: %s", kind, weather, err)
+            return []
+        except TimeoutError:
+            LOGGER.debug("No %s forecast from %s within %s s", kind, weather, FORECAST_TIMEOUT)
+            return []
+        data = (response or {}).get(weather, {})
+        forecast = data.get("forecast") if isinstance(data, dict) else None
+        if not isinstance(forecast, list):
+            return []
+        # The service answers in the temperature unit of the weather entity (the unit
+        # system of HA unless set per entity); the logic works in °C.
+        state = self._state(weather)
+        unit = state.attributes.get("temperature_unit") if state else None
+        items = []
+        for item in forecast:
+            if not isinstance(item, dict):
+                continue
+            item = dict(item)
+            for key in ("temperature", "templow"):
+                value = item.get(key)
+                if isinstance(value, int | float) and not isinstance(value, bool):
+                    celsius = self._to_celsius(float(value), unit, weather)
+                    item[key] = None if celsius is None else round(celsius, 1)
+            items.append(item)
+        return items
+
+    async def async_decide_heating_day(self, trigger: str, use_ai: bool = True) -> None:
+        """Evaluate the previous day and decide whether today is a heating day."""
+        if self._deciding:
+            return
+        self._deciding = True
+        try:
+            await self._decide(trigger, use_ai)
+            self._decide_failed_at = None
+        except Exception:
+            # Otherwise the next tick would start the same failing decision again,
+            # every minute. A manual run shows the error to the caller.
+            self._decide_failed_at = dt_util.utcnow().timestamp()
+            if trigger == "manual":
+                raise
+            LOGGER.exception("Heating day decision (%s) failed", trigger)
+        finally:
+            self._deciding = False
+            self._save()
+            self.async_update_listeners()
+
+    async def _decide(self, trigger: str, use_ai: bool) -> None:
+        now = dt_util.utcnow()
+        local_today = dt_util.now().date().isoformat()
+        self.season_active = self._season()
+        current = self.current_day
+        # An expired decision of the same date (made between midnight and the nightly
+        # time) is decided again, not evaluated as a day of its own.
+        new_day = current is None or current.get("date") != local_today
+
+        if new_day and current is not None and not current.get("evaluated"):
+            self._evaluate(current)
+        if new_day:
+            self.meter.rebase("day")
+            # A manual override only applies to the day it was set on; one set after
+            # midnight for the day about to be decided stays.
+            if self.day_state.get("override_date") != local_today:
+                self.day_state["override"] = hd.Override.AUTO
+            for area in self.areas.values():
+                area.runtime.emergency_active = False
+                area.runtime.below_emergency_since = None
+                area.day = hd.DayAreaStats()  # also outside the season: nothing piles up
+
+        if not self.season_active:
+            self.day_state["current"] = {
+                "date": local_today,
+                "valid_until": self._valid_until().isoformat(),
+                "decided_at": now.isoformat(),
+                "trigger": trigger,
+                "heat": False,
+                "source": "season",
+                "phase": self.phase,
+                "reason": "",
+                "confidence": None,
+                "rule": None,
+                "ai": None,
+                "vacation": self.vacation,
+                "evaluated": True,
+            }
+            self._schedule_check(None)
+            return
+
+        daily = await self._forecast("daily")
+        hourly = await self._forecast("hourly")
+        tmax, tmin = _today_extremes(daily, hourly)
+        snapshots = [
+            hd.AreaSnapshot(
+                a.area_id, a.name, a.temp, a.effective_target or a.target, a.params.puffer
+            )
+            for a in self.areas.values()
+            if a.has_circuit and a.hvac_on
+        ]
+        rule = hd.rule_proposal(tmax, snapshots, self.theta, hd.RuleSettings())
+        phase = self.phase
+
+        ai_decision: hd.AiDecision | None = None
+        last_ai = self.day_state.get("last_ai_date")
+        days_since_ai = (
+            (dt_util.now().date() - datetime.fromisoformat(last_ai).date()).days
+            if last_ai
+            else None
+        )
+        if (
+            use_ai
+            and self.ai_enabled
+            and not self.vacation
+            and hd.should_ask_ai(phase, rule, days_since_ai, self._phase_settings())
+        ):
+            ai_decision = await self._ask_nightly(tmax, tmin, hourly, rule)
+            if ai_decision is not None:
+                self.day_state["last_ai_date"] = local_today
+
+        heat, source = hd.final_decision(phase, rule, ai_decision)
+        if self.vacation:
+            source = "vacation_rule"
+        self.day_state["current"] = {
+            "date": local_today,
+            "valid_until": self._valid_until().isoformat(),
+            "decided_at": now.isoformat(),
+            "trigger": trigger,
+            "heat": heat,
+            "source": source,
+            "phase": phase,
+            "confidence": ai_decision.confidence if ai_decision else None,
+            "reason": ai_decision.reason if ai_decision else "",
+            "critical_area": ai_decision.critical_area if ai_decision else "",
+            "rule": rule.as_dict(),
+            "ai": None
+            if ai_decision is None
+            else {"heat": ai_decision.heat, "confidence": ai_decision.confidence},
+            "vacation": self.vacation,
+            "evaluated": False,
+        }
+        reason = ai_decision.reason if ai_decision else self._rule_reason(rule)
+        self._log(
+            "heating_day",
+            decision=text(self.language, "yes" if heat else "no"),
+            source=label_of(self.language, "source", source),
+            phase=label_of(self.language, "phase", phase),
+            reason=reason,
+        )
+        if self.heating_day and self.ai_enabled:  # honours a manual override
+            # A check already planned keeps its date: the interval grows while nothing
+            # changes, and a daily reset would undo that. A room that was too cold since
+            # the last check does not wait for it, though.
+            pending = dt_util.parse_datetime(str(self.ai_state.get("next_check") or ""))
+            soon = now + timedelta(hours=float(self.opt(CONF_CHECK_INTERVAL)))
+            too_cold = float(self.opt(CONF_TOO_COLD_MINUTES))
+            cold = any(
+                a.check.get("cold_min", 0) >= too_cold for a in self.areas.values() if a.has_circuit
+            )
+            if pending is None or pending <= now or (cold and pending > soon):
+                self._schedule_check(soon)
+        else:
+            self._schedule_check(None)
+        await self.async_request_refresh()
+
+    def _rule_reason(self, rule: hd.RuleResult) -> str:
+        parts = []
+        if rule.tmax is not None:
+            parts.append(
+                f"Tmax {rule.tmax} {'<' if rule.outdoor_rule else '>='} theta {rule.theta}"
+            )
+        if rule.cold_areas:
+            names = [a.name for a in self.areas.values() if a.area_id in rule.cold_areas]
+            parts.append("< target + puffer: " + ", ".join(names))
+        return "; ".join(parts)
+
+    def _evaluate(self, current: dict[str, Any]) -> None:
+        """Evaluate the finished decision day, learn the rule and update the phase."""
+        current["evaluated"] = True
+        stats = {a.area_id: a.day for a in self.areas.values() if a.has_circuit}
+        need = hd.evaluate_need(stats, self._eval_settings())
+        rule_data = current.get("rule") or {}
+        ai = current.get("ai")
+        # Under a manual override the day ran as overridden, not as decided. The
+        # override still set counts if it was set on this day; one set earlier in the
+        # day and taken back still marks the day as manual.
+        date = str(current.get("date"))
+        override = self.day_state.get("override", hd.Override.AUTO)
+        active = override != hd.Override.AUTO and self.day_state.get("override_date", date) == date
+        manual = active or date in self.day_state.get("manual_days", [])
+        record = hd.DayRecord(
+            date=date,
+            final=override == hd.Override.HEAT if active else bool(current.get("heat")),
+            source="override" if manual else str(current.get("source")),
+            rule=bool(rule_data.get("heat", current.get("heat"))),
+            ai=None if not ai else bool(ai.get("heat")),
+            need=need,
+            phase=str(current.get("phase", self.phase)),
+            manual=manual,
+            vacation=bool(current.get("vacation")),
+        )
+        record.extra = {
+            "on_min": round(sum(s.relay_min for s in stats.values())),
+            "over_kh": round(sum(s.over_kh for s in stats.values()), 2),
+        }
+        if self.opt(CONF_HEAT_METER) and (kwh := self.meter.kwh_since("day")) is not None:
+            record.extra["kwh"] = kwh
+        record.err_final = hd.error_of(record.final, need)
+        record.err_rule = hd.error_of(record.rule, need)
+        record.err_ai = hd.error_of(record.ai, need)
+
+        if rule_data and need != hd.Need.UNCLEAR and not current.get("vacation") and not manual:
+            rule = hd.RuleResult(
+                **{k: rule_data[k] for k in hd.RuleResult.__dataclass_fields__ if k in rule_data}
+            )
+            puffers = {a.area_id: a.params.puffer for a in self.areas.values() if a.has_circuit}
+            theta, new_puffers, changes = hd.learn_rule(
+                self.theta, puffers, rule, need, stats, self._eval_settings()
+            )
+            if changes:
+                self.day_state["theta"] = theta
+                for area_id, value in new_puffers.items():
+                    self.areas[area_id].params.puffer = value
+                record.learned = True
+                self._log(
+                    "rule_learned",
+                    theta=theta,
+                    puffer=", ".join(f"{self.areas[k].name} {v}" for k, v in new_puffers.items()),
+                )
+
+        history = [hd.DayRecord.from_dict(h) for h in self.day_state.get("history", [])]
+        history.append(record)
+        history = history[-HISTORY_DAYS:]
+        self.day_state["history"] = [h.as_dict() for h in history]
+        self._log(
+            "evaluation",
+            date=record.date,
+            need=label_of(self.language, "need", need),
+            err_final=label_of(self.language, "error", record.err_final),
+            err_rule=label_of(self.language, "error", record.err_rule),
+            # no AI that day: no error to show
+            err_ai="-" if record.ai is None else label_of(self.language, "error", record.err_ai),
+        )
+
+        phase = self.phase
+        phase_since = self.day_state.get("phase_since")
+        days_in_phase = len([h for h in history if phase_since is None or h.date >= phase_since])
+        new_phase = hd.next_phase(phase, history, days_in_phase, self._phase_settings())
+        if new_phase != phase:
+            self.day_state["phase"] = new_phase
+            self.day_state["phase_since"] = dt_util.now().date().isoformat()
+            self._log(
+                "phase_change",
+                old=label_of(self.language, "phase", phase),
+                new=label_of(self.language, "phase", new_phase),
+            )
+        for area in self.areas.values():
+            area.day = hd.DayAreaStats()
+
+    async def _ask_nightly(
+        self,
+        tmax: float | None,
+        tmin: float | None,
+        hourly: list[dict[str, Any]],
+        rule: hd.RuleResult,
+    ) -> hd.AiDecision | None:
+        history = self.day_state.get("history", [])[-14:]
+        payload = {
+            "date": dt_util.now().date().isoformat(),
+            "outdoor_now": r(self.outdoor_temp, 1),
+            "forecast": {
+                "tmax": r(tmax, 1),
+                "tmin": r(tmin, 1),
+                "hourly": _hourly_compact(hourly, 24),
+            },
+            "pv_kw_now": r(self.pv_kw, 2),
+            "areas": [
+                {
+                    "id": a.prompt_id,
+                    "name": a.name,
+                    "type": a.cfg.get(CONF_HEATING_TYPE, "underfloor"),
+                    "temp": r(a.temp),
+                    "target": a.effective_target or a.target,
+                    "puffer": a.params.puffer,
+                    "window_open": a.window_open,
+                    **({"draft": True} if a.draft else {}),
+                    "cool_kph": r(a.learned_values.cool_rate_kph, 3),
+                    "confidence": a.learner.confidence() if a.learner else 0,
+                }
+                for a in self.areas.values()
+                if a.has_circuit and a.hvac_on
+            ],
+            "rule": {
+                "theta": rule.theta,
+                "proposal": rule.heat,
+                "sure": rule.sure,
+                "cold_areas": [self._prompt_id(x) for x in rule.cold_areas],
+            },
+            "history": [
+                {
+                    "d": h.get("date"),
+                    "final": h.get("final"),
+                    "need": h.get("need"),
+                    "err": h.get("err_final"),
+                    **({"manual": True} if h.get("manual") else {}),
+                    **{
+                        k: v
+                        for k, v in (h.get("extra") or {}).items()
+                        if k in ("on_min", "over_kh", "kwh")
+                    },
+                }
+                for h in history
+            ],
+        }
+        system, user = nightly_messages(payload, self.language, self.opt(CONF_PROMPTS))
+        data = await self._ai_call("nightly", system, user, NIGHTLY_SCHEMA)
+        if data is None:
+            return None
+        try:
+            decision = validate_nightly(data)
+        except AnswerError as err:
+            self._ai_failed("nightly", str(err))
+            return None
+        decision.critical_area = next(
+            (a.name for a in self.areas.values() if a.prompt_id == decision.critical_area),
+            decision.critical_area,
+        )
+        return decision
+
+    def _prompt_id(self, area_id: str) -> str:
+        area = self.areas.get(area_id)
+        return area.prompt_id if area else area_id
+
+    # ------------------------------------------------------------------ AI calls
+
+    async def _ai_call(
+        self, kind: str, system: str, user: str, schema: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        if self.client is None or not self.ai_enabled:
+            return None
+        month = dt_util.now().strftime("%Y-%m")
+        self.budget.roll(month)
+        limit = float(self.opt(CONF_BUDGET))
+        max_tokens = int(self.opt(CONF_MAX_OUTPUT_TOKENS))
+        estimate = estimate_cost(
+            len(system) + len(user), max_tokens, self.prices, self.budget.avg_output
+        )
+        if not self.budget.can_spend(estimate, limit):
+            if self.ai_state.get("budget_logged") != month:
+                self.ai_state["budget_logged"] = month
+                self._log("ai_budget", spent=round(self.budget.spent, 2), budget=limit)
+            return None
+        self.client.model = str(self.opt(CONF_AI_MODEL))
+        self.client.effort = str(self.opt(CONF_AI_EFFORT))
+        usage: dict[str, Any] = {}
+        try:
+            data, usage = await self.client.structured(system, user, schema, max_tokens)
+        except AiError as err:
+            usage = err.usage
+            self._ai_failed(kind, str(err))
+            data = None
+            if isinstance(err, AiAuthError):
+                # The key was rejected: ask for a new one; the local control goes on.
+                self.config_entry.async_start_reauth(self.hass)
+        finally:
+            if usage:
+                self.budget.add(cost_usd(usage, self._served_prices()), usage)
+            self._save()
+        if data is not None:
+            self.ai_state["last_error"] = None
+        return data
+
+    def _served_prices(self) -> Prices:
+        """Prices of the model that answered: the server may fall back to another model,
+        then its list price applies instead of the configured prices."""
+        served = self.client.served_model if self.client else None
+        selected = str(self.opt(CONF_AI_MODEL))
+        if not served or served == selected or served.startswith(f"{selected}-"):
+            return self.prices
+        for model, prices in MODEL_PRICE_SUGGESTIONS.items():
+            if served == model or served.startswith(f"{model}-"):
+                return Prices(*prices)
+        return self.prices
+
+    def _ai_failed(self, kind: str, error: str) -> None:
+        self.ai_state["last_error"] = f"{kind}: {error}"
+        self.ai_state["last_error_at"] = dt_util.utcnow().isoformat()
+        self._log("ai_error", kind=kind, error=error)
+
+    def _restore_check_schedule(self) -> None:
+        when = dt_util.parse_datetime(str(self.ai_state.get("next_check") or ""))
+        if when is None:
+            return
+        earliest = dt_util.utcnow() + timedelta(minutes=5)
+        self._schedule_check(max(when, earliest))
+
+    def _schedule_check(self, when: datetime | None) -> None:
+        if self._unsub_check:
+            self._unsub_check()
+            self._unsub_check = None
+        self.ai_state["next_check"] = when.isoformat() if when else None
+        if when is not None:
+            self._unsub_check = async_track_point_in_utc_time(self.hass, self._check_due, when)
+
+    @callback
+    def _check_due(self, now: datetime) -> None:
+        self._unsub_check = None
+        self.module.create_task(self.async_run_ai_check("scheduled"), f"{DOMAIN} ai check")
+
+    async def async_run_ai_check(self, trigger: str) -> None:
+        """Periodic AI review of the parameters."""
+        if self._checking:
+            return
+        manual = trigger == "manual"
+        if not self.ai_enabled or not self.season_active or (not self.heating_day and not manual):
+            self._schedule_check(None)
+            return
+        self._checking = True
+        try:
+            await self._run_check()
+        finally:
+            self._checking = False
+            self._save()
+            self.async_update_listeners()
+
+    async def _run_check(self) -> None:
+        now = dt_util.utcnow()
+        hourly = await self._forecast("hourly")
+        controlled = [a for a in self.areas.values() if a.has_circuit and a.learner is not None]
+        current: dict[str, dict[str, float]] = {GLOBAL: {"theta": self.theta}}
+        areas_payload = []
+        for area in controlled:
+            assert area.learner is not None
+            values = {k: getattr(area.params, k) for k, p in PARAMS.items() if p.scope == "area"}
+            current[area.prompt_id] = values
+            model = area.learner.model
+            check = area.check
+            areas_payload.append(
+                {
+                    "id": area.prompt_id,
+                    "name": area.name,
+                    "type": area.cfg.get(CONF_HEATING_TYPE, "underfloor"),
+                    "target": area.effective_target or area.target,
+                    "temp": r(area.temp),
+                    "status": area.status,
+                    "hvac_on": area.hvac_on,
+                    "learned": {
+                        "heat_kph": r(area.learned_values.heat_rate_kph, 3),
+                        "cool_kph": r(area.learned_values.cool_rate_kph, 3),
+                        "k": r(model.k, 4),
+                        "sun": r(model.s, 3),
+                        "overshoot_k": r(area.learner.overshoot.value),
+                        "overshoot_per_h": r(area.learner.overshoot_rate.value, 3),
+                        "dead_time_min": r(area.learner.dead_time.value / 60, 0),
+                        "recovery_min": r(area.learner.recovery.value / 60, 0),
+                        "recovery_model": _recovery_model_payload(area.learner),
+                        "confidence": area.learner.confidence(),
+                    },
+                    "params": values,
+                    "stats": {
+                        "minutes": r(check.get("minutes"), 0),
+                        "cold_min": r(check.get("cold_min"), 0),
+                        "max_over": r(
+                            check.get("max_over") if check.get("max_over", -99) > -99 else None
+                        ),
+                        "cycles": int(check.get("cycles", 0)),
+                        "on_min": r(check.get("on_min"), 0),
+                        "avg_run_min": r(check["on_min"] / check["cycles"], 0)
+                        if check.get("cycles") and check.get("on_min")
+                        else None,
+                        "on_per_kh": r(check.get("on_min", 0.0) / check["deg_h"], 3)
+                        if check.get("deg_h", 0) >= 1
+                        else None,
+                        "over_kh": r(check.get("over_kh", 0.0)),
+                        "sun_over_kh": r(check.get("sun_over_kh", 0.0)),
+                        "min_t": r(check.get("min_t") if check.get("min_t", 99) < 99 else None),
+                        "max_t": r(check.get("max_t") if check.get("max_t", -99) > -99 else None),
+                        "window_min": r(check.get("window_min"), 0),
+                        "draft_min": r(check.get("draft_min"), 0),
+                        "cross_min": r(check.get("cross_min"), 0),
+                        "airings": int(check.get("airings", 0)),
+                        "rec_min": r(check.get("rec_min"), 0),
+                        "rec_cold_min": r(check.get("rec_cold_min"), 0),
+                    },
+                    "airings": _airings_payload(area.learner),
+                }
+            )
+        limits = self.limits
+        payload = {
+            "time": dt_util.now().strftime("%Y-%m-%d %H:%M"),
+            "heating_day": self.heating_day,
+            "outdoor": r(self.outdoor_temp, 1),
+            "pv_kw": r(self.pv_kw, 2),
+            "forecast_12h": _hourly_compact(hourly, 12),
+            "theta": self.theta,
+            "areas": areas_payload,
+            "heat": self._heat_payload(),
+            "history": self.ai_state.get("check_history", []),
+            "limits": {k: [v["min"], v["max"], v["step"]] for k, v in limits.items()},
+        }
+        system, user = check_messages(payload, self.language, self.opt(CONF_PROMPTS))
+        data = await self._ai_call("check", system, user, CHECK_SCHEMA)
+        self.ai_state["last_check"] = now.isoformat()
+        comfort_issue = any(
+            a.check.get("cold_min", 0) >= float(self.opt(CONF_TOO_COLD_MINUTES)) for a in controlled
+        )
+        efficiency_issue = any(
+            overheat_issue(a.check.get("over_kh", 0.0), a.check.get("minutes", 0.0))
+            for a in controlled
+        )
+        relevant = False
+        if data is not None:
+            try:
+                result = validate_check(data, current, limits)
+            except AnswerError as err:
+                self._ai_failed("check", str(err))
+                result = None
+            if result is not None:
+                relevant = result.relevant_change
+                by_prompt = {a.prompt_id: a for a in controlled}
+                for adj in result.applied:
+                    area = by_prompt.get(adj.area)
+                    if adj.area == GLOBAL:
+                        self.day_state["theta"] = adj.new
+                    elif area is not None:
+                        setattr(area.params, adj.parameter, adj.new)
+                    self._log(
+                        "ai_adjust",
+                        area,
+                        parameter=label_of(self.language, "parameter", adj.parameter),
+                        old=adj.old,
+                        new=adj.new,
+                        clamped=text(self.language, "clamped") if adj.clamped else "",
+                        reason=adj.reason,
+                    )
+                self.ai_state["last_summary"] = result.summary
+                self.ai_state["last_confidence"] = result.confidence
+                self.ai_state["last_rejected"] = result.rejected[:10]
+                stable = update_stable_count(
+                    int(self.ai_state.get("stable", 0)), relevant, comfort_issue, efficiency_issue
+                )
+                self.ai_state["stable"] = stable
+                hours = next_interval_hours(
+                    float(self.opt(CONF_CHECK_INTERVAL)),
+                    float(self.opt(CONF_CHECK_MAX_INTERVAL)),
+                    stable,
+                )
+                self._schedule_check(now + timedelta(hours=hours))
+                self._log(
+                    "ai_check",
+                    count=len(result.applied),
+                    confidence=result.confidence,
+                    summary=result.summary,
+                    hours=round(hours, 1),
+                )
+                self._add_check_history(areas_payload, result.applied, payload["heat"])
+                self.meter.rebase("check")
+                for area in controlled:
+                    area.check = _new_check_stats()
+                return
+        # failure or no answer: try again after the base interval
+        self._schedule_check(now + timedelta(hours=float(self.opt(CONF_CHECK_INTERVAL))))
+
+    def _add_check_history(
+        self,
+        areas_payload: list[dict[str, Any]],
+        applied: list[Any],
+        heat: dict[str, Any] | None,
+    ) -> None:
+        """Keep the key figures of this check and its changes for the next checks."""
+        keys = ("cold_min", "over_kh", "sun_over_kh", "on_per_kh", "cycles", "rec_cold_min")
+        entry: dict[str, Any] = {
+            "t": dt_util.now().strftime("%m-%d %H:%M"),
+            "areas": {a["id"]: {k: a["stats"].get(k) for k in keys} for a in areas_payload},
+            "changes": [f"{a.area} {a.parameter} {a.old:g}>{a.new:g}" for a in applied],
+        }
+        if heat is not None:
+            entry["kwh_per_kh"] = heat["kwh_per_kh"]
+        history = [*self.ai_state.get("check_history", []), entry]
+        self.ai_state["check_history"] = history[-CHECK_HISTORY:]
+
+    # ------------------------------------------------------------------ AI ventilation check
+
+    def _restore_vent_schedule(self) -> None:
+        """Plan the ventilation check: as stored, or after the base interval the first
+        time (the statistics need a while)."""
+        if not self.vent_ai_active:
+            self._schedule_vent_check(None)
+            return
+        now = dt_util.utcnow()
+        when = dt_util.parse_datetime(str(self.vent_state.get("next_check") or ""))
+        if when is None:
+            when = now + timedelta(hours=float(self.opt(CONF_VENT_CHECK_INTERVAL)))
+        self._schedule_vent_check(max(when, now + timedelta(minutes=5)))
+
+    def _schedule_vent_check(self, when: datetime | None) -> None:
+        if self._unsub_vent:
+            self._unsub_vent()
+            self._unsub_vent = None
+        self.vent_state["next_check"] = when.isoformat() if when else None
+        if when is not None:
+            self._unsub_vent = async_track_point_in_utc_time(self.hass, self._vent_due, when)
+
+    @callback
+    def _vent_due(self, now: datetime) -> None:
+        self._unsub_vent = None
+        self.module.create_task(
+            self.async_run_vent_check("scheduled"), f"{DOMAIN} ai ventilation check"
+        )
+
+    async def async_run_vent_check(self, trigger: str) -> None:
+        """Periodic AI review of the ventilation thresholds, all year."""
+        if self._vent_checking:
+            return
+        if not self.vent_ai_active:
+            self._schedule_vent_check(None)
+            return
+        self._vent_checking = True
+        try:
+            await self._run_vent_check()
+        finally:
+            self._vent_checking = False
+            self._save()
+            self.async_update_listeners()
+
+    def _vent_area_payload(self, area: Area) -> dict[str, Any]:
+        vent = area.ventilation
+        ref_ah = (
+            absolute_humidity(area.ref_temp, area.ref_humidity)
+            if area.ref_temp is not None and area.ref_humidity is not None
+            else None
+        )
+        return {
+            "id": area.prompt_id,
+            "name": area.name,
+            "ref": "indoor" if area.cfg.get(CONF_REF_TEMP) else "outdoor",
+            "heated": area.has_circuit,
+            "target": area.effective_target or area.target,
+            "temp": r(area.temp, 1),
+            "rh": r(area.humidity, 1),
+            "ah": vent.ah_inside if vent else None,
+            "ref_temp": r(area.ref_temp, 1),
+            "ref_rh": r(area.ref_humidity, 1),
+            "ref_ah": r(ref_ah),
+            "state": vent.state if vent else None,
+            "window_open": area.own_window_open,
+            **({"draft": True} if area.draft else {}),
+            "draft_groups": len(draft_groups(area.cfg, own_windows(area.cfg))),
+            "windows": {
+                size: len(area.cfg.get(key) or ())
+                for key, size in WINDOW_FIELDS.items()
+                if area.cfg.get(key)
+            },
+            "params": area.vent_params.as_dict(),
+            "profile": area.humidity_profile.summary(
+                self._humidity_season, area.temp, area.humidity, ref_ah
+            ),
+            "stats": stats_payload(area.vent_check),
+        }
+
+    async def _run_vent_check(self) -> None:
+        now = dt_util.utcnow()
+        state = self.vent_state
+        hourly = await self._forecast("hourly")
+        areas = [a for a in self.areas.values() if a.has_humidity]
+        current = {a.prompt_id: a.vent_params.as_dict() for a in areas}
+        areas_payload = [self._vent_area_payload(a) for a in areas]
+        limits = self.limits
+        payload = {
+            "time": dt_util.now().strftime("%Y-%m-%d %H:%M"),
+            "heating_period": self.season_active,
+            "heating_day": self.heating_day,
+            "outdoor": r(self.outdoor_temp, 1),
+            "forecast_12h": _hourly_compact(hourly, 12),
+            "areas": areas_payload,
+            "history": state.get("history", []),
+            "limits": {
+                k: [limits[k]["min"], limits[k]["max"], limits[k]["step"]] for k in VENT_PARAMS
+            },
+        }
+        system, user = vent_check_messages(payload, self.language, self.opt(CONF_PROMPTS))
+        data = await self._ai_call("ventilation", system, user, VENT_CHECK_SCHEMA)
+        state["last_check"] = now.isoformat()
+        issue = any(
+            humid_issue(
+                a.vent_check.get("humid_min", 0.0),
+                a.vent_check.get("mould_min", 0.0),
+                a.vent_check.get("minutes", 0.0),
+            )
+            for a in areas
+        )
+        result = None
+        if data is not None:
+            try:
+                result = validate_check(data, current, limits, VENT_PARAMS)
+            except AnswerError as err:
+                self._ai_failed("ventilation", str(err))
+        if result is None:
+            # failure or no answer: try again after the base interval
+            self._schedule_vent_check(
+                now + timedelta(hours=float(self.opt(CONF_VENT_CHECK_INTERVAL)))
+            )
+            return
+        by_prompt = {a.prompt_id: a for a in areas}
+        for adj in result.applied:
+            area = by_prompt.get(adj.area)
+            if area is None:
+                continue
+            setattr(area.vent_params, adj.parameter, adj.new)
+            self._log(
+                "ai_adjust",
+                area,
+                parameter=label_of(self.language, "parameter", adj.parameter),
+                old=adj.old,
+                new=adj.new,
+                clamped=text(self.language, "clamped") if adj.clamped else "",
+                reason=adj.reason,
+            )
+        state["last_summary"] = result.summary
+        state["last_confidence"] = result.confidence
+        state["last_rejected"] = result.rejected[:10]
+        stable = update_stable_count(int(state.get("stable", 0)), result.relevant_change, issue)
+        state["stable"] = stable
+        hours = next_interval_hours(
+            float(self.opt(CONF_VENT_CHECK_INTERVAL)),
+            float(self.opt(CONF_VENT_CHECK_MAX_INTERVAL)),
+            stable,
+        )
+        self._schedule_vent_check(now + timedelta(hours=hours))
+        self._log(
+            "ai_vent_check",
+            count=len(result.applied),
+            confidence=result.confidence,
+            summary=result.summary,
+            hours=round(hours, 1),
+        )
+        keys = (
+            "humid_min",
+            "mould_min",
+            "rh_mean",
+            "rec_min",
+            "useless_min",
+            "energy_hold_min",
+            "pause_hold_min",
+            "flips",
+        )
+        entry = {
+            "t": dt_util.now().strftime("%m-%d %H:%M"),
+            "areas": {a["id"]: {k: a["stats"].get(k) for k in keys} for a in areas_payload},
+            "changes": [f"{a.area} {a.parameter} {a.old:g}>{a.new:g}" for a in result.applied],
+        }
+        state["history"] = [*state.get("history", []), entry][-CHECK_HISTORY:]
+        for area in areas:
+            area.vent_check = new_vent_stats()
+
+    # ------------------------------------------------------------------ services
+
+    def export_parameters(self, area_ids: list[str] | None = None) -> dict[str, Any]:
+        areas = {}
+        for area in self.areas.values():
+            if area_ids and area.area_id not in area_ids:
+                continue
+            entry: dict[str, Any] = {
+                "id": area.area_id,
+                "target": area.target,
+                "params": area.params.as_dict(),
+                "vent_params": area.vent_params.as_dict(),
+            }
+            if area.has_humidity:
+                entry["humidity"] = area.humidity_profile.as_dict()
+            if area.learner is not None:
+                lr = area.learner
+                entry["learned"] = {
+                    "heat_effect_kph": round(lr.model.a, 4),
+                    "loss_per_h": round(lr.model.k, 5),
+                    "sun_kph_per_kw": round(lr.model.s, 4),
+                    "overshoot_k": round(lr.overshoot.value, 3),
+                    "overshoot_per_h": round(lr.overshoot_rate.value, 4),
+                    "dead_time_min": round(lr.dead_time.value / 60, 1),
+                    "recovery_min": round(lr.recovery.value / 60, 1),
+                    "recovery_base_min": round(lr.recovery_model.base, 2),
+                    "recovery_per_k_min": round(lr.recovery_model.per_k, 2),
+                    "recovery_per_kh_min": round(lr.recovery_model.per_kh, 2),
+                }
+                entry["counts"] = {
+                    "model_heat": lr.model.n_heat,
+                    "model_cool": lr.model.n_cool,
+                    "overshoot": lr.overshoot.count,
+                    "overshoot_per_h": lr.overshoot_rate.count,
+                    "dead_time": lr.dead_time.count,
+                    "recovery": lr.recovery.count,
+                    "recovery_model": lr.recovery_model.count,
+                }
+            areas[area.name] = entry
+        return {
+            "format": DOMAIN,
+            "version": 1,
+            "exported": dt_util.utcnow().isoformat(),
+            "global": {"theta": self.theta, "phase": self.phase},
+            "areas": areas,
+        }
+
+    def import_parameters(
+        self, data: dict[str, Any], area_ids: list[str] | None = None
+    ) -> list[str]:
+        if not _valid_import(data):
+            # checked before anything changes: no half applied import
+            raise HomeAssistantError("invalid parameter data")
+        limits = self.limits
+        theta = (data.get("global") or {}).get("theta")
+        if isinstance(theta, int | float) and not area_ids:
+            self.day_state["theta"] = clamp(
+                float(theta), limits["theta"]["min"], limits["theta"]["max"]
+            )
+        imported = []
+        by_name = {a.name: a for a in self.areas.values()}
+        for key, values in (data.get("areas") or {}).items():
+            if not isinstance(values, dict):
+                continue
+            area = self.areas.get(str(values.get("id"))) or by_name.get(key)
+            if area is None or (area_ids and area.area_id not in area_ids):
+                continue
+            for name, value in (values.get("params") or {}).items():
+                spec = PARAMS.get(name)
+                if spec is not None and spec.scope == "area" and isinstance(value, int | float):
+                    lim = limits[name]
+                    setattr(area.params, name, clamp(float(value), lim["min"], lim["max"]))
+            for name, value in (values.get("vent_params") or {}).items():
+                if name in VENT_PARAMS and isinstance(value, int | float):
+                    lim = limits[name]
+                    setattr(area.vent_params, name, clamp(float(value), lim["min"], lim["max"]))
+            if isinstance(values.get("humidity"), dict):
+                area.humidity_profile = HumidityProfile.from_dict(values["humidity"])
+            if isinstance(values.get("target"), int | float):
+                area.target = clamp(
+                    float(values["target"]),
+                    float(area.cfg.get("min_target", 5)),
+                    float(area.cfg.get("max_target", 30)),
+                )
+            learned = values.get("learned") or {}
+            counts = values.get("counts") or {}
+            if area.learner is not None and isinstance(learned, dict):
+                _import_learned(area.learner, learned, counts)
+            imported.append(area.name)
+        # An import is no configuration change: the start value record stays as it is.
+        self._config_changed()
+        self._log("import", areas=", ".join(imported) or "-")
+        return imported
+
+    def reset_learned(self, area_ids: list[str], include_parameters: bool) -> None:
+        for area_id in area_ids:
+            area = self.areas[area_id]
+            start = _start_values(area.cfg)
+            if area.learner is not None:
+                area.learner = AreaLearner.create(start["dead_time"], start["recovery"])
+            if include_parameters:
+                area.params = ControlParams(
+                    window_delay_min=start["window_delay_min"], puffer=start["puffer"]
+                )
+            area.start = start  # the configuration is in effect again
+            area.humidity_profile = HumidityProfile()
+            if include_parameters:
+                area.vent_start = self._vent_start_values(area.cfg)
+                area.vent_params = VentilationSettings(**area.vent_start)
+            self._forget_check_history(area)
+            self._forget_vent_history(area)
+            self._log("reset", area)
+        if include_parameters:
+            self._clamp_to_limits()  # start values may lie outside narrowed limits
+        self._config_changed()
+
+    # --------------------------------------------------------- learned values (user edits)
+
+    def learned_ranges(self) -> dict[str, tuple[float, float]]:
+        """Allowed range of each editable learned value, in the units of the configuration."""
+        limits = self.limits
+        ranges = {"theta": (limits["theta"]["min"], limits["theta"]["max"])}
+        for key, name in LEARNED_NAMES.items():
+            if name in LEARNED_BOUNDS:
+                low, high = LEARNED_BOUNDS[name]
+                ranges[key] = (low / 60, high / 60)
+            else:
+                ranges[key] = (limits[name]["min"], limits[name]["max"])
+        return ranges
+
+    def learned_values(self, area_id: str) -> dict[str, float]:
+        """Values in effect instead of the start values of an area, in configuration units."""
+        area = self.areas.get(area_id)
+        if area is None:
+            return {}
+        values = {CONF_WINDOW_DELAY: area.params.window_delay_min, CONF_PUFFER: area.params.puffer}
+        if area.learner is not None:
+            values[CONF_DEAD_TIME] = area.learner.dead_time.value / 60
+            values[CONF_RECOVERY] = area.learner.recovery.value / 60
+        return {k: round(v, 2) for k, v in values.items()}
+
+    def set_learned(self, area_id: str, values: dict[str, float]) -> None:
+        """Replace learned values of an area; learning continues from the new value."""
+        area = self.areas[area_id]
+        ranges = self.learned_ranges()
+        current = self.learned_values(area_id)
+        changed = False
+        for key, value in values.items():
+            if key not in current or math.isclose(current[key], float(value), abs_tol=1e-6):
+                continue
+            name = LEARNED_NAMES[key]
+            new = clamp(float(value), *ranges[key])
+            if name in LEARNED_BOUNDS:
+                assert area.learner is not None
+                ewma: Ewma = getattr(area.learner, name)
+                ewma.value = new * 60
+                # a value set by hand counts as an observation, like an imported one
+                ewma.count = max(1, ewma.count)
+                if name == "recovery":
+                    # the dependence on the airing is learned again around the new value
+                    area.learner.recovery_model = RecoveryModel()
+            else:
+                setattr(area.params, name, new)
+            _, unit = _START_UNITS[name]
+            self._log(
+                "learned_edit",
+                area,
+                name=text(self.language, name),
+                old=f"{current[key]:g}",
+                new=f"{round(new, 2):g}",
+                unit=unit,
+            )
+            changed = True
+        if changed:
+            self._forget_check_history(area)
+            self._config_changed()
+            self.async_update_listeners()
+
+    def set_theta(self, value: float) -> None:
+        """Replace the learned theta of the heating day rule."""
+        new = clamp(float(value), *self.learned_ranges()["theta"])
+        old = self.theta
+        if math.isclose(round(old, 2), new, abs_tol=1e-6):
+            return
+        self.day_state["theta"] = new
+        self._log("learned_edit", name="theta", old=f"{round(old, 2):g}", new=f"{new:g}", unit="°C")
+        self._config_changed()
+        self.async_update_listeners()
+
+
+def _valid_import(data: Any) -> bool:
+    """Shape of exported parameters: the nested parts are objects (or missing)."""
+
+    def obj(value: Any) -> bool:
+        return value is None or isinstance(value, dict)
+
+    if not isinstance(data, dict) or not obj(data.get("global")) or not obj(data.get("areas")):
+        return False
+    return all(
+        not isinstance(values, dict)
+        or all(
+            obj(values.get(k)) for k in ("params", "learned", "counts", "vent_params", "humidity")
+        )
+        for values in (data.get("areas") or {}).values()
+    )
+
+
+def _recovery_model_payload(learner: AreaLearner) -> dict[str, Any] | None:
+    """The learned dependence of the recovery on the airing, once it is used."""
+    model = learner.recovery_model
+    if model.count < MIN_RECOVERY_EVENTS:
+        return None
+    return {
+        "base_min": r(model.base, 1),
+        "per_k_min": r(model.per_k, 1),
+        "per_kh_min": r(model.per_kh, 1),
+        "airings": model.count,
+    }
+
+
+def _airings_payload(learner: AreaLearner) -> list[dict[str, Any]]:
+    """The last airings with their recovery, local time instead of the timestamp."""
+    result = []
+    for airing in learner.airings:
+        event = {k: v for k, v in airing.items() if k != "ts" and v is not None}
+        if isinstance(ts := airing.get("ts"), int | float):
+            event = {
+                "at": dt_util.as_local(dt_util.utc_from_timestamp(ts)).strftime("%m-%d %H:%M"),
+                **event,
+            }
+        result.append(event)
+    return result
+
+
+def _import_learned(learner: AreaLearner, learned: dict[str, Any], counts: dict[str, Any]) -> None:
+    def num(key: str) -> float | None:
+        value = learned.get(key)
+        return float(value) if isinstance(value, int | float) else None
+
+    model = learner.model
+    for index, key in enumerate(("heat_effect_kph", "loss_per_h", "sun_kph_per_kw")):
+        if (value := num(key)) is not None:
+            model.theta[index] = value
+    model.theta = [
+        clamp(v, *b)
+        for v, b in zip(model.theta, ((0.02, 5.0), (0.0, 0.3), (0.0, 3.0)), strict=True)
+    ]
+    model.p = [[P_START[i] if i == j else 0.0 for j in range(3)] for i in range(3)]
+    model.n_heat = int(counts.get("model_heat", 0) or 0)
+    model.n_cool = int(counts.get("model_cool", 0) or 0)
+    pairs = (
+        ("overshoot_k", learner.overshoot, 1.0, (0.0, 2.0), "overshoot"),
+        ("overshoot_per_h", learner.overshoot_rate, 1.0, (0.0, 2.0), "overshoot_per_h"),
+        ("dead_time_min", learner.dead_time, 60.0, DEAD_TIME_BOUNDS, "dead_time"),
+        ("recovery_min", learner.recovery, 60.0, RECOVERY_BOUNDS, "recovery"),
+    )
+    for key, ewma, factor, bounds, count_key in pairs:
+        if (value := num(key)) is not None:
+            ewma.value = clamp(value * factor, *bounds)
+            # An imported value is a deliberate one: it counts as an observation, so a
+            # later start value only replaces it when the configuration changes.
+            ewma.count = max(1, int(counts.get(count_key, 0) or 0))
+    keys = ("recovery_base_min", "recovery_per_k_min", "recovery_per_kh_min")
+    theta = [num(key) for key in keys]
+    if all(v is not None for v in theta):
+        learner.recovery_model = RecoveryModel.from_dict(
+            {"theta": theta, "count": counts.get("recovery_model", 0)}
+        )
+    elif num("recovery_min") is not None:
+        learner.recovery_model = RecoveryModel()  # export of an older version
+
+
+@callback
+def integration_issues(hass: HomeAssistant) -> list[str]:
+    """Ids of the repair issues this integration raises."""
+    return [
+        issue_id
+        for domain, issue_id in ir.async_get(hass).issues
+        if domain == DOMAIN and issue_id.startswith(ISSUE_KEYS)
+    ]
+
+
+@callback
+def async_delete_issues(hass: HomeAssistant) -> None:
+    """Remove every repair issue of this integration (nothing is controlled any more)."""
+    for issue_id in integration_issues(hass):
+        ir.async_delete_issue(hass, DOMAIN, issue_id)
+
+
+async def async_turn_off_switches(hass: HomeAssistant, entity_ids: list[str]) -> list[str]:
+    """Switch off the given circuits that are on; returns those switched off.
+
+    Used when nothing controls a circuit any more (integration disabled or removed,
+    area deleted): a circuit left on would heat without limit.
+    """
+    switched = []
+    for entity_id in entity_ids:
+        state = hass.states.get(entity_id)
+        if state is None or state.state != STATE_ON:
+            continue
+        try:
+            async with asyncio.timeout(SWITCH_OFF_TIMEOUT):
+                await hass.services.async_call(
+                    entity_id.split(".", 1)[0],
+                    "turn_off",
+                    {ATTR_ENTITY_ID: entity_id},
+                    blocking=True,
+                )
+        except (HomeAssistantError, TimeoutError) as err:
+            LOGGER.warning("Could not switch off %s: %s", entity_id, err)
+            continue
+        except Exception:  # a faulty switch must not keep the others on
+            LOGGER.exception("Could not switch off %s", entity_id)
+            continue
+        switched.append(entity_id)
+    return switched
+
+
+def _night_time(value: Any, default_hour: int) -> time:
+    """Night start or end: a time ("HH:MM:SS"), or an hour of an older entry."""
+    if isinstance(value, int | float):
+        return time(int(value) % 24)
+    try:
+        return time.fromisoformat(str(value))
+    except ValueError:
+        return time(default_hour)
+
+
+def _parse_time(value: str) -> time:
+    try:
+        return time.fromisoformat(value)
+    except ValueError:
+        return time(3, 0)
+
+
+def _local_date(item: dict[str, Any]) -> str | None:
+    parsed = dt_util.parse_datetime(str(item.get("datetime", "")))
+    return dt_util.as_local(parsed).date().isoformat() if parsed else None
+
+
+def _today_extremes(
+    daily: list[dict[str, Any]], hourly: list[dict[str, Any]]
+) -> tuple[float | None, float | None]:
+    today = dt_util.now().date().isoformat()
+    for item in daily:
+        if _local_date(item) == today and isinstance(item.get("temperature"), int | float):
+            low = item.get("templow")
+            return float(item["temperature"]), float(low) if isinstance(low, int | float) else None
+    temps = [
+        float(h["temperature"])
+        for h in hourly
+        if _local_date(h) == today and isinstance(h.get("temperature"), int | float)
+    ]
+    if temps:
+        return max(temps), min(temps)
+    return None, None
+
+
+def _hourly_compact(hourly: list[dict[str, Any]], hours: int) -> list[str]:
+    """Every second hour as 'HHh T C cloud% condition' to keep the prompt short."""
+    result = []
+    for item in hourly[:hours:2]:
+        parsed = dt_util.parse_datetime(str(item.get("datetime", "")))
+        if parsed is None:
+            continue
+        hour = dt_util.as_local(parsed).hour
+        result.append(
+            f"{hour}h {item.get('temperature')}C {item.get('cloud_coverage', '?')}% {item.get('condition', '')}"
+        )
+    return result

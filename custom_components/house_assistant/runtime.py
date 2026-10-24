@@ -63,6 +63,8 @@ class Module:
         self._tasks: set[asyncio.Task[Any]] = set()
         self._waited: set[asyncio.Task[Any]] = set()
         self._unsubs: list[Callable[[], None]] = []
+        # stopped because it was switched off (not for a restart or an unload)
+        self.switched_off = False
 
     @property
     def options(self) -> dict[str, Any]:
@@ -131,6 +133,7 @@ class Module:
         """Stop the module. Its entities stay registered (same ids after a restart); when
         the module is switched off they also leave the state machine instead of showing
         as unavailable."""
+        self.switched_off = switched_off
         for task in list(self._tasks):
             task.cancel()
         if self._tasks or self._waited:

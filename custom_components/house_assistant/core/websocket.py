@@ -7,6 +7,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from ..const import DOMAIN, MODULE_ORDER
+from ..heating.websocket import async_register_websocket as async_register_heating
 from ..meter.websocket import async_register_websocket as async_register_meter
 from ..runtime import enabled_modules
 from ..shutter.websocket import async_register_websocket as async_register_shutter
@@ -21,6 +22,7 @@ def async_register_websocket(hass: HomeAssistant) -> None:
         return
     hass.data[DATA_WS] = True
     websocket_api.async_register_command(hass, ws_config)
+    async_register_heating(hass)
     async_register_meter(hass)
     async_register_shutter(hass)
 

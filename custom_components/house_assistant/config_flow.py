@@ -6,10 +6,12 @@ from typing import Any
 
 import probatio as vol
 from homeassistant.config_entries import (
+    SOURCE_USER,
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentryFlow,
+    FlowType,
     OptionsFlow,
 )
 from homeassistant.core import callback
@@ -24,6 +26,7 @@ from .const import (
     CONF_MODULES,
     CONF_SHOW_PANEL,
     DOMAIN,
+    MODULE_HEATING,
     MODULE_METER,
     MODULE_ORDER,
     MODULE_SHUTTER,
@@ -31,8 +34,10 @@ from .const import (
     OPT_CORE,
     SUBENTRY_GROUP,
     SUBENTRY_METER,
+    SUBENTRY_ROOM,
     SUBENTRY_WINDOW,
 )
+from .heating.config_flow import HeatingOptionsSteps, HeatingSetupSteps, RoomSubentryFlow
 from .meter.config_flow import MeterSubentryFlow
 from .meter.config_flow import options_schema as meter_schema
 from .meter.const import DEFAULTS as METER_DEFAULTS
@@ -46,10 +51,11 @@ from .shutter.config_flow import (
 
 # modules whose settings are one form: the form and the defaults of its options
 MODULE_FORMS = {MODULE_METER: (meter_schema, METER_DEFAULTS)}
-# modules with setup steps (the cover module has several)
-SETUP_MODULES = (MODULE_SHUTTER, MODULE_METER)
+# modules with setup steps (heating and covers have several)
+SETUP_MODULES = (MODULE_HEATING, MODULE_SHUTTER, MODULE_METER)
 # subentry types of every module
 MODULE_SUBENTRIES: dict[str, dict[str, type[ConfigSubentryFlow]]] = {
+    MODULE_HEATING: {SUBENTRY_ROOM: RoomSubentryFlow},
     MODULE_SHUTTER: {SUBENTRY_GROUP: GroupSubentryFlow, SUBENTRY_WINDOW: WindowSubentryFlow},
     MODULE_METER: {SUBENTRY_METER: MeterSubentryFlow},
 }
@@ -71,14 +77,16 @@ def modules_schema(chosen: list[str], show_panel: bool | None = None) -> vol.Sch
     return vol.Schema(fields)
 
 
-class HouseAssistantConfigFlow(ShutterSetupSteps, ConfigFlow, domain=DOMAIN):
-    """Create the single entry: choose the modules, then their first settings."""
+class HouseAssistantConfigFlow(HeatingSetupSteps, ShutterSetupSteps, ConfigFlow, domain=DOMAIN):
+    """Create the single entry: choose the modules, then their first settings. The data
+    holds the API key of the AI (empty without)."""
 
     VERSION = 1
     MINOR_VERSION = 1
 
     def __init__(self) -> None:
         self._options: dict[str, Any] = {}
+        self._data: dict[str, Any] = {}
         self._pending: list[str] = []
 
     @staticmethod
@@ -108,7 +116,18 @@ class HouseAssistantConfigFlow(ShutterSetupSteps, ConfigFlow, domain=DOMAIN):
         """The setup steps of the next chosen module, at the end the entry."""
         if self._pending:
             return await getattr(self, f"async_step_{self._pending.pop(0)}")()
-        return self.async_create_entry(title=NAME, data={}, options=self._options)
+        return self.async_create_entry(title=NAME, data=self._data, options=self._options)
+
+    async def async_on_create_entry(self, result: ConfigFlowResult) -> ConfigFlowResult:
+        """With the heating, directly continue with the first room."""
+        entry = result.get("result")
+        if entry is None or MODULE_HEATING not in self._options[OPT_CORE][CONF_MODULES]:
+            return result
+        sub = await self.hass.config_entries.subentries.async_init(
+            (entry.entry_id, SUBENTRY_ROOM), context={"source": SOURCE_USER}
+        )
+        result["next_flow"] = (FlowType.CONFIG_SUBENTRIES_FLOW, sub["flow_id"])
+        return result
 
     async def async_step_meter(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         schema, defaults = MODULE_FORMS[MODULE_METER]
@@ -118,7 +137,7 @@ class HouseAssistantConfigFlow(ShutterSetupSteps, ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id=MODULE_METER, data_schema=schema(dict(defaults)))
 
 
-class HouseAssistantOptionsFlow(ShutterOptionsSteps, OptionsFlow):
+class HouseAssistantOptionsFlow(HeatingOptionsSteps, ShutterOptionsSteps, OptionsFlow):
     """The modules and the settings of each module (the panel offers the same)."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
