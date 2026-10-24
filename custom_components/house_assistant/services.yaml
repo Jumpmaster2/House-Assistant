@@ -132,3 +132,19 @@ set_meter_reading:
           max: 100000000
           step: any
           mode: box
+
+set_vacation:
+  fields:
+    departure:
+      required: false
+      selector:
+        datetime:
+    return:
+      required: false
+      selector:
+        datetime:
+    clear:
+      required: false
+      default: false
+      selector:
+        boolean:

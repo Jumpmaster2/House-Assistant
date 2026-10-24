@@ -8,6 +8,7 @@ from typing import Any
 import probatio as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
     SelectSelector,
@@ -24,6 +25,9 @@ from ..const import (
     CONF_NOTIFY,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMP,
+    CONF_RETURN_ENTITY,
+    CONF_VACATION_ENTITIES,
+    CONF_VACATION_WINDOW_ALERT,
     CONF_WEATHER,
     CONF_WEEKEND_DAYS,
     CONF_WORKDAY,
@@ -32,6 +36,22 @@ from ..const import (
 )
 from .logic.geometry import DEFAULT_REACH
 from .schema import entity, number, optional
+
+# fields of the forms of the house (saving one replaces only its own fields)
+HOUSE_FORM = (
+    CONF_OUTDOOR_TEMP,
+    CONF_OUTDOOR_HUMIDITY,
+    CONF_WEATHER,
+    CONF_LANGUAGE,
+    CONF_NOTIFY,
+    CONF_WORKDAY,
+    CONF_WEEKEND_DAYS,
+    CONF_HOUSE_AZIMUTH,
+    CONF_HOUSE_WIDTH,
+    CONF_HOUSE_DEPTH,
+    CONF_DRAFT_REACH,
+)
+VACATION_FORM = (CONF_VACATION_ENTITIES, CONF_RETURN_ENTITY, CONF_VACATION_WINDOW_ALERT)
 
 LANGUAGES = ["auto", "de", "en"]
 WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
@@ -92,6 +112,34 @@ def house_schema(hass: HomeAssistant, v: dict[str, Any]) -> vol.Schema:
             vol.Required(CONF_DRAFT_REACH, default=v.get(CONF_DRAFT_REACH, DEFAULT_REACH)): number(
                 0, 20, 0.5, "m"
             ),
+        }
+    )
+
+
+def vacation_schema(v: dict[str, Any]) -> vol.Schema:
+    """External sources of the vacation of the house and its reports (panel tab
+    Vacation and Settings > House)."""
+    return vol.Schema(
+        {
+            vol.Optional(
+                CONF_VACATION_ENTITIES, default=v.get(CONF_VACATION_ENTITIES, [])
+            ): EntitySelector(
+                EntitySelectorConfig(
+                    domain=["input_boolean", "binary_sensor", "switch", "calendar", "schedule"],
+                    multiple=True,
+                )
+            ),
+            optional(CONF_RETURN_ENTITY, v): EntitySelector(
+                EntitySelectorConfig(
+                    filter=[
+                        {"domain": ["input_datetime", "datetime"]},
+                        {"domain": "sensor", "device_class": "timestamp"},
+                    ]
+                )
+            ),
+            vol.Required(
+                CONF_VACATION_WINDOW_ALERT, default=v.get(CONF_VACATION_WINDOW_ALERT, True)
+            ): BooleanSelector(),
         }
     )
 

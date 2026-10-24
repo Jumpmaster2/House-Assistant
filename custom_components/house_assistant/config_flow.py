@@ -33,13 +33,12 @@ from .const import (
     MODULE_SHUTTER,
     NAME,
     OPT_CORE,
-    SHARED_KEYS,
     SUBENTRY_GROUP,
     SUBENTRY_METER,
     SUBENTRY_ROOM,
     SUBENTRY_WINDOW,
 )
-from .core.settings import house_schema, validate_house
+from .core.settings import HOUSE_FORM, VACATION_FORM, house_schema, vacation_schema, validate_house
 from .heating.config_flow import HeatingOptionsSteps, HeatingSetupSteps, RoomSubentryFlow
 from .meter.config_flow import MeterSubentryFlow
 from .meter.config_flow import options_schema as meter_schema
@@ -54,6 +53,7 @@ from .shutter.config_flow import (
 
 # setup and options step of the settings of the house
 STEP_HOUSE = "house"
+STEP_VACATION = "vacation"
 # modules whose settings are one form: the form and the defaults of its options
 MODULE_FORMS = {MODULE_METER: (meter_schema, METER_DEFAULTS)}
 # modules with setup steps (heating and covers have several)
@@ -72,6 +72,15 @@ MODULE_SUBENTRIES: dict[str, dict[str, type[ConfigSubentryFlow]]] = {
 def _clean(data: dict[str, Any]) -> dict[str, Any]:
     """Drop cleared optional values."""
     return {k: v for k, v in data.items() if v not in (None, "")}
+
+
+def _replaced(
+    core: dict[str, Any], form: tuple[str, ...], user_input: dict[str, Any]
+) -> dict[str, Any]:
+    """The settings of the house with the fields of one form replaced (a cleared
+    optional field is not in the input, so its old value goes as well)."""
+    kept = {k: v for k, v in core.items() if k not in form}
+    return {**kept, **_clean(user_input)}
 
 
 def _single_entity(hass: Any, domain: str) -> str | None:
@@ -179,7 +188,7 @@ class HouseAssistantOptionsFlow(HeatingOptionsSteps, ShutterOptionsSteps, Option
     """The modules and the settings of each module (the panel offers the same)."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        options = [CONF_MODULES, STEP_HOUSE] + [
+        options = [CONF_MODULES, STEP_HOUSE, STEP_VACATION] + [
             k for k in enabled_modules(self.config_entry) if k in SETUP_MODULES
         ]
         return self.async_show_menu(step_id="init", menu_options=options)
@@ -194,15 +203,26 @@ class HouseAssistantOptionsFlow(HeatingOptionsSteps, ShutterOptionsSteps, Option
             own = [module_options(entry, key) for key in (MODULE_HEATING, MODULE_SHUTTER)]
             errors = validate_house(self.hass, user_input, modules, [v for v in own if v])
             if not errors:
-                core = {k: v for k, v in core.items() if k not in SHARED_KEYS}
                 return self.async_create_entry(
-                    data={**entry.options, OPT_CORE: {**core, **_clean(user_input)}}
+                    data={**entry.options, OPT_CORE: _replaced(core, HOUSE_FORM, user_input)}
                 )
         return self.async_show_form(
             step_id=STEP_HOUSE,
             data_schema=house_schema(self.hass, user_input or core),
             errors=errors,
         )
+
+    async def async_step_vacation(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """External sources of the vacation of the house and its reports."""
+        entry = self.config_entry
+        core = module_options(entry, OPT_CORE)
+        if user_input is not None:
+            return self.async_create_entry(
+                data={**entry.options, OPT_CORE: _replaced(core, VACATION_FORM, user_input)}
+            )
+        return self.async_show_form(step_id=STEP_VACATION, data_schema=vacation_schema(core))
 
     async def async_step_modules(
         self, user_input: dict[str, Any] | None = None

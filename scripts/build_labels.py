@@ -224,11 +224,33 @@ def house_labels(translation: dict[str, Any]) -> dict[str, Any]:
     settings: dict[str, list[str]] = {}
     _add(settings, translation["options"]["step"]["house"])
     _add(settings, translation["options"]["step"]["modules"])
+    # the vacation: settings of the house and the vacation options of heating and covers
+    steps = translation["options"]["step"]
+    vacation: dict[str, list[str]] = {}
+    _add(vacation, steps["vacation"])
+    for step, key in (
+        ("heating_vacation", "vacation_ventilation_pause"),
+        ("shutter_vacation", "vacation_heat_protection"),
+    ):
+        vacation[key] = [steps[step]["data"][key], steps[step]["data_description"].get(key, "")]
     selectors = translation["selector"]
+    exceptions = translation["exceptions"]
     return {
-        "fields": {"room": room_fields, "window": window_fields, "settings": settings},
+        "fields": {
+            "room": room_fields,
+            "window": window_fields,
+            "settings": settings,
+            "vacation": vacation,
+        },
         "choices": {key: selectors[key]["options"] for key in ("language", "weekday", "modules")},
-        "errors": {**room["error"], **window["error"]},
+        "errors": {
+            **room["error"],
+            **window["error"],
+            **{
+                key: exceptions[key]["message"]
+                for key in ("departure_after_return", "return_in_past")
+            },
+        },
         "sizes": translation["selector"]["window_size"]["options"],
     }
 

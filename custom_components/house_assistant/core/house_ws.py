@@ -9,6 +9,7 @@ their sections; saving here keeps them.
 
 from __future__ import annotations
 
+from datetime import datetime
 from types import MappingProxyType
 from typing import Any
 
@@ -17,12 +18,15 @@ from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import Selector
+from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_MODULES,
     CONF_SHOW_PANEL,
+    CONF_VACATION_WINDOW_ALERT,
     DOMAIN,
     MODULE_HEATING,
     MODULE_ORDER,
@@ -34,8 +38,10 @@ from ..const import (
     SUBENTRY_WINDOW,
 )
 from ..heating.config_flow import area_schema, other_areas, validate_area
+from ..heating.const import CONF_VACATION_VENT_PAUSE
 from ..runtime import enabled_modules, module_options
 from ..shutter.config_flow import window_basics_fields
+from ..shutter.const import CONF_VACATION_HEAT_PROTECTION
 from ..shutter.websocket import WINDOW_WALL_FIELDS
 from .entry import house_entry, update_section
 from .house import (
@@ -53,7 +59,14 @@ from .house import (
 )
 from .logic.geometry import Plan
 from .schema import PanelError, coerce, spec
-from .settings import house_schema, validate_house
+from .settings import HOUSE_FORM, VACATION_FORM, house_schema, vacation_schema, validate_house
+from .vacation import DEFAULT_WINDOW_ALERT, HouseModule
+
+# vacation options of the modules shown in the vacation tab: module, key, default
+VACATION_OPTIONS = (
+    (MODULE_HEATING, CONF_VACATION_VENT_PAUSE, True),
+    (MODULE_SHUTTER, CONF_VACATION_HEAT_PROTECTION, True),
+)
 
 PREFIX = f"{DOMAIN}/house"
 
@@ -152,7 +165,55 @@ def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
             "room": _specs(room_fields()),
             "window": _specs(window_fields(entry)),
             "settings": _specs(house_schema(hass, core).schema),
+            "vacation": _specs(vacation_schema(core).schema),
         },
+        "vacation": vacation_payload(entry),
+    }
+
+
+def _house(entry: ConfigEntry) -> HouseModule | None:
+    house = getattr(getattr(entry, "runtime_data", None), "house", None)
+    return house if isinstance(house, HouseModule) else None
+
+
+def _local(value: datetime | None) -> str | None:
+    return dt_util.as_local(value).isoformat() if value is not None else None
+
+
+def vacation_payload(entry: ConfigEntry) -> dict[str, Any]:
+    """The vacation of the house: switch, times, entities and settings (the options of
+    heating and covers only while they run)."""
+    core = module_options(entry, OPT_CORE)
+    modules = enabled_modules(entry)
+    options = {
+        key: bool(module_options(entry, module).get(key, default))
+        for module, key, default in VACATION_OPTIONS
+        if module in modules
+    }
+    house = _house(entry)
+    state: dict[str, Any] = {}
+    if house is not None:
+        state = {
+            "on": house.times.on,
+            "departure": _local(house.times.departure),
+            "return": _local(house.times.return_at),
+            "active": house.active,
+            "source": house.source,
+            "since": _local(house.since),
+            "entities": {
+                "switch": house.entity_id("switch", "vacation"),
+                "departure": house.entity_id("datetime", "vacation_departure"),
+                "return": house.entity_id("datetime", "vacation_return"),
+                "active": house.entity_id("binary_sensor", "vacation_active"),
+            },
+        }
+    return {
+        **state,
+        "settings": {
+            CONF_VACATION_WINDOW_ALERT: DEFAULT_WINDOW_ALERT,
+            **{key: core[key] for key in VACATION_FORM if key in core},
+        },
+        "options": options,
     }
 
 
@@ -317,7 +378,7 @@ def ws_save_settings(
     for key, error in validate_house(hass, settings, modules, [v for v in own if v]).items():
         _error(connection, msg["id"], PanelError(error, key))
         return
-    core = {k: v for k, v in core.items() if k not in SHARED_KEYS}
+    core = {k: v for k, v in core.items() if k not in HOUSE_FORM}
     core.update(settings)
     core[CONF_MODULES] = [key for key in MODULE_ORDER if key in modules]
     if "show_panel" in msg:
@@ -355,4 +416,94 @@ def ws_combination(
     connection.send_result(msg["id"], config_payload(hass, entry))
 
 
-COMMANDS = (ws_config, ws_save, ws_delete, ws_save_settings, ws_combination)
+def _time(value: Any) -> datetime | None:
+    """A time from the panel; without a zone it is local time."""
+    if value in (None, ""):
+        return None
+    parsed = dt_util.parse_datetime(str(value))
+    if parsed is None:
+        raise PanelError("invalid_value")
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt_util.get_default_time_zone())
+    return parsed
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{PREFIX}/vacation",
+        vol.Optional("on"): bool,
+        vol.Optional("departure"): vol.Any(str, None),
+        vol.Optional("return"): vol.Any(str, None),
+        vol.Optional("clear"): bool,
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_vacation(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Switch the vacation, plan departure and return, or clear everything."""
+    entry = house_entry(hass)
+    house = _house(entry) if entry is not None else None
+    if entry is None or house is None:
+        connection.send_error(msg["id"], "not_found", "House Assistant is not running")
+        return
+    try:
+        if msg.get("clear"):
+            house.clear()
+        if "departure" in msg or "return" in msg:
+            departure = _time(msg["departure"]) if "departure" in msg else house.times.departure
+            return_at = _time(msg["return"]) if "return" in msg else house.times.return_at
+            house.set_times(departure, return_at, strict=True)
+        if "on" in msg:
+            house.set_on(msg["on"])
+    except PanelError as err:
+        _error(connection, msg["id"], err)
+        return
+    except ServiceValidationError as err:
+        _error(connection, msg["id"], PanelError(err.translation_key or "invalid_value"))
+        return
+    connection.send_result(msg["id"], config_payload(hass, entry))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{PREFIX}/vacation_settings",
+        vol.Required("settings"): dict,
+        vol.Optional("options"): {str: bool},
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_vacation_settings(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """External sources and reports of the vacation; the vacation options of heating
+    and covers. One update of the entry, so every module restarts at most once."""
+    entry = house_entry(hass)
+    if entry is None:
+        connection.send_error(msg["id"], "not_found", "House Assistant is not set up")
+        return
+    core = module_options(entry, OPT_CORE)
+    try:
+        settings = _check(vacation_schema(core).schema, msg["settings"])
+    except PanelError as err:
+        _error(connection, msg["id"], err)
+        return
+    options = {**entry.options}
+    options[OPT_CORE] = {**{k: v for k, v in core.items() if k not in VACATION_FORM}, **settings}
+    modules = enabled_modules(entry)
+    for module, key, _default in VACATION_OPTIONS:
+        if module in modules and key in msg.get("options", {}):
+            options[module] = {**module_options(entry, module), key: msg["options"][key]}
+    hass.config_entries.async_update_entry(entry, options=options)
+    connection.send_result(msg["id"], config_payload(hass, entry))
+
+
+COMMANDS = (
+    ws_config,
+    ws_save,
+    ws_delete,
+    ws_save_settings,
+    ws_combination,
+    ws_vacation,
+    ws_vacation_settings,
+)

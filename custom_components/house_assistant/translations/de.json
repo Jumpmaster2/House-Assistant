@@ -217,6 +217,7 @@
         "menu_options": {
           "modules": "Module",
           "house": "Haus",
+          "vacation": "Urlaub",
           "heating": "Heizung",
           "shutter": "Rollos",
           "meter": "Zähler"
@@ -261,6 +262,20 @@
           "house_width": "Gilt auch für die Rückseite. Mit der Tiefe erscheint das Haus im Sonnenkompass, und der Luftzug durch Räume zwischen zwei offenen Fenstern wird erkannt.",
           "house_depth": "Länge der beiden Seitenwände.",
           "draft_reach": "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
+        }
+      },
+      "vacation": {
+        "title": "Urlaub",
+        "description": "Der Urlaub des Hauses gilt für alle Module: Schalter „Urlaub“ mit Abreise und Rückkehr am Gerät House Assistant. Zusätzlich zählen weiterhin externe Quellen.",
+        "data": {
+          "vacation_entities": "Externe Urlaubs-Entitäten",
+          "return_entity": "Externe Rückkehr",
+          "vacation_window_alert": "Offene Fenster melden"
+        },
+        "data_description": {
+          "vacation_entities": "Ist eine davon an, gilt ebenfalls Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt für Heizung und Rollos; ohne Eintrag hier gelten die Entitäten in deren Einstellungen.",
+          "return_entity": "Optional: input_datetime, datetime- oder Zeitstempel-Entität. Die Heizung heizt darauf vor; eine eigene Rückkehr des Schalters hat Vorrang.",
+          "vacation_window_alert": "Zu Beginn des Urlaubs eine Meldung mit allen offenen, gekippten oder unbekannten Fenstern, im Urlaub sofort eine Meldung, wenn ein Fenster geöffnet oder gekippt wird. An die Benachrichtigungsdienste des Hauses, ohne sie als Benachrichtigung in Home Assistant."
         }
       },
       "meter": {
@@ -364,16 +379,18 @@
           "vacation_position_min": "Öffnungsposition von",
           "vacation_position_max": "Öffnungsposition bis",
           "vacation_evening_start": "Urlaub abends ab",
-          "vacation_evening_window": "Zufallszeitraum abends"
+          "vacation_evening_window": "Zufallszeitraum abends",
+          "vacation_heat_protection": "Hitzeschutz im Urlaub"
         },
         "data_description": {
-          "vacation_entities": "Urlaub ist aktiv, solange eine davon an ist (z. B. ein input_boolean „Urlaub“ oder ein Kalender).",
+          "vacation_entities": "Urlaub ist aktiv, solange eine davon an ist (z. B. ein input_boolean „Urlaub“ oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer.",
           "vacation_morning_start": "Geschlossene Rollos der Fenster in der Simulation öffnen danach zu einer zufälligen Zeit.",
           "vacation_morning_window": "Jedes Fenster öffnet zu einer zufälligen Zeit in diesem Zeitraum.",
           "vacation_position_min": "Zufällige Position zwischen beiden Werten.",
           "vacation_position_max": "Zufällige Position zwischen beiden Werten.",
           "vacation_evening_start": "Beginnt den Abend für die Fenster der Simulation und schließt sie zu zufälligen Zeiten. Der normale Abendlauf ruht im Urlaub.",
-          "vacation_evening_window": "Jedes Fenster schließt zu einer zufälligen Zeit in diesem Zeitraum."
+          "vacation_evening_window": "Jedes Fenster schließt zu einer zufälligen Zeit in diesem Zeitraum.",
+          "vacation_heat_protection": "Der Sonnenschutz senkt im Urlaub ab, ohne auf Raumtemperatur, Klimaanlage oder Heizbedarf zu warten. Sommertag, Außentemperatur, Sonnensensoren, Haltezeiten und der Sonnenschalter des Fensters gelten weiter."
         }
       },
       "shutter_protection": {
@@ -474,13 +491,15 @@
           "vacation_entities": "Urlaubs-Entitäten",
           "vacation_temperature": "Urlaubstemperatur",
           "return_entity": "Rückkehr Datum/Uhrzeit",
-          "preheat_reserve": "Vorheiz-Reserve"
+          "preheat_reserve": "Vorheiz-Reserve",
+          "vacation_ventilation_pause": "Lüftungsempfehlung ruht"
         },
         "data_description": {
-          "vacation_entities": "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender).",
+          "vacation_entities": "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer.",
           "vacation_temperature": "Sollwert für alle Räume im Urlaub (z. B. 17 °C).",
-          "return_entity": "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist.",
-          "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min)."
+          "return_entity": "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist. Die Rückkehr des Schalters „Urlaub“ hat Vorrang; ohne sie gilt eine unter Einstellungen > Urlaub eingetragene.",
+          "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min).",
+          "vacation_ventilation_pause": "Im Urlaub zeigt die Lüftungsempfehlung „Urlaub“, „Lüften empfohlen“ ist aus. Urlaubsminuten zählen nicht für die KI-Lüftungsprüfung und gehen nicht ins Feuchteprofil ein."
         }
       },
       "heating_rules": {
@@ -1545,6 +1564,20 @@
                 "notify_corrected": "Kleinerer Wert von weiteren Bildern bestätigt und übernommen.",
                 "notify_failed": "KI liest nichts Eindeutiges, oder Kamera bzw. KI nicht erreichbar. Unlesbare Ablesungen unterbrechen die Zählung der anderen Fälle nicht."
               }
+            },
+            "vacation_section": {
+              "name": "Urlaub",
+              "description": "Warnt, wenn im Urlaub etwas läuft: eine Meldung, ein Logbuch-Eintrag und das Ereignis house_assistant_vacation_alert, einmal je Urlaub und Fall. Gezählt ab der letzten gültigen Ablesung vor dem Urlaub. Nicht für den Wärmezähler.",
+              "data": {
+                "vacation_alert": "Im Urlaub warnen",
+                "vacation_amount": "Menge",
+                "vacation_rate": "Mittlerer Durchfluss bzw. Leistung"
+              },
+              "data_description": {
+                "vacation_alert": "Standard: an beim Wasserzähler, sonst aus.",
+                "vacation_amount": "Verbrauch seit Urlaubsbeginn in Litern (Wasser, Gas) bzw. kWh (Strom), ab dem gewarnt wird. 0 = aus. Standard Wasser: 20 L.",
+                "vacation_rate": "Mittel seit Urlaubsbeginn in L/h bzw. kW (frühestens nach einer Stunde), ab dem gewarnt wird. Bei Gas und Strom die Grundlast eintragen. 0 = aus. Standard Wasser: 5 L/h."
+              }
             }
           }
         },
@@ -1679,6 +1712,20 @@
                 "notify_too_large": "Wert stärker gestiegen als der größte Anstieg pro Stunde erlaubt (verworfen).",
                 "notify_corrected": "Kleinerer Wert von weiteren Bildern bestätigt und übernommen.",
                 "notify_failed": "KI liest nichts Eindeutiges, oder Kamera bzw. KI nicht erreichbar. Unlesbare Ablesungen unterbrechen die Zählung der anderen Fälle nicht."
+              }
+            },
+            "vacation_section": {
+              "name": "Urlaub",
+              "description": "Warnt, wenn im Urlaub etwas läuft: eine Meldung, ein Logbuch-Eintrag und das Ereignis house_assistant_vacation_alert, einmal je Urlaub und Fall. Gezählt ab der letzten gültigen Ablesung vor dem Urlaub. Nicht für den Wärmezähler.",
+              "data": {
+                "vacation_alert": "Im Urlaub warnen",
+                "vacation_amount": "Menge",
+                "vacation_rate": "Mittlerer Durchfluss bzw. Leistung"
+              },
+              "data_description": {
+                "vacation_alert": "Standard: an beim Wasserzähler, sonst aus.",
+                "vacation_amount": "Verbrauch seit Urlaubsbeginn in Litern (Wasser, Gas) bzw. kWh (Strom), ab dem gewarnt wird. 0 = aus. Standard Wasser: 20 L.",
+                "vacation_rate": "Mittel seit Urlaubsbeginn in L/h bzw. kW (frühestens nach einer Stunde), ab dem gewarnt wird. Bei Gas und Strom die Grundlast eintragen. 0 = aus. Standard Wasser: 5 L/h."
               }
             }
           }
@@ -1846,6 +1893,35 @@
       },
       "ventilation_recommended": {
         "name": "Lüften empfohlen"
+      },
+      "vacation_active": {
+        "name": "Urlaub aktiv",
+        "state_attributes": {
+          "source": {
+            "name": "Quelle"
+          },
+          "since": {
+            "name": "Seit"
+          },
+          "departure": {
+            "name": "Abreise"
+          },
+          "return": {
+            "name": "Rückkehr"
+          },
+          "preheat_start": {
+            "name": "Vorheizen ab"
+          },
+          "simulation": {
+            "name": "Anwesenheitssimulation"
+          },
+          "leak_warning": {
+            "name": "Leckwarnung"
+          },
+          "open_windows": {
+            "name": "Offene Fenster"
+          }
+        }
       }
     },
     "button": {
@@ -1970,7 +2046,8 @@
           "ventilation_useful": "Lüften sinnvoll",
           "do_not_ventilate": "Nicht lüften",
           "blocked": "Lüften blockiert",
-          "optimal": "Alles optimal"
+          "optimal": "Alles optimal",
+          "vacation": "Urlaub"
         }
       },
       "decision_phase": {
@@ -2048,6 +2125,17 @@
       },
       "ai_enabled": {
         "name": "KI aktiv"
+      },
+      "vacation": {
+        "name": "Urlaub"
+      }
+    },
+    "datetime": {
+      "vacation_departure": {
+        "name": "Urlaub: Abreise"
+      },
+      "vacation_return": {
+        "name": "Urlaub: Rückkehr"
       }
     }
   },
@@ -2075,6 +2163,12 @@
     },
     "ai_disabled": {
       "message": "Die KI ist ausgeschaltet oder nicht eingerichtet."
+    },
+    "departure_after_return": {
+      "message": "Die Abreise muss vor der Rückkehr liegen."
+    },
+    "return_in_past": {
+      "message": "Die Rückkehr liegt in der Vergangenheit."
     }
   },
   "services": {
@@ -2209,6 +2303,24 @@
         "use_ai": {
           "name": "KI fragen",
           "description": "Wenn aus, entscheidet nur die lokale Regel."
+        }
+      }
+    },
+    "set_vacation": {
+      "name": "Urlaub planen",
+      "description": "Setzt Abreise und Rückkehr des Urlaubs des Hauses. Zur Abreise schaltet sich der Urlaub ein, zur Rückkehr aus. Nur eine Rückkehr: Urlaub ab sofort.",
+      "fields": {
+        "departure": {
+          "name": "Abreise",
+          "description": "Ab dann ist Urlaub. Leer: wie bisher."
+        },
+        "return": {
+          "name": "Rückkehr",
+          "description": "Dann endet der Urlaub (die Heizung heizt rechtzeitig vor). Eine Rückkehr in der Vergangenheit wird ignoriert."
+        },
+        "clear": {
+          "name": "Zurücksetzen",
+          "description": "Beendet zuerst den Urlaub und löscht Abreise und Rückkehr."
         }
       }
     }

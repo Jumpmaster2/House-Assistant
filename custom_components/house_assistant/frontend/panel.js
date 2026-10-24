@@ -15,12 +15,28 @@ const UI = {
     sections: { house: "Haus", heating: "Heizung", shutter: "Rollos", meter: "Zähler" },
     noModules: "Es ist noch kein Modul eingeschaltet. Unter Einstellungen > Geräte & Dienste > House Assistant > Konfigurieren > Module lassen sie sich einschalten.",
     loadError: "Die Einstellungen konnten nicht geladen werden",
+    vacation: "Urlaub",
+    since: "seit",
+    until: "bis",
+    preheat: "Vorheizen ab",
+    simulation: "Anwesenheitssimulation",
+    leak: "Leckwarnung",
+    notClosed: "nicht zu",
+    states: { open: "offen", tilted: "gekippt", unknown: "unbekannt" },
   },
   en: {
     title: "House Assistant",
     sections: { house: "House", heating: "Heating", shutter: "Covers", meter: "Meters" },
     noModules: "No module is switched on yet. Switch them on under Settings > Devices & services > House Assistant > Configure > Modules.",
     loadError: "The settings could not be loaded",
+    vacation: "Vacation",
+    since: "since",
+    until: "until",
+    preheat: "preheating from",
+    simulation: "presence simulation",
+    leak: "leak warning",
+    notClosed: "not closed",
+    states: { open: "open", tilted: "tilted", unknown: "unknown" },
   },
 };
 
@@ -54,6 +70,11 @@ class HouseAssistantPanel extends HTMLElement {
     this._hass = hass;
     if (first) this._load();
     if (this._view) this._view.hass = hass;
+    const banner = this.shadowRoot.querySelector(".banner-holder");
+    if (banner) {
+      const html = this._banner();
+      if (html !== this._bannerShown) banner.innerHTML = this._bannerShown = html;
+    }
   }
 
   get hass() {
@@ -90,6 +111,27 @@ class HouseAssistantPanel extends HTMLElement {
     this._render();
   }
 
+  // while it is vacation: since and until when, preheating, simulation, leak warning
+  // and the windows that are not closed
+  _banner() {
+    const id = this._cfg?.vacation_entity;
+    const st = id ? this._hass?.states?.[id] : null;
+    if (!st || st.state !== "on") return "";
+    const ui = this.ui;
+    const a = st.attributes || {};
+    const when = (iso) => (iso ? new Date(iso).toLocaleString(this.lang, { dateStyle: "short", timeStyle: "short" }) : "");
+    const open = Object.entries(a.open_windows || {}).map(([name, state]) => `${name} (${ui.states[state] || state})`);
+    const parts = [
+      a.since ? `${ui.since} ${when(a.since)}` : "",
+      a.return ? `${ui.until} ${when(a.return)}` : "",
+      a.preheat_start ? `${ui.preheat} ${when(a.preheat_start)}` : "",
+      a.simulation ? ui.simulation : "",
+      a.leak_warning?.length ? `${ui.leak}: ${a.leak_warning.join(", ")}` : "",
+      open.length ? `${ui.notClosed}: ${open.join(", ")}` : "",
+    ].filter(Boolean);
+    return `<div class="banner"><ha-icon icon="mdi:airplane"></ha-icon><b>${esc(ui.vacation)}</b><span>${parts.map(esc).join(" · ")}</span></div>`;
+  }
+
   get _sections() {
     const modules = (this._cfg?.modules || []).filter((key) => SECTIONS[key]);
     return modules.length ? ["house", ...modules] : [];
@@ -114,6 +156,7 @@ class HouseAssistantPanel extends HTMLElement {
           )
           .join("")}
       </div>
+      <div class="banner-holder">${(this._bannerShown = this._banner())}</div>
       <div class="view"></div>`;
     const holder = this.shadowRoot.querySelector(".view");
     this._view = null;
@@ -158,6 +201,9 @@ const STYLE = `
 .section ha-icon { --mdc-icon-size:20px; }
 .card { margin:16px; background:var(--ha-card-background, var(--card-background-color, #fff)); border-radius:var(--ha-card-border-radius, 12px); border:1px solid var(--divider-color, #e0e0e0); padding:16px; }
 .card.error { color:var(--error-color); }
+.banner { display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; margin:12px 16px 0; padding:10px 14px; border-radius:var(--ha-card-border-radius, 12px);
+  background:rgba(255,166,0,.15); color:var(--primary-text-color); font-size:14px; }
+.banner ha-icon { color:var(--warning-color, #b26a00); --mdc-icon-size:20px; }
 @media (max-width: 600px) {
   .section span { display:none; } .section.active span { display:inline; } .section { padding:10px 12px; }
 }

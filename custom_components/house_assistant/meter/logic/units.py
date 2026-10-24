@@ -53,3 +53,12 @@ def is_energy(unit: str) -> bool:
 
 def is_volume(unit: str) -> bool:
     return unit in VOLUME_UNITS
+
+
+def amount_unit(unit: str) -> tuple[str, float]:
+    """Unit of an amount used (litres or kWh) and the factor from the meter unit."""
+    if unit in ENERGY_UNITS:
+        return "kWh", ENERGY_UNITS[unit]
+    if unit in VOLUME_UNITS:
+        return "L", VOLUME_UNITS[unit] * 1000
+    return unit, 1.0

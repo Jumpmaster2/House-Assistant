@@ -10,7 +10,7 @@ const WS = "house_assistant/house";
 
 const UI = {
   de: {
-    tabs: { rooms: "Räume", windows: "Fenster", general: "Allgemein" },
+    tabs: { rooms: "Räume", windows: "Fenster", vacation: "Urlaub", general: "Allgemein" },
     general: ["Allgemein", "Außenwerte, Wetter, Sprache, Benachrichtigungen und Arbeitstage gelten für alle Module. Ist hier nichts eingetragen, gilt der Wert in den Einstellungen des Moduls."],
     rooms: ["Räume", "Mit Temperatursensor bekommt ein Raum Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat. Die Rollos seiner Fenster nehmen Raumtemperatur und Klimaanlage des Raums."],
     windows: ["Fenster", "Jedes Fenster einmal: mit Raum und Größe für die Heizung, mit Rollo für den Sonnenschutz. Ein Kontakt gehört zu genau einem Fenster."],
@@ -51,9 +51,30 @@ const UI = {
     noFloor: "Die Etage dieses Raums ist unbekannt: einen Bereich mit Etage wählen, sonst nimmt er nicht teil.",
     noHouse: "Ohne Länge und Tiefe des Hauses (Allgemein) gibt es nur Querlüften, keinen Luftzug durch den Raum.",
     front: "Vorderseite",
+    vacation: ["Urlaub", "Ein Urlaub für alle Module: Die Heizung hält die Urlaubstemperatur und heizt zur Rückkehr vor, die Rollos simulieren Anwesenheit und schützen vor Hitze, die Zähler warnen bei einem Leck. Zur Abreise schaltet sich der Urlaub ein, zur Rückkehr aus."],
+    vacationSettings: ["Quellen und Meldungen", "Externe Quellen zählen zusätzlich zum Schalter. Die Optionen von Heizung und Rollos erscheinen, solange das Modul eingeschaltet ist."],
+    vacationSwitch: ["Urlaub", "Bleibt an, bis er ausgeschaltet wird oder die Rückkehr erreicht ist."],
+    departure: ["Abreise", "Leer: ab sofort, wenn eine Rückkehr gesetzt ist."],
+    returnAt: ["Rückkehr", "Die Heizung heizt rechtzeitig vor."],
+    saveTimes: "Zeiten übernehmen",
+    clear: "Zurücksetzen",
+    statusActive: "Urlaub aktiv",
+    statusPlanned: "Urlaub geplant",
+    statusOff: "Kein Urlaub",
+    bySwitch: "Schalter",
+    since: "Seit",
+    preheat: "Vorheizen ab",
+    simulation: "Anwesenheitssimulation",
+    leak: "Leckwarnung",
+    notClosed: "Nicht zu",
+    allClosed: "alle zu",
+    on: "an",
+    off: "aus",
+    tilted: "gekippt",
+    unknown: "unbekannt",
   },
   en: {
-    tabs: { rooms: "Rooms", windows: "Windows", general: "General" },
+    tabs: { rooms: "Rooms", windows: "Windows", vacation: "Vacation", general: "General" },
     general: ["General", "Outdoor values, weather, language, notifications and working days apply to every module. Without a value here the one in the settings of the module applies."],
     rooms: ["Rooms", "With a temperature sensor a room gets heating and ventilation advice, with a heating circuit also a thermostat. The covers of its windows take room temperature and air conditioner of the room."],
     windows: ["Windows", "Every window once: with room and size for the heating, with a cover for the sun protection. A contact belongs to one window only."],
@@ -94,15 +115,50 @@ const UI = {
     noFloor: "The floor of this room is unknown: choose an area with a floor, else it takes no part.",
     noHouse: "Without length and depth of the house (General) there is only cross ventilation, no draft through the room.",
     front: "Front",
+    vacation: ["Vacation", "One vacation for every module: the heating keeps the vacation temperature and preheats for the return, the covers simulate presence and keep out the heat, the meters warn of a leak. At the departure the vacation switches on, at the return off."],
+    vacationSettings: ["Sources and reports", "External sources count in addition to the switch. The options of heating and covers show while the module is switched on."],
+    vacationSwitch: ["Vacation", "Stays on until it is switched off or the return is reached."],
+    departure: ["Departure", "Empty: from now on when a return is set."],
+    returnAt: ["Return", "The heating preheats in time."],
+    saveTimes: "Apply times",
+    clear: "Clear",
+    statusActive: "Vacation active",
+    statusPlanned: "Vacation planned",
+    statusOff: "No vacation",
+    bySwitch: "switch",
+    since: "Since",
+    preheat: "Preheating from",
+    simulation: "Presence simulation",
+    leak: "Leak warning",
+    notClosed: "Not closed",
+    allClosed: "all closed",
+    on: "on",
+    off: "off",
+    tilted: "tilted",
+    unknown: "unknown",
   },
 };
 
 const TABS = [
   ["rooms", "mdi:floor-plan"],
   ["windows", "mdi:window-closed-variant"],
+  ["vacation", "mdi:airplane"],
   ["general", "mdi:cog-outline"],
 ];
 const SETTINGS = ["outdoor_temperature", "outdoor_humidity", "weather", "language", "notify_services", "workday_entity", "weekend_days", "house_azimuth", "house_width", "house_depth", "draft_reach"];
+
+// settings of the vacation of the house and the vacation options of heating and covers
+const VACATION = ["vacation_entities", "return_entity", "vacation_window_alert"];
+const VACATION_OPTIONS = ["vacation_ventilation_pause", "vacation_heat_protection"];
+
+const pad = (n) => String(n).padStart(2, "0");
+// ISO time -> value of a datetime-local input (time of the browser) and back
+const toInput = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return isNaN(d) ? "" : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const fromInput = (value) => (value ? new Date(value).toISOString() : null);
 
 const ROOM_FIELDS = ["area", "temperature_sensor", "humidity_sensor", "cooling_entity"];
 const WINDOW_FIELDS = ["room", "size", "cover", "window_sensors", "tilt_sensors", "group", "wall", "wall_position"];
@@ -143,8 +199,18 @@ class HouseAssistantHouseView extends HTMLElement {
       this._load();
       return;
     }
-    // live values (temperatures, open windows) only while nothing is being edited
-    if (!this._edit) this._renderContent();
+    // what pickers offer stays current without drawing anew
+    for (const el of this.shadowRoot.querySelectorAll("ha-selector")) el.hass = hass;
+    // live values (temperatures, open windows) only while nothing is being edited; the
+    // general settings have none, the vacation only when it changed
+    if (this._edit || this._tab === "general") return;
+    if (this._tab === "vacation") {
+      const key = this._vacationKey();
+      if (key === this._vacationShown) return;
+      this._vacationShown = key;
+      if (!this._timesDirty) this._times = null;
+    }
+    this._renderContent();
   }
 
   get hass() {
@@ -173,7 +239,7 @@ class HouseAssistantHouseView extends HTMLElement {
   }
 
   label(key) {
-    const type = this._edit?.type || (this._tab === "general" ? "settings" : "room");
+    const type = this._edit?.type || ({ general: "settings", vacation: "vacation" }[this._tab] ?? "room");
     return this.labels.fields[type][key] || this.ui.labels[key] || [key, ""];
   }
 
@@ -227,6 +293,7 @@ class HouseAssistantHouseView extends HTMLElement {
     if (!this._cfg) return `<div class="card muted">${esc(ui.loading)}</div>`;
     if (this._edit) return this._editor();
     if (this._tab === "general") return this._generalTab();
+    if (this._tab === "vacation") return this._vacationTab();
     return this._tab === "windows" ? this._windowsTab() : this._roomsTab();
   }
 
@@ -245,6 +312,115 @@ class HouseAssistantHouseView extends HTMLElement {
       <div class="fields">${modules}${sidebar}</div>
       <div class="actions"><span class="msg"></span><button class="btn primary" data-action="save-settings">${esc(ui.save)}</button></div>
     </div>`;
+  }
+
+  // ------------------------------------------------------------------ vacation
+
+  _vacationEntities() {
+    return this._cfg?.vacation?.entities || {};
+  }
+
+  _vacationKey() {
+    const ent = this._vacationEntities();
+    return JSON.stringify(["switch", "departure", "return", "active"].map((k) => {
+      const st = this._state(ent[k]);
+      return st ? [st.state, k === "active" ? st.attributes : null] : null;
+    }));
+  }
+
+  // switch, times and the vacation as a whole: from the entities, else as loaded
+  _vacationLive() {
+    const vac = this._cfg.vacation || {};
+    const ent = this._vacationEntities();
+    const time = (id, loaded) => {
+      const st = this._state(id);
+      if (!st) return loaded || null;
+      return ["unknown", "unavailable"].includes(st.state) ? null : st.state;
+    };
+    const sw = this._state(ent.switch);
+    const active = this._state(ent.active);
+    return {
+      on: sw ? sw.state === "on" : !!vac.on,
+      active: active ? active.state === "on" : !!vac.active,
+      attrs: active?.attributes || { source: vac.source, since: vac.since },
+      departure: time(ent.departure, vac.departure),
+      return: time(ent.return, vac.return),
+    };
+  }
+
+  _when(iso) {
+    const d = iso ? new Date(iso) : null;
+    return d && !isNaN(d) ? d.toLocaleString(this.lang, { dateStyle: "medium", timeStyle: "short" }) : "";
+  }
+
+  _vacationTab() {
+    const ui = this.ui;
+    const cfg = this._cfg;
+    const vac = cfg.vacation || {};
+    const live = this._vacationLive();
+    const a = live.attrs;
+    if (!this._vacation) this._vacation = { ...(vac.settings || {}), ...(vac.options || {}) };
+    if (!this._times) this._times = { departure: toInput(live.departure), return: toInput(live.return) };
+    const status = live.active ? ui.statusActive : live.departure ? ui.statusPlanned : ui.statusOff;
+    const source = live.active && a.source && a.source !== "switch" ? ` (${this._name(a.source)})` : "";
+    const facts = [];
+    if (live.active && a.since) facts.push([ui.since, this._when(a.since)]);
+    if (live.departure) facts.push([ui.departure[0], this._when(live.departure)]);
+    if (live.return || a.return) facts.push([ui.returnAt[0], this._when(live.return || a.return)]);
+    if (a.preheat_start) facts.push([ui.preheat, this._when(a.preheat_start)]);
+    if (a.simulation !== undefined && a.simulation !== null) facts.push([ui.simulation, a.simulation ? ui.on : ui.off]);
+    if (Array.isArray(a.leak_warning)) facts.push([ui.leak, a.leak_warning.length ? a.leak_warning.join(", ") : ui.off]);
+    if (a.open_windows) {
+      const open = Object.entries(a.open_windows).map(([name, state]) => `${name} (${ui[state] || state})`);
+      facts.push([ui.notClosed, open.length ? open.join(", ") : ui.allClosed]);
+    }
+    const timeField = (key, [name, help]) => `<label class="field"><span class="lbl">${esc(name)}</span>
+      <input type="datetime-local" data-vac-time="${key}" value="${esc(this._times[key])}"><small>${esc(help)}</small></label>`;
+    const specs = cfg.fields.vacation || {};
+    const fields = VACATION.filter((key) => key in specs).map((key) => this._field(key, specs[key], this._vacation[key])).join("");
+    const options = VACATION_OPTIONS.filter((key) => key in (vac.options || {})).map((key) => this._field(key, { selector: "boolean" }, this._vacation[key])).join("");
+    return `<div class="card" data-card="vacation">
+      <h2><ha-icon icon="mdi:airplane"></ha-icon>${esc(ui.vacation[0])}</h2><p class="desc">${esc(ui.vacation[1])}</p>
+      <p><span class="pill ${live.active ? "warn" : live.departure ? "ok" : ""}">${esc(status + source)}</span></p>
+      ${facts.length ? `<div class="facts">${facts.map(([k, v]) => `<span class="muted">${esc(k)}</span><span>${esc(v)}</span>`).join("")}</div>` : ""}
+      <label class="field toggle-row"><span><span class="lbl">${esc(ui.vacationSwitch[0])}</span><small>${esc(ui.vacationSwitch[1])}</small></span>
+        <input type="checkbox" class="switch-input" data-vac-switch="1" ${live.on ? "checked" : ""}><span class="switch ${live.on ? "on" : ""}"></span></label>
+      <div class="fields">${timeField("departure", ui.departure)}${timeField("return", ui.returnAt)}</div>
+      <div class="actions"><span class="msg"></span>
+        <button class="btn danger" data-action="vacation-clear">${esc(ui.clear)}</button>
+        <button class="btn primary" data-action="vacation-times">${esc(ui.saveTimes)}</button></div>
+    </div>
+    <div class="card" data-card="vacation-settings">
+      <h2>${esc(ui.vacationSettings[0])}</h2><p class="desc">${esc(ui.vacationSettings[1])}</p>
+      <div class="fields">${fields}${options}</div>
+      <div class="actions"><span class="msg"></span><button class="btn primary" data-action="save-vacation">${esc(ui.save)}</button></div>
+    </div>`;
+  }
+
+  async _vacationCall(payload) {
+    try {
+      this._cfg = await this._hass.callWS({ type: `${WS}/vacation`, ...payload });
+      this._times = null;
+      this._timesDirty = false;
+      this._renderContent();
+      this._message(this.ui.saved, false, "vacation");
+    } catch (err) {
+      this._message(this._errorText(err), true, "vacation");
+    }
+  }
+
+  async _saveVacation() {
+    for (const input of this.shadowRoot.querySelectorAll("input[data-add]")) if (input.value.trim()) this._addValue(input);
+    const settings = Object.fromEntries(VACATION.filter((k) => k in this._vacation).map((k) => [k, this._vacation[k]]));
+    const options = Object.fromEntries(VACATION_OPTIONS.filter((k) => k in this._vacation).map((k) => [k, !!this._vacation[k]]));
+    try {
+      this._cfg = await this._hass.callWS({ type: `${WS}/vacation_settings`, settings, options });
+      this._vacation = null;
+      this._renderContent();
+      this._message(this.ui.saved, false, "vacation-settings");
+    } catch (err) {
+      this._message(this._errorText(err), true, "vacation-settings");
+    }
   }
 
   _roomsTab() {
@@ -482,6 +658,10 @@ class HouseAssistantHouseView extends HTMLElement {
       this._settings[key] = value;
       return;
     }
+    if (!this._edit && this._tab === "vacation") {
+      this._vacation[key] = value;
+      return;
+    }
     const e = this._edit;
     if (!e) return;
     if (key === "name") e.title = value;
@@ -511,6 +691,15 @@ class HouseAssistantHouseView extends HTMLElement {
       if (isChange) this._toggleCombination(el);
       return;
     }
+    if (el.dataset?.vacSwitch) {
+      if (isChange) this._vacationCall({ on: el.checked });
+      return;
+    }
+    if (el.dataset?.vacTime) {
+      this._times[el.dataset.vacTime] = el.value;
+      this._timesDirty = true;
+      return;
+    }
     const key = el.dataset?.k;
     if (!key || el.dataset.add) return;
     const type = el.dataset.type;
@@ -534,7 +723,8 @@ class HouseAssistantHouseView extends HTMLElement {
   }
 
   _target() {
-    return this._edit ? this._edit.data : this._settings;
+    if (this._edit) return this._edit.data;
+    return this._tab === "vacation" ? this._vacation : this._settings;
   }
 
   _addValue(input) {
@@ -555,6 +745,9 @@ class HouseAssistantHouseView extends HTMLElement {
       this._tab = el.dataset.tab;
       this._edit = null;
       this._settings = null;
+      this._vacation = null;
+      this._times = null;
+      this._timesDirty = false;
       this._render();
     } else if (el.dataset.new) {
       this._edit = { type: el.dataset.new, id: null, title: "", data: el.dataset.new === "window" ? { size: "medium" } : {} };
@@ -585,13 +778,19 @@ class HouseAssistantHouseView extends HTMLElement {
       this._save();
     } else if (el.dataset.action === "save-settings") {
       this._saveSettings();
+    } else if (el.dataset.action === "vacation-times") {
+      this._vacationCall({ departure: fromInput(this._times.departure), return: fromInput(this._times.return) });
+    } else if (el.dataset.action === "vacation-clear") {
+      this._vacationCall({ clear: true });
+    } else if (el.dataset.action === "save-vacation") {
+      this._saveVacation();
     } else if (el.dataset.action === "delete") {
       this._delete();
     }
   }
 
-  _message(text, bad) {
-    const msg = this.shadowRoot.querySelector(".msg");
+  _message(text, bad, card) {
+    const msg = this.shadowRoot.querySelector(card ? `[data-card="${card}"] .msg` : ".msg");
     if (!msg) return;
     msg.textContent = text;
     msg.classList.toggle("bad", !!bad);
@@ -686,6 +885,10 @@ input:focus, select:focus { outline:2px solid var(--primary-color); outline-offs
 .switch.on { background:var(--switch-checked-track-color, var(--primary-color)); }
 .switch.on::after { left:18px; }
 .combination { cursor:pointer; }
+[data-card="vacation-settings"] { margin-top:16px; }
+.facts { display:grid; grid-template-columns:max-content 1fr; gap:4px 16px; margin:8px 0 12px; font-size:14px; }
+input[type=datetime-local] { font:inherit; color:var(--primary-text-color); background:var(--input-fill-color, var(--secondary-background-color, #f5f5f5));
+  border:1px solid var(--divider-color, #ccc); border-radius:8px; padding:8px 10px; width:100%; }
 .desc.warn { color:var(--warning-color, #b26a00); }
 .plan { width:100%; max-width:320px; display:block; margin:8px 0; }
 .plan .house { fill:var(--secondary-background-color, #f5f5f5); stroke:var(--secondary-text-color); stroke-width:1.5; }

@@ -75,7 +75,7 @@ async def test_house_step_of_the_options(hass: HomeAssistant) -> None:
     await _setup(hass, entry)
     flow = hass.config_entries.options
     result = await flow.async_init(entry.entry_id)
-    assert result["menu_options"] == ["modules", "house", "heating", "shutter", "meter"]
+    assert result["menu_options"] == ["modules", "house", "vacation", "heating", "shutter", "meter"]
     result = await flow.async_configure(result["flow_id"], {"next_step_id": "house"})
     assert result["step_id"] == "house"
     # heating and covers need an outdoor temperature: the modules have none of their own

@@ -59,6 +59,9 @@ from .const import (
     CONF_ROTATE,
     CONF_TYPE,
     CONF_UNIT,
+    CONF_VACATION_ALERT,
+    CONF_VACATION_AMOUNT,
+    CONF_VACATION_RATE,
     CONF_WARMUP,
     DEFAULTS,
     EXTERNAL_LIGHT_MODES,
@@ -70,6 +73,7 @@ from .const import (
     SECTION_IMAGE,
     SECTION_NOTIFY,
     SECTION_SCHEDULE,
+    SECTION_VACATION,
     meter_defaults,
     meter_values,
 )
@@ -193,10 +197,23 @@ def meter_sections(v: dict[str, Any]) -> dict[str, vol.Schema]:
                 req(CONF_NOTIFY_FAILED): _number(0, 50, 1),
             }
         ),
+        SECTION_VACATION: vol.Schema(
+            {
+                req(CONF_VACATION_ALERT): BooleanSelector(),
+                req(CONF_VACATION_AMOUNT): _number(0, 100000, 0.1),
+                req(CONF_VACATION_RATE): _number(0, 100000, 0.1),
+            }
+        ),
     }
 
 
-COLLAPSED = {SECTION_EXTERNAL_LIGHT, SECTION_IMAGE, SECTION_CHECKS, SECTION_NOTIFY}
+COLLAPSED = {
+    SECTION_EXTERNAL_LIGHT,
+    SECTION_IMAGE,
+    SECTION_CHECKS,
+    SECTION_NOTIFY,
+    SECTION_VACATION,
+}
 
 
 def meter_schema(v: dict[str, Any], with_name: bool) -> vol.Schema:

@@ -10,10 +10,11 @@ from homeassistant.helpers.typing import ConfigType
 from . import modules  # noqa: F401  (the modules register themselves)
 from .const import CONF_SHOW_PANEL, DOMAIN, OPT_CORE, PLATFORMS
 from .core.panel import async_register_panel, async_set_card_resource, async_unregister_panel
+from .core.services import async_setup_services as async_setup_house_services
 from .core.websocket import async_register_websocket
 from .heating.services import async_setup_services as async_setup_heating_services
 from .meter.services import async_setup_services as async_setup_meter_services
-from .runtime import MODULE_TYPES, HouseConfigEntry, HouseRuntime, module_options
+from .runtime import HOUSE_TYPE, MODULE_TYPES, HouseConfigEntry, HouseRuntime, module_options
 from .shutter.services import async_register_services as async_setup_shutter_services
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -21,6 +22,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the services and the panel commands once."""
+    async_setup_house_services(hass)
     async_setup_heating_services(hass)
     async_setup_meter_services(hass)
     async_setup_shutter_services(hass)
@@ -69,5 +71,5 @@ async def async_remove_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> No
     for domain, issue_id in list(ir.async_get(hass).issues):
         if domain == DOMAIN:
             ir.async_delete_issue(hass, DOMAIN, issue_id)
-    for module in MODULE_TYPES.values():
+    for module in [*HOUSE_TYPE, *MODULE_TYPES.values()]:
         await module.async_remove_entry(hass, entry)

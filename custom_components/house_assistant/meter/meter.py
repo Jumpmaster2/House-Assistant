@@ -21,13 +21,15 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback, split_entity_id
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from ..const import CONF_LANGUAGE
+from ..const import CONF_LANGUAGE, EVENT_LOGBOOK, EVENT_VACATION_ALERT, SIGNAL_VACATION
 from ..core.links import heating_day
+from ..core.notify import async_notify
 from ..core.store import module_store
 from .const import (
     CHECK_EVERY_MINUTES,
@@ -69,6 +71,9 @@ from .const import (
     CONF_ROTATE,
     CONF_TYPE,
     CONF_UNIT,
+    CONF_VACATION_ALERT,
+    CONF_VACATION_AMOUNT,
+    CONF_VACATION_RATE,
     CONF_WARMUP,
     DEFAULTS,
     DOMAIN,
@@ -89,8 +94,9 @@ from .const import (
 )
 from .logic import reading as rd
 from .logic.image import needs_processing, process, thumbnail
+from .logic.leak import CASE_AMOUNT, leak_cases
 from .logic.prompt import context_notes, effective_instructions
-from .logic.units import rate_unit
+from .logic.units import TYPE_HEAT, amount_unit, rate_unit
 
 if TYPE_CHECKING:
     from . import MeterModule
@@ -122,6 +128,9 @@ class MeterState:
     streak: int = 0
     # last valid values, oldest first: [time (ISO), value]
     history: list[list[Any]] = field(default_factory=list)
+    # the vacation running: its start, the last valid reading before it and the
+    # warnings sent ({"since", "time", "value", "alerts"})
+    vacation: dict[str, Any] | None = None
 
     def remember(self, when: datetime, value: float) -> None:
         self.history = [*self.history, [when.isoformat(), value]][-HISTORY_KEEP:]
@@ -140,6 +149,7 @@ class MeterState:
             "streak_status": self.streak_status,
             "streak": self.streak,
             "history": self.history,
+            "vacation": self.vacation,
         }
 
     @classmethod
@@ -162,6 +172,7 @@ class MeterState:
             streak_status=data.get("streak_status"),
             streak=int(data.get("streak") or 0),
             history=list(data.get("history") or []),
+            vacation=data.get("vacation"),
         )
 
 
@@ -240,6 +251,94 @@ class Meter:
     @callback
     def notify(self) -> None:
         async_dispatcher_send(self.hass, SIGNAL_UPDATE.format(self.id))
+
+    # ------------------------------------------------------------ vacation
+
+    @property
+    def leak_warning(self) -> bool:
+        """Warn when something runs on vacation (never for the heat meter: it is read
+        when the heating ran)."""
+        return self.opt(CONF_TYPE) != TYPE_HEAT and bool(self.opt(CONF_VACATION_ALERT))
+
+    def vacation_started(self, since: datetime) -> None:
+        """Count from the last valid reading before the vacation."""
+        state = self.state
+        state.vacation = {
+            "since": since.isoformat(),
+            "time": state.value_time.isoformat() if state.value_time else None,
+            "value": state.value,
+            "alerts": [],
+        }
+
+    def _check_leak(self, now: datetime) -> None:
+        record = self.state.vacation
+        if record is None or not self.leak_warning or self.state.value is None:
+            return
+        if record.get("value") is None or not record.get("time"):
+            # no valid reading before the vacation: count from the first one
+            record.update(time=now.isoformat(), value=self.state.value)
+            return
+        start = dt_util.parse_datetime(record["time"])
+        if start is None:
+            return
+        hours = (now - start).total_seconds() / 3600
+        _, factor = amount_unit(self.unit)
+        used = (self.state.value - float(record["value"])) * factor
+        amount_limit = float(self.opt(CONF_VACATION_AMOUNT) or 0)
+        rate_limit = float(self.opt(CONF_VACATION_RATE) or 0)
+        for case in leak_cases(used, hours, amount_limit, rate_limit):
+            if case in record["alerts"]:
+                continue
+            record["alerts"].append(case)
+            self._leak_alert(case, used, hours, amount_limit if case == CASE_AMOUNT else rate_limit)
+
+    def _leak_alert(self, case: str, used: float, hours: float, limit: float) -> None:
+        unit, _ = amount_unit(self.unit)
+        rate_name = "kW" if unit == "kWh" else f"{unit}/h"
+        de = self.manager.language.startswith("de")
+        if case == CASE_AMOUNT:
+            message = (
+                f"{self.title}: seit Urlaubsbeginn {used:.1f} {unit} verbraucht "
+                f"(Grenze {limit:g} {unit})."
+                if de
+                else f"{self.title}: {used:.1f} {unit} used since the vacation started "
+                f"(limit {limit:g} {unit})."
+            )
+        else:
+            rate = used / hours
+            message = (
+                f"{self.title}: im Mittel {rate:.1f} {rate_name} seit Urlaubsbeginn "
+                f"(Grenze {limit:g} {rate_name})."
+                if de
+                else f"{self.title}: {rate:.1f} {rate_name} on average since the vacation "
+                f"started (limit {limit:g} {rate_name})."
+            )
+        self.hass.bus.async_fire(
+            EVENT_VACATION_ALERT,
+            {
+                "meter_id": self.id,
+                "meter": self.title,
+                "case": case,
+                "used": round(used, 3),
+                "hours": round(hours, 2),
+                "limit": limit,
+                "unit": unit,
+            },
+        )
+        entity_id = er.async_get(self.hass).async_get_entity_id(
+            "sensor", DOMAIN, f"{self.id}_reading"
+        )
+        self.hass.bus.async_fire(
+            EVENT_LOGBOOK, {"name": self.title, "message": message, ATTR_ENTITY_ID: entity_id}
+        )
+        title = "Urlaub" if de else "Vacation"
+        self.manager.module.create_task(
+            async_notify(
+                self.hass, self.manager.entry, title, message, f"{DOMAIN}_{self.id}_vacation"
+            ),
+            f"{DOMAIN} vacation alert {self.id}",
+            cancel=False,
+        )
 
     # ------------------------------------------------------------ picture
 
@@ -594,6 +693,7 @@ class Meter:
             state.remember(now, value)
             if not result.keep:
                 state.rate = result.value
+            self._check_leak(now)
         self.manager.async_save()
         self.notify()
 
@@ -752,6 +852,10 @@ class MeterManager:
         self._unsub = async_track_time_interval(
             self.hass, self._async_tick, timedelta(minutes=CHECK_EVERY_MINUTES)
         )
+        self._sync_vacation()
+        self.module.async_on_stop(
+            async_dispatcher_connect(self.hass, SIGNAL_VACATION, self._sync_vacation)
+        )
 
     async def async_unload(self) -> None:
         if self._unsub:
@@ -761,6 +865,26 @@ class MeterManager:
 
     def _data(self) -> dict[str, Any]:
         return {"meters": {m.id: m.state.as_dict() for m in self.meters.values()}}
+
+    @callback
+    def _sync_vacation(self) -> None:
+        """A vacation started: every meter counts from its last valid reading; it ended:
+        the counting ends as well."""
+        house = self.module.runtime.house
+        since = house.since if house is not None and house.active else None
+        changed = False
+        for meter in self.meters.values():
+            record = meter.state.vacation
+            if since is not None and (record is None or record.get("since") != since.isoformat()):
+                meter.vacation_started(since)
+            elif since is None and record is not None:
+                meter.state.vacation = None
+            else:
+                continue
+            changed = True
+            meter.notify()
+        if changed:
+            self.async_save()
 
     @callback
     def async_save(self) -> None:

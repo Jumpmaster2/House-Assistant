@@ -39,11 +39,16 @@ def ws_config(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
     if entry is None:
         connection.send_error(msg["id"], "not_found", "House Assistant is not set up")
         return
+    house = getattr(getattr(entry, "runtime_data", None), "house", None)
     connection.send_result(
         msg["id"],
         {
             "entry_id": entry.entry_id,
             "modules": enabled_modules(entry),
             "available": list(MODULE_ORDER),
+            # the panel shows a banner while it is vacation
+            "vacation_entity": (
+                house.entity_id("binary_sensor", "vacation_active") if house is not None else None
+            ),
         },
     )

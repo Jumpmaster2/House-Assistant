@@ -50,6 +50,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import TemperatureConverter
 
+from ..const import SIGNAL_VACATION
 from ..core.house import CONF_ROOM, CONF_TEMP_SENSOR, rooms
 from ..core.links import SIGNAL_HEATING, room_target
 from ..core.links import heating_day as links_heating_day
@@ -140,6 +141,7 @@ from .const import (
     CONF_VAC_POS_MIN,
     CONF_VACATION,
     CONF_VACATION_ENTITIES,
+    CONF_VACATION_HEAT_PROTECTION,
     CONF_VENT_DELAY_DAY,
     CONF_VENT_DELAY_EVENING,
     CONF_VENT_POSITION,
@@ -697,6 +699,11 @@ class ShutterEngine(DataUpdateCoordinator[None]):
         )
         heating = self.opt(CONF_HEATING_ENTITY)
         track(heat_inputs | ({heating} if heating else set()), self._on_heat_input)
+        # the vacation of the house or a source of the covers (heat protection, status)
+        self._unsubs.append(
+            async_dispatcher_connect(self.hass, SIGNAL_VACATION, self._on_heating_changed)
+        )
+        track({str(e) for e in self.opt(CONF_VACATION_ENTITIES) or []}, self._on_heat_input)
 
     def _schedule_daily(self) -> None:
         def daily(value: Any, fallback: str, handler: Callable[[datetime], None]) -> None:
@@ -816,7 +823,18 @@ class ShutterEngine(DataUpdateCoordinator[None]):
 
     @property
     def vacation(self) -> bool:
-        return any(self._state_value(e) == STATE_ON for e in self.opt(CONF_VACATION_ENTITIES) or [])
+        """The vacation of the house, or a source of the covers (the house's when set)."""
+        sources = self.opt(CONF_VACATION_ENTITIES) or []
+        house = self.module.runtime.house
+        if house is not None:
+            return bool(house.applies(sources))
+        return any(self._state_value(e) == STATE_ON for e in sources)
+
+    @property
+    def vacation_heat_protection(self) -> bool:
+        """On vacation the sun protection does not wait for the room (nobody feels the
+        heat, and a cool house is nicer to come back to)."""
+        return self.vacation and bool(self.opt(CONF_VACATION_HEAT_PROTECTION))
 
     def _sun_day(self, now: datetime) -> date:
         change = parse_time(self.opt(CONF_DAY_CHANGE), "01:00")
@@ -1011,6 +1029,8 @@ class ShutterEngine(DataUpdateCoordinator[None]):
         )
 
     def _heat_need(self, win: Window) -> bool:
+        if self.vacation_heat_protection:
+            return True
         return heat_need(self.room_warm(win), self.cooling(win), self.heating_day)
 
     def heat_ok(self, win: Window) -> bool:
@@ -1088,6 +1108,7 @@ class ShutterEngine(DataUpdateCoordinator[None]):
             "night_low": self.forecast_night_low,
             "night_threshold": self._night_threshold,
             "heat_need": self.heat_ok(win),
+            "vacation_heat_protection": self.vacation_heat_protection,
             "room_entity": win.conf.get(CONF_ROOM_ENTITY) or win.room_sensor,
             "room_temperature": room,
             "room_setpoint": setpoint,

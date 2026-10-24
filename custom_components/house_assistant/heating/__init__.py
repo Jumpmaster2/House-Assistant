@@ -79,14 +79,16 @@ class HeatingModule(Module):
 
     @callback
     def _announce(self) -> None:
-        """Tell the other modules about a new heating day or target (covers compare the
-        room temperature with the target of its thermostat)."""
+        """Tell the other modules about a new heating day, target or start of preheating
+        (covers compare the room temperature with the target of its thermostat)."""
         coordinator = self.coordinator
         if coordinator is None:
             return
         current = (
             coordinator.heats_now and coordinator.heating_day,
             sorted((a.area_id, a.target) for a in coordinator.areas.values() if a.has_circuit),
+            # the house shows when preheating for the return of a vacation starts
+            coordinator.preheat_from,
         )
         if current != self._announced:
             self._announced = current

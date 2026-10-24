@@ -105,6 +105,7 @@ from .const import (
     CONF_TOO_COLD_MINUTES,
     CONF_VACATION_ENTITIES,
     CONF_VACATION_TEMP,
+    CONF_VACATION_VENT_PAUSE,
     CONF_VENT_AI,
     CONF_VENT_BLOCK,
     CONF_VENT_CHECK_INTERVAL,
@@ -295,6 +296,7 @@ def vacation_schema(v: dict[str, Any]) -> vol.Schema:
                 ],
             ),
             _req(CONF_PREHEAT_RESERVE, v): _number(0, 720, 5, "min"),
+            _req(CONF_VACATION_VENT_PAUSE, v): BooleanSelector(),
         }
     )
 

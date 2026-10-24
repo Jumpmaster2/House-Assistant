@@ -51,7 +51,12 @@ class ReadingSensor(MeterEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         t = self.meter.state.value_time
-        return {"last_valid_reading": t.isoformat() if t else None}
+        attrs: dict[str, Any] = {"last_valid_reading": t.isoformat() if t else None}
+        record = self.meter.state.vacation
+        if record is not None and self.meter.leak_warning:
+            # warnings of the vacation running (amount, rate)
+            attrs["vacation_alerts"] = list(record.get("alerts") or [])
+        return attrs
 
 
 class RateSensor(MeterEntity, SensorEntity):

@@ -47,6 +47,7 @@ DETAILS = {
         "notify_corrected": 0,
         "notify_failed": 5.0,
     },
+    "vacation_section": {"vacation_alert": True, "vacation_amount": 20, "vacation_rate": 5},
 }
 
 
@@ -142,7 +143,7 @@ async def test_options_flow(hass: HomeAssistant, base) -> None:
     entry = await setup_entry(hass, meters=[])
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["modules", "house", "meter"]
+    assert result["menu_options"] == ["modules", "house", "vacation", "meter"]
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": "meter"}
     )

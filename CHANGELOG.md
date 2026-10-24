@@ -24,6 +24,13 @@
 - Each combination can be switched off per room (panel House > Rooms, the plan of the house with its lines). The thermostat attribute `draft_windows` names the windows that set it off.
 - Tilted windows: a window handle reporting `tilted` or a tilt contact of the window counts for the heating as open with 25 % of the opening area. Unknown still counts as closed.
 - The plan of the house (orientation, width, depth and the draft reach) is a setting of the house (House > General); the house card of the cover section is gone.
+- Vacation of the house for every module: a switch “Vacation” with departure and return on the device House Assistant (kept across restarts), a binary sensor “Vacation active” (source, since, departure, return, start of preheating, presence simulation, leak warning, windows not closed) and the service `house_assistant.set_vacation` (departure, return, clear). At the departure the vacation switches on, at the return off; with only a return it applies from now on; a departure after the return is refused, a return in the past is ignored. Event `house_assistant_vacation` (active, source) and a logbook entry at start and end.
+- External sources still count: vacation entities and a return entity of the house (Settings > Vacation, panel House > Vacation); without them the ones in the settings of heating and covers. The heating preheats for the own return first.
+- Covers: heat protection on vacation, the sun protection lowers without waiting for room temperature, air conditioner or heat need (summer day, sun sensors and hold times still apply; option, on by default).
+- Heating: the ventilation advice rests on vacation (state “vacation”, ventilation recommended off, no minutes for the AI ventilation check, no samples for the humidity profile; option, on by default).
+- Open windows: at the start of the vacation a message lists every window not closed (open, tilted, unknown); on vacation a window opened or tilted is reported once it stayed so for 10 s. To the notification services of the house, without any as a notification in Home Assistant (option, on by default).
+- Meters warn on vacation (leak warning per meter): amount used since the start and mean flow or power, counted from the last valid reading before the vacation; once per vacation and case with a message, a logbook entry, the event `house_assistant_vacation_alert` and the attribute `vacation_alerts`. On by default for water meters (20 L, 5 L/h), off for gas and electricity, never for the heat meter.
+- The panel shows a banner while it is vacation.
 
 ## 0.1.0
 

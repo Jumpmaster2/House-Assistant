@@ -54,11 +54,25 @@
         "state": {
           "on": "mdi:window-open-variant"
         }
+      },
+      "vacation_active": {
+        "default": "mdi:airplane",
+        "state": {
+          "off": "mdi:airplane-off"
+        }
       }
     },
     "camera": {
       "last_image": {
         "default": "mdi:image-outline"
+      }
+    },
+    "datetime": {
+      "vacation_departure": {
+        "default": "mdi:airplane-takeoff"
+      },
+      "vacation_return": {
+        "default": "mdi:airplane-landing"
       }
     },
     "select": {
@@ -170,6 +184,12 @@
         "state": {
           "off": "mdi:robot-off"
         }
+      },
+      "vacation": {
+        "default": "mdi:airplane",
+        "state": {
+          "off": "mdi:airplane-off"
+        }
       }
     }
   },
@@ -209,6 +229,9 @@
     },
     "decide_heating_day": {
       "service": "mdi:calendar-question"
+    },
+    "set_vacation": {
+      "service": "mdi:airplane-clock"
     }
   }
 }
