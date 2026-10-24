@@ -38,6 +38,7 @@ class VentilationState(StrEnum):
     DO_NOT_VENTILATE = "do_not_ventilate"
     BLOCKED = "blocked"
     OPTIMAL = "optimal"
+    VACATION = "vacation"
 
 
 MOULD_RH = 70.0  # default relative humidity from which mould grows if it lasts

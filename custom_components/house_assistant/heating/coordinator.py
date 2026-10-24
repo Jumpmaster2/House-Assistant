@@ -25,6 +25,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.debounce import Debouncer
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import (
     async_track_point_in_utc_time,
     async_track_state_change_event,
@@ -34,7 +35,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import PowerConverter, TemperatureConverter
 
-from ..const import CONF_LANGUAGE
+from ..const import CONF_LANGUAGE, SIGNAL_VACATION
 from ..core.house import (
     CONF_TILT_SENSORS,
     CONF_WINDOW_SENSORS,
@@ -47,6 +48,7 @@ from ..core.links import meter_reading
 from ..core.logic.contacts import OPEN, TILTED, contact_state, opening_share, window_state
 from ..core.logic.geometry import KIND_CROSS
 from ..core.store import module_store
+from ..core.vacation import return_ts
 from .ai_client import AiAuthError, AiError, ClaudeClient
 from .const import (
     CONF_AI_CHECK_DAYS,
@@ -108,6 +110,7 @@ from .const import (
     CONF_TOO_COLD_MINUTES,
     CONF_VACATION_ENTITIES,
     CONF_VACATION_TEMP,
+    CONF_VACATION_VENT_PAUSE,
     CONF_VENT_AI,
     CONF_VENT_BLOCK,
     CONF_VENT_CHECK_INTERVAL,
@@ -294,6 +297,7 @@ class Area:
     effective_target: float | None = None
     vacation: bool = False
     preheat: bool = False
+    preheat_from: float | None = None  # start of preheating for the return
     decision: ControlDecision | None = None
     ventilation: VentilationResult | None = None
     status: str = AreaStatus.IDLE
@@ -523,6 +527,12 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         if current is None:
             return True
         return bool(current.get("heat", True))
+
+    @property
+    def preheat_from(self) -> float | None:
+        """Earliest start of preheating for the return of the vacation."""
+        starts = [a.preheat_from for a in self.areas.values() if a.preheat_from is not None]
+        return min(starts) if starts else None
 
     @property
     def heats_now(self) -> bool:
@@ -888,6 +898,10 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             self._unsubs.append(
                 async_track_state_change_event(self.hass, sorted(watched), self._on_input_change)
             )
+        # the switch, departure or return of the house
+        self._unsubs.append(
+            async_dispatcher_connect(self.hass, SIGNAL_VACATION, self._on_vacation_change)
+        )
         if switches:
             self._unsubs.append(
                 async_track_state_change_event(self.hass, sorted(switches), self._on_switch_change)
@@ -895,6 +909,10 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
 
     @callback
     def _on_input_change(self, event: Event[EventStateChangedData]) -> None:
+        self.module.create_task(self.async_request_refresh(), f"{DOMAIN} heating refresh")
+
+    @callback
+    def _on_vacation_change(self) -> None:
         self.module.create_task(self.async_request_refresh(), f"{DOMAIN} heating refresh")
 
     @callback
@@ -1135,18 +1153,11 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             LOGGER.warning(message, *args)
 
     def _return_ts(self) -> float | None:
-        state = self._state(self.opt(CONF_RETURN_ENTITY))
-        if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
-            return None
-        stamp = state.attributes.get("timestamp")
-        if isinstance(stamp, int | float) and state.attributes.get("has_date", True):
-            return float(stamp)
-        parsed = dt_util.parse_datetime(state.state)
-        if parsed is None:
-            return None
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=dt_util.get_default_time_zone())
-        return parsed.timestamp()
+        """Return of the vacation: the own one of the house first, else the entity."""
+        house = self.module.runtime.house
+        if house is not None and (own := house.own_return()) is not None:
+            return own.timestamp()
+        return return_ts(self._state(self.opt(CONF_RETURN_ENTITY)))
 
     def _season(self) -> bool:
         try:
@@ -1232,7 +1243,12 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         self.pv_assumed = self.pv_kw if self.pv_kw is not None else (self._pv_estimate(ts) or 0.0)
         self.season_active = self._season()
         self.budget.roll(dt_util.now().strftime("%Y-%m"))  # the cost sensor shows the new month
-        self.vacation = any(self._is_on(e) for e in self.opt(CONF_VACATION_ENTITIES) or [])
+        # the vacation of the house, or a source of the heating (the house's when set)
+        house = self.module.runtime.house
+        sources = self.opt(CONF_VACATION_ENTITIES) or []
+        self.vacation = (
+            house.applies(sources) if house is not None else any(self._is_on(e) for e in sources)
+        )
         return_ts = self._return_ts() if self.vacation else None
         heating_day = self.heating_day
 
@@ -1527,6 +1543,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         # vacation and preheating for the return
         area.vacation = self.vacation
         area.preheat = False
+        area.preheat_from = None
         target = area.target
         if self.vacation:
             # A return time in the past (e.g. vacation switched on manually with an old
@@ -1541,6 +1558,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                     float(self.opt(CONF_PREHEAT_RESERVE)) * 60,
                 )
                 area.preheat = ts >= start
+                area.preheat_from = start
             if not area.preheat:
                 target = float(self.opt(CONF_VACATION_TEMP))
         area.effective_target = target
@@ -1753,6 +1771,12 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         is_night = (now >= start or now < end) if start > end else (start <= now < end)
         heating_active = self.heats_now and heating_day and (area.hvac_on or not area.has_circuit)
         area.ref_temp, area.ref_humidity = ref_temp, ref_hum
+        if self.vacation and self.opt(CONF_VACATION_VENT_PAUSE):
+            # Nobody airs on vacation and nobody makes the air humid: no advice, no
+            # samples for the humidity profile, no minutes for the AI ventilation check.
+            area.suggested_window = None
+            area.ventilation = VentilationResult(VentilationState.VACATION)
+            return
         ref_ah = (
             absolute_humidity(ref_temp, ref_hum)
             if ref_temp is not None and ref_hum is not None

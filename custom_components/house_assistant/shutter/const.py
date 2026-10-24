@@ -78,6 +78,8 @@ CONF_VAC_POS_MIN = "vacation_position_min"
 CONF_VAC_POS_MAX = "vacation_position_max"
 CONF_VAC_EVENING = "vacation_evening_start"
 CONF_VAC_EVENING_WINDOW = "vacation_evening_window"
+# sun protection on vacation without waiting for the room (nobody there to feel the heat)
+CONF_VACATION_HEAT_PROTECTION = "vacation_heat_protection"
 
 CONF_STARTUP_DELAY = "startup_delay"
 CONF_CATCH_UP_AFTER = "catch_up_after"
@@ -119,6 +121,7 @@ DEFAULTS: Final[dict[str, object]] = {
     CONF_NIGHT_END: "03:30:00",
     CONF_FOLLOW_UP_EARLIEST: "16:00:00",
     CONF_VACATION_ENTITIES: [],
+    CONF_VACATION_HEAT_PROTECTION: True,
     CONF_VAC_MORNING: "07:00:00",
     CONF_VAC_MORNING_WINDOW: 60,
     CONF_VAC_POS_MIN: 60,

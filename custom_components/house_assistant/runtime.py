@@ -26,10 +26,17 @@ type HouseConfigEntry = ConfigEntry[HouseRuntime]
 
 # module key -> module class, filled by modules.py
 MODULE_TYPES: dict[str, type[Module]] = {}
+# the house itself (vacation), running with or without modules; set by core.vacation
+HOUSE_TYPE: list[type[Module]] = []
 
 
 def register_module(cls: type[Module]) -> type[Module]:
     MODULE_TYPES[cls.key] = cls
+    return cls
+
+
+def register_house(cls: type[Module]) -> type[Module]:
+    HOUSE_TYPE[:] = [cls]
     return cls
 
 
@@ -171,6 +178,8 @@ class HouseRuntime:
         self.hass = hass
         self.entry = entry
         self.modules: dict[str, Module] = {}
+        # the house: started first and stopped last, the modules read its vacation
+        self.house: Any = None
         self._adders: dict[Platform, AddConfigEntryEntitiesCallback] = {}
         self._signatures: dict[str, str] = {}
         self._lock = asyncio.Lock()
@@ -179,7 +188,8 @@ class HouseRuntime:
         return self.modules.get(key)
 
     async def async_start(self) -> None:
-        """Start the enabled modules (when the entry is set up)."""
+        """Start the house and the enabled modules (when the entry is set up)."""
+        await self._start_house()
         for key in enabled_modules(self.entry):
             await self._start(key)
 
@@ -187,6 +197,28 @@ class HouseRuntime:
         async with self._lock:
             for key in reversed(list(self.modules)):
                 await self._stop(key)
+            await self._stop_house()
+
+    async def _start_house(self) -> None:
+        if not HOUSE_TYPE:
+            return
+        house = HOUSE_TYPE[0](self)
+        try:
+            await house.async_setup()
+        except Exception:
+            await house.async_stop()
+            raise
+        self.house = house
+        self._signatures[house.key] = house.signature()
+        house.started()
+        for platform, add_entities in self._adders.items():
+            self._add(house, platform, add_entities)
+
+    async def _stop_house(self) -> None:
+        house, self.house = self.house, None
+        if house is not None:
+            self._signatures.pop(house.key, None)
+            await house.async_stop()
 
     @callback
     def platform_ready(
@@ -194,12 +226,21 @@ class HouseRuntime:
     ) -> None:
         """A platform is set up: add the entities of the running modules."""
         self._adders[platform] = add_entities
-        for module in self.modules.values():
-            self._add(module, platform, add_entities)
+        for module in [self.house, *self.modules.values()]:
+            if module is not None:
+                self._add(module, platform, add_entities)
 
     async def async_entry_updated(self) -> None:
         """Options or subentries changed: start, stop or restart only the modules concerned."""
         async with self._lock:
+            house = self.house
+            if house is not None and house.signature() != self._signatures.get(house.key):
+                LOGGER.debug("Restarting the house")
+                await self._stop_house()
+                try:
+                    await self._start_house()
+                except Exception:
+                    LOGGER.exception("The house could not be started")
             wanted = enabled_modules(self.entry)
             for key in [k for k in self.modules if k not in wanted]:
                 await self._stop(key, switched_off=True)

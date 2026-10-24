@@ -217,6 +217,7 @@
         "menu_options": {
           "modules": "Modules",
           "house": "House",
+          "vacation": "Vacation",
           "heating": "Heating",
           "shutter": "Covers",
           "meter": "Meters"
@@ -261,6 +262,20 @@
           "house_width": "Also the back. With the depth the house appears in the sun compass, and the draft through rooms between two open windows is recognised.",
           "house_depth": "Length of the two side walls.",
           "draft_reach": "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m)."
+        }
+      },
+      "vacation": {
+        "title": "Vacation",
+        "description": "The vacation of the house applies to every module: the switch “Vacation” with departure and return on the device House Assistant. External sources still count as well.",
+        "data": {
+          "vacation_entities": "External vacation entities",
+          "return_entity": "External return",
+          "vacation_window_alert": "Report open windows"
+        },
+        "data_description": {
+          "vacation_entities": "While one of them is on it is vacation as well (e.g. an input_boolean or a calendar). For heating and covers; without an entry here the entities in their settings apply.",
+          "return_entity": "Optional: input_datetime, datetime or timestamp entity. The heating preheats for it; an own return of the switch comes first.",
+          "vacation_window_alert": "When the vacation starts a message with every open, tilted or unknown window; on vacation a message right away when a window is opened or tilted. To the notification services of the house, without any as a notification in Home Assistant."
         }
       },
       "meter": {
@@ -364,16 +379,18 @@
           "vacation_position_min": "Opening position from",
           "vacation_position_max": "Opening position to",
           "vacation_evening_start": "Vacation evening from",
-          "vacation_evening_window": "Random period in the evening"
+          "vacation_evening_window": "Random period in the evening",
+          "vacation_heat_protection": "Heat protection on vacation"
         },
         "data_description": {
-          "vacation_entities": "Vacation is active while one of them is on (e.g. an input_boolean \"vacation\" or a calendar).",
+          "vacation_entities": "Vacation is active while one of them is on (e.g. an input_boolean \"vacation\" or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts.",
           "vacation_morning_start": "Closed covers of the windows in the simulation open at a random time after this.",
           "vacation_morning_window": "Each window opens at a random time within this period.",
           "vacation_position_min": "Random position between both values.",
           "vacation_position_max": "Random position between both values.",
           "vacation_evening_start": "Starts the evening for the windows in the simulation and closes them at random times. The normal evening run rests during vacation.",
-          "vacation_evening_window": "Each window closes at a random time within this period."
+          "vacation_evening_window": "Each window closes at a random time within this period.",
+          "vacation_heat_protection": "On vacation the sun protection lowers without waiting for room temperature, air conditioner or heat need. Summer day, outdoor temperature, sun sensors, hold times and the sun switch of the window still apply."
         }
       },
       "shutter_protection": {
@@ -474,13 +491,15 @@
           "vacation_entities": "Vacation entities",
           "vacation_temperature": "Vacation temperature",
           "return_entity": "Return date/time",
-          "preheat_reserve": "Preheat reserve"
+          "preheat_reserve": "Preheat reserve",
+          "vacation_ventilation_pause": "Ventilation advice rests"
         },
         "data_description": {
-          "vacation_entities": "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar).",
+          "vacation_entities": "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts.",
           "vacation_temperature": "Target for all rooms during vacation (e.g. 17 °C).",
-          "return_entity": "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return.",
-          "preheat_reserve": "Additional time added to the calculated preheating time (e.g. 30 min)."
+          "return_entity": "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return. The return of the switch “Vacation” comes first; without it one set under Settings > Vacation.",
+          "preheat_reserve": "Additional time added to the calculated preheating time (e.g. 30 min).",
+          "vacation_ventilation_pause": "On vacation the ventilation advice shows “Vacation”, “ventilation recommended” is off. Vacation minutes do not count for the AI ventilation check and stay out of the humidity profile."
         }
       },
       "heating_rules": {
@@ -1545,6 +1564,20 @@
                 "notify_corrected": "Smaller value confirmed by more pictures and taken.",
                 "notify_failed": "The AI reads nothing clear, or the camera or AI is not reachable. Unreadable readings do not interrupt the count of the other cases."
               }
+            },
+            "vacation_section": {
+              "name": "Vacation",
+              "description": "Warns when something runs on vacation: a message, a logbook entry and the event house_assistant_vacation_alert, once per vacation and case. Counted from the last valid reading before the vacation. Not for the heat meter.",
+              "data": {
+                "vacation_alert": "Warn on vacation",
+                "vacation_amount": "Amount",
+                "vacation_rate": "Mean flow or power"
+              },
+              "data_description": {
+                "vacation_alert": "Default: on for a water meter, else off.",
+                "vacation_amount": "Used since the vacation started, in litres (water, gas) or kWh (electricity), from which it warns. 0 = off. Default water: 20 L.",
+                "vacation_rate": "Mean since the vacation started in L/h or kW (after an hour at the earliest) from which it warns. For gas and electricity enter the base load. 0 = off. Default water: 5 L/h."
+              }
             }
           }
         },
@@ -1679,6 +1712,20 @@
                 "notify_too_large": "Value rose more than the largest increase per hour allows (rejected).",
                 "notify_corrected": "Smaller value confirmed by more pictures and taken.",
                 "notify_failed": "The AI reads nothing clear, or the camera or AI is not reachable. Unreadable readings do not interrupt the count of the other cases."
+              }
+            },
+            "vacation_section": {
+              "name": "Vacation",
+              "description": "Warns when something runs on vacation: a message, a logbook entry and the event house_assistant_vacation_alert, once per vacation and case. Counted from the last valid reading before the vacation. Not for the heat meter.",
+              "data": {
+                "vacation_alert": "Warn on vacation",
+                "vacation_amount": "Amount",
+                "vacation_rate": "Mean flow or power"
+              },
+              "data_description": {
+                "vacation_alert": "Default: on for a water meter, else off.",
+                "vacation_amount": "Used since the vacation started, in litres (water, gas) or kWh (electricity), from which it warns. 0 = off. Default water: 20 L.",
+                "vacation_rate": "Mean since the vacation started in L/h or kW (after an hour at the earliest) from which it warns. For gas and electricity enter the base load. 0 = off. Default water: 5 L/h."
               }
             }
           }
@@ -1846,6 +1893,35 @@
       },
       "ventilation_recommended": {
         "name": "Ventilation recommended"
+      },
+      "vacation_active": {
+        "name": "Vacation active",
+        "state_attributes": {
+          "source": {
+            "name": "Source"
+          },
+          "since": {
+            "name": "Since"
+          },
+          "departure": {
+            "name": "Departure"
+          },
+          "return": {
+            "name": "Return"
+          },
+          "preheat_start": {
+            "name": "Preheating from"
+          },
+          "simulation": {
+            "name": "Presence simulation"
+          },
+          "leak_warning": {
+            "name": "Leak warning"
+          },
+          "open_windows": {
+            "name": "Open windows"
+          }
+        }
       }
     },
     "button": {
@@ -1970,7 +2046,8 @@
           "ventilation_useful": "Ventilation useful",
           "do_not_ventilate": "Do not ventilate",
           "blocked": "Ventilation blocked",
-          "optimal": "All fine"
+          "optimal": "All fine",
+          "vacation": "Vacation"
         }
       },
       "decision_phase": {
@@ -2048,6 +2125,17 @@
       },
       "ai_enabled": {
         "name": "AI enabled"
+      },
+      "vacation": {
+        "name": "Vacation"
+      }
+    },
+    "datetime": {
+      "vacation_departure": {
+        "name": "Vacation departure"
+      },
+      "vacation_return": {
+        "name": "Vacation return"
       }
     }
   },
@@ -2075,6 +2163,12 @@
     },
     "ai_disabled": {
       "message": "The AI is disabled or not configured."
+    },
+    "departure_after_return": {
+      "message": "The departure must be before the return."
+    },
+    "return_in_past": {
+      "message": "The return is in the past."
     }
   },
   "services": {
@@ -2209,6 +2303,24 @@
         "use_ai": {
           "name": "Ask the AI",
           "description": "If off, only the local rule decides."
+        }
+      }
+    },
+    "set_vacation": {
+      "name": "Plan vacation",
+      "description": "Sets departure and return of the vacation of the house. At the departure the vacation switches on, at the return off. Only a return: vacation from now on.",
+      "fields": {
+        "departure": {
+          "name": "Departure",
+          "description": "Vacation from then on. Empty: as before."
+        },
+        "return": {
+          "name": "Return",
+          "description": "The vacation ends then (the heating preheats in time). A return in the past is ignored."
+        },
+        "clear": {
+          "name": "Clear",
+          "description": "First ends the vacation and removes departure and return."
         }
       }
     }

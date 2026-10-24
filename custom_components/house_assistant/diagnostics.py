@@ -21,5 +21,6 @@ async def async_get_config_entry_diagnostics(
     runtime = entry.runtime_data
     return {
         "entry": async_redact_data(entry.as_dict(), TO_REDACT),
+        "house": runtime.house.diagnostics() if runtime.house is not None else None,
         "modules": {key: module.diagnostics() for key, module in runtime.modules.items()},
     }

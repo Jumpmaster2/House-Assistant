@@ -130,6 +130,7 @@ from .const import (
     CONF_VAC_POS_MIN,
     CONF_VACATION,
     CONF_VACATION_ENTITIES,
+    CONF_VACATION_HEAT_PROTECTION,
     CONF_VENT_DELAY_DAY,
     CONF_VENT_DELAY_EVENING,
     CONF_VENT_POSITION,
@@ -383,6 +384,7 @@ def _vacation_schema(v: dict[str, Any]) -> vol.Schema:
             _req(CONF_VAC_POS_MAX, v): _number(0, 100, 1, "%"),
             _req(CONF_VAC_EVENING, v): TimeSelector(),
             _req(CONF_VAC_EVENING_WINDOW, v): _number(0, 240, 1, "min"),
+            _req(CONF_VACATION_HEAT_PROTECTION, v): BooleanSelector(),
         }
     )
 

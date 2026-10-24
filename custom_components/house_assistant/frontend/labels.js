@@ -331,6 +331,24 @@ export const LABELS = {
     },
     "sections": {}
    },
+   "options.vacation": {
+    "title": "Urlaub",
+    "fields": {
+     "vacation_entities": [
+      "Externe Urlaubs-Entitäten",
+      "Ist eine davon an, gilt ebenfalls Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt für Heizung und Rollos; ohne Eintrag hier gelten die Entitäten in deren Einstellungen."
+     ],
+     "return_entity": [
+      "Externe Rückkehr",
+      "Optional: input_datetime, datetime- oder Zeitstempel-Entität. Die Heizung heizt darauf vor; eine eigene Rückkehr des Schalters hat Vorrang."
+     ],
+     "vacation_window_alert": [
+      "Offene Fenster melden",
+      "Zu Beginn des Urlaubs eine Meldung mit allen offenen, gekippten oder unbekannten Fenstern, im Urlaub sofort eine Meldung, wenn ein Fenster geöffnet oder gekippt wird. An die Benachrichtigungsdienste des Hauses, ohne sie als Benachrichtigung in Home Assistant."
+     ]
+    },
+    "sections": {}
+   },
    "options.meter": {
     "title": "Zähler",
     "fields": {
@@ -451,7 +469,7 @@ export const LABELS = {
     "fields": {
      "vacation_entities": [
       "Urlaubs-Entitäten",
-      "Urlaub ist aktiv, solange eine davon an ist (z. B. ein input_boolean „Urlaub“ oder ein Kalender)."
+      "Urlaub ist aktiv, solange eine davon an ist (z. B. ein input_boolean „Urlaub“ oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer."
      ],
      "vacation_morning_start": [
       "Urlaub morgens ab",
@@ -476,6 +494,10 @@ export const LABELS = {
      "vacation_evening_window": [
       "Zufallszeitraum abends",
       "Jedes Fenster schließt zu einer zufälligen Zeit in diesem Zeitraum."
+     ],
+     "vacation_heat_protection": [
+      "Hitzeschutz im Urlaub",
+      "Der Sonnenschutz senkt im Urlaub ab, ohne auf Raumtemperatur, Klimaanlage oder Heizbedarf zu warten. Sommertag, Außentemperatur, Sonnensensoren, Haltezeiten und der Sonnenschalter des Fensters gelten weiter."
      ]
     },
     "sections": {}
@@ -614,7 +636,7 @@ export const LABELS = {
     "fields": {
      "vacation_entities": [
       "Urlaubs-Entitäten",
-      "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender)."
+      "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer."
      ],
      "vacation_temperature": [
       "Urlaubstemperatur",
@@ -622,11 +644,15 @@ export const LABELS = {
      ],
      "return_entity": [
       "Rückkehr Datum/Uhrzeit",
-      "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist."
+      "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist. Die Rückkehr des Schalters „Urlaub“ hat Vorrang; ohne sie gilt eine unter Einstellungen > Urlaub eingetragene."
      ],
      "preheat_reserve": [
       "Vorheiz-Reserve",
       "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min)."
+     ],
+     "vacation_ventilation_pause": [
+      "Lüftungsempfehlung ruht",
+      "Im Urlaub zeigt die Lüftungsempfehlung „Urlaub“, „Lüften empfohlen“ ist aus. Urlaubsminuten zählen nicht für die KI-Lüftungsprüfung und gehen nicht ins Feuchteprofil ein."
      ]
     },
     "sections": {}
@@ -2206,6 +2232,24 @@ export const LABELS = {
         "KI liest nichts Eindeutiges, oder Kamera bzw. KI nicht erreichbar. Unlesbare Ablesungen unterbrechen die Zählung der anderen Fälle nicht."
        ]
       }
+     },
+     "vacation_section": {
+      "name": "Urlaub",
+      "description": "Warnt, wenn im Urlaub etwas läuft: eine Meldung, ein Logbuch-Eintrag und das Ereignis house_assistant_vacation_alert, einmal je Urlaub und Fall. Gezählt ab der letzten gültigen Ablesung vor dem Urlaub. Nicht für den Wärmezähler.",
+      "fields": {
+       "vacation_alert": [
+        "Im Urlaub warnen",
+        "Standard: an beim Wasserzähler, sonst aus."
+       ],
+       "vacation_amount": [
+        "Menge",
+        "Verbrauch seit Urlaubsbeginn in Litern (Wasser, Gas) bzw. kWh (Strom), ab dem gewarnt wird. 0 = aus. Standard Wasser: 20 L."
+       ],
+       "vacation_rate": [
+        "Mittlerer Durchfluss bzw. Leistung",
+        "Mittel seit Urlaubsbeginn in L/h bzw. kW (frühestens nach einer Stunde), ab dem gewarnt wird. Bei Gas und Strom die Grundlast eintragen. 0 = aus. Standard Wasser: 5 L/h."
+       ]
+      }
      }
     }
    },
@@ -2401,6 +2445,24 @@ export const LABELS = {
        "notify_failed": [
         "Unlesbar oder Fehler",
         "KI liest nichts Eindeutiges, oder Kamera bzw. KI nicht erreichbar. Unlesbare Ablesungen unterbrechen die Zählung der anderen Fälle nicht."
+       ]
+      }
+     },
+     "vacation_section": {
+      "name": "Urlaub",
+      "description": "Warnt, wenn im Urlaub etwas läuft: eine Meldung, ein Logbuch-Eintrag und das Ereignis house_assistant_vacation_alert, einmal je Urlaub und Fall. Gezählt ab der letzten gültigen Ablesung vor dem Urlaub. Nicht für den Wärmezähler.",
+      "fields": {
+       "vacation_alert": [
+        "Im Urlaub warnen",
+        "Standard: an beim Wasserzähler, sonst aus."
+       ],
+       "vacation_amount": [
+        "Menge",
+        "Verbrauch seit Urlaubsbeginn in Litern (Wasser, Gas) bzw. kWh (Strom), ab dem gewarnt wird. 0 = aus. Standard Wasser: 20 L."
+       ],
+       "vacation_rate": [
+        "Mittlerer Durchfluss bzw. Leistung",
+        "Mittel seit Urlaubsbeginn in L/h bzw. kW (frühestens nach einer Stunde), ab dem gewarnt wird. Bei Gas und Strom die Grundlast eintragen. 0 = aus. Standard Wasser: 5 L/h."
        ]
       }
      }
@@ -2614,7 +2676,8 @@ export const LABELS = {
     "ventilation_useful": "Lüften sinnvoll",
     "do_not_ventilate": "Nicht lüften",
     "blocked": "Lüften blockiert",
-    "optimal": "Alles optimal"
+    "optimal": "Alles optimal",
+    "vacation": "Urlaub"
    },
    "sensor.decision_phase": {
     "ai_leads": "KI führt",
@@ -2970,6 +3033,24 @@ export const LABELS = {
     },
     "sections": {}
    },
+   "options.vacation": {
+    "title": "Vacation",
+    "fields": {
+     "vacation_entities": [
+      "External vacation entities",
+      "While one of them is on it is vacation as well (e.g. an input_boolean or a calendar). For heating and covers; without an entry here the entities in their settings apply."
+     ],
+     "return_entity": [
+      "External return",
+      "Optional: input_datetime, datetime or timestamp entity. The heating preheats for it; an own return of the switch comes first."
+     ],
+     "vacation_window_alert": [
+      "Report open windows",
+      "When the vacation starts a message with every open, tilted or unknown window; on vacation a message right away when a window is opened or tilted. To the notification services of the house, without any as a notification in Home Assistant."
+     ]
+    },
+    "sections": {}
+   },
    "options.meter": {
     "title": "Meters",
     "fields": {
@@ -3090,7 +3171,7 @@ export const LABELS = {
     "fields": {
      "vacation_entities": [
       "Vacation entities",
-      "Vacation is active while one of them is on (e.g. an input_boolean \"vacation\" or a calendar)."
+      "Vacation is active while one of them is on (e.g. an input_boolean \"vacation\" or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts."
      ],
      "vacation_morning_start": [
       "Vacation morning from",
@@ -3115,6 +3196,10 @@ export const LABELS = {
      "vacation_evening_window": [
       "Random period in the evening",
       "Each window closes at a random time within this period."
+     ],
+     "vacation_heat_protection": [
+      "Heat protection on vacation",
+      "On vacation the sun protection lowers without waiting for room temperature, air conditioner or heat need. Summer day, outdoor temperature, sun sensors, hold times and the sun switch of the window still apply."
      ]
     },
     "sections": {}
@@ -3253,7 +3338,7 @@ export const LABELS = {
     "fields": {
      "vacation_entities": [
       "Vacation entities",
-      "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar)."
+      "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts."
      ],
      "vacation_temperature": [
       "Vacation temperature",
@@ -3261,11 +3346,15 @@ export const LABELS = {
      ],
      "return_entity": [
       "Return date/time",
-      "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return."
+      "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return. The return of the switch “Vacation” comes first; without it one set under Settings > Vacation."
      ],
      "preheat_reserve": [
       "Preheat reserve",
       "Additional time added to the calculated preheating time (e.g. 30 min)."
+     ],
+     "vacation_ventilation_pause": [
+      "Ventilation advice rests",
+      "On vacation the ventilation advice shows “Vacation”, “ventilation recommended” is off. Vacation minutes do not count for the AI ventilation check and stay out of the humidity profile."
      ]
     },
     "sections": {}
@@ -4845,6 +4934,24 @@ export const LABELS = {
         "The AI reads nothing clear, or the camera or AI is not reachable. Unreadable readings do not interrupt the count of the other cases."
        ]
       }
+     },
+     "vacation_section": {
+      "name": "Vacation",
+      "description": "Warns when something runs on vacation: a message, a logbook entry and the event house_assistant_vacation_alert, once per vacation and case. Counted from the last valid reading before the vacation. Not for the heat meter.",
+      "fields": {
+       "vacation_alert": [
+        "Warn on vacation",
+        "Default: on for a water meter, else off."
+       ],
+       "vacation_amount": [
+        "Amount",
+        "Used since the vacation started, in litres (water, gas) or kWh (electricity), from which it warns. 0 = off. Default water: 20 L."
+       ],
+       "vacation_rate": [
+        "Mean flow or power",
+        "Mean since the vacation started in L/h or kW (after an hour at the earliest) from which it warns. For gas and electricity enter the base load. 0 = off. Default water: 5 L/h."
+       ]
+      }
      }
     }
    },
@@ -5040,6 +5147,24 @@ export const LABELS = {
        "notify_failed": [
         "Unreadable or error",
         "The AI reads nothing clear, or the camera or AI is not reachable. Unreadable readings do not interrupt the count of the other cases."
+       ]
+      }
+     },
+     "vacation_section": {
+      "name": "Vacation",
+      "description": "Warns when something runs on vacation: a message, a logbook entry and the event house_assistant_vacation_alert, once per vacation and case. Counted from the last valid reading before the vacation. Not for the heat meter.",
+      "fields": {
+       "vacation_alert": [
+        "Warn on vacation",
+        "Default: on for a water meter, else off."
+       ],
+       "vacation_amount": [
+        "Amount",
+        "Used since the vacation started, in litres (water, gas) or kWh (electricity), from which it warns. 0 = off. Default water: 20 L."
+       ],
+       "vacation_rate": [
+        "Mean flow or power",
+        "Mean since the vacation started in L/h or kW (after an hour at the earliest) from which it warns. For gas and electricity enter the base load. 0 = off. Default water: 5 L/h."
        ]
       }
      }
@@ -5253,7 +5378,8 @@ export const LABELS = {
     "ventilation_useful": "Ventilation useful",
     "do_not_ventilate": "Do not ventilate",
     "blocked": "Ventilation blocked",
-    "optimal": "All fine"
+    "optimal": "All fine",
+    "vacation": "Vacation"
    },
    "sensor.decision_phase": {
     "ai_leads": "AI leads",
@@ -5463,6 +5589,28 @@ export const HOUSE = {
      "Dashboard in der Seitenleiste",
      "Aus: Das Dashboard verschwindet aus der Seitenleiste, bleibt aber über „Einstellungen“ bei der Integration erreichbar."
     ]
+   },
+   "vacation": {
+    "vacation_entities": [
+     "Externe Urlaubs-Entitäten",
+     "Ist eine davon an, gilt ebenfalls Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt für Heizung und Rollos; ohne Eintrag hier gelten die Entitäten in deren Einstellungen."
+    ],
+    "return_entity": [
+     "Externe Rückkehr",
+     "Optional: input_datetime, datetime- oder Zeitstempel-Entität. Die Heizung heizt darauf vor; eine eigene Rückkehr des Schalters hat Vorrang."
+    ],
+    "vacation_window_alert": [
+     "Offene Fenster melden",
+     "Zu Beginn des Urlaubs eine Meldung mit allen offenen, gekippten oder unbekannten Fenstern, im Urlaub sofort eine Meldung, wenn ein Fenster geöffnet oder gekippt wird. An die Benachrichtigungsdienste des Hauses, ohne sie als Benachrichtigung in Home Assistant."
+    ],
+    "vacation_ventilation_pause": [
+     "Lüftungsempfehlung ruht",
+     "Im Urlaub zeigt die Lüftungsempfehlung „Urlaub“, „Lüften empfohlen“ ist aus. Urlaubsminuten zählen nicht für die KI-Lüftungsprüfung und gehen nicht ins Feuchteprofil ein."
+    ],
+    "vacation_heat_protection": [
+     "Hitzeschutz im Urlaub",
+     "Der Sonnenschutz senkt im Urlaub ab, ohne auf Raumtemperatur, Klimaanlage oder Heizbedarf zu warten. Sommertag, Außentemperatur, Sonnensensoren, Haltezeiten und der Sonnenschalter des Fensters gelten weiter."
+    ]
    }
   },
   "choices": {
@@ -5504,7 +5652,9 @@ export const HOUSE = {
    "cover_in_use": "Dieses Rollo wird schon von einem anderen Fenster gesteuert. Bitte ein anderes Rollo wählen oder das andere Fenster ändern.",
    "contact_in_use": "Dieser Kontakt gehört schon zu einem anderen Fenster. Jeder Kontakt gehört zu genau einem Fenster, sonst zählte eine Öffnung doppelt.",
    "contact_or_cover_required": "Bitte einen Fensterkontakt oder ein Rollo wählen; ohne beides tut das Fenster nichts.",
-   "unknown_room": "Diesen Raum gibt es nicht mehr. Bitte einen anderen wählen."
+   "unknown_room": "Diesen Raum gibt es nicht mehr. Bitte einen anderen wählen.",
+   "departure_after_return": "Die Abreise muss vor der Rückkehr liegen.",
+   "return_in_past": "Die Rückkehr liegt in der Vergangenheit."
   },
   "sizes": {
    "small": "Klein (z. B. Dachfenster)",
@@ -5696,6 +5846,28 @@ export const HOUSE = {
      "Dashboard in the sidebar",
      "Off: the dashboard disappears from the sidebar but stays reachable with \"Configure\" at the integration."
     ]
+   },
+   "vacation": {
+    "vacation_entities": [
+     "External vacation entities",
+     "While one of them is on it is vacation as well (e.g. an input_boolean or a calendar). For heating and covers; without an entry here the entities in their settings apply."
+    ],
+    "return_entity": [
+     "External return",
+     "Optional: input_datetime, datetime or timestamp entity. The heating preheats for it; an own return of the switch comes first."
+    ],
+    "vacation_window_alert": [
+     "Report open windows",
+     "When the vacation starts a message with every open, tilted or unknown window; on vacation a message right away when a window is opened or tilted. To the notification services of the house, without any as a notification in Home Assistant."
+    ],
+    "vacation_ventilation_pause": [
+     "Ventilation advice rests",
+     "On vacation the ventilation advice shows “Vacation”, “ventilation recommended” is off. Vacation minutes do not count for the AI ventilation check and stay out of the humidity profile."
+    ],
+    "vacation_heat_protection": [
+     "Heat protection on vacation",
+     "On vacation the sun protection lowers without waiting for room temperature, air conditioner or heat need. Summer day, outdoor temperature, sun sensors, hold times and the sun switch of the window still apply."
+    ]
    }
   },
   "choices": {
@@ -5737,7 +5909,9 @@ export const HOUSE = {
    "cover_in_use": "This cover is already controlled by another window. Choose another cover or change the other window.",
    "contact_in_use": "This contact already belongs to another window. A contact belongs to one window only, otherwise one opening would count twice.",
    "contact_or_cover_required": "Choose a window contact or a cover; without either the window does nothing.",
-   "unknown_room": "This room does not exist any more. Choose another one."
+   "unknown_room": "This room does not exist any more. Choose another one.",
+   "departure_after_return": "The departure must be before the return.",
+   "return_in_past": "The return is in the past."
   },
   "sizes": {
    "small": "Small (e.g. skylight)",
@@ -5808,7 +5982,7 @@ export const HEATING = {
    ],
    "vacation_entities": [
     "Urlaubs-Entitäten",
-    "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender)."
+    "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer."
    ],
    "vacation_temperature": [
     "Urlaubstemperatur",
@@ -5816,11 +5990,15 @@ export const HEATING = {
    ],
    "return_entity": [
     "Rückkehr Datum/Uhrzeit",
-    "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist."
+    "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist. Die Rückkehr des Schalters „Urlaub“ hat Vorrang; ohne sie gilt eine unter Einstellungen > Urlaub eingetragene."
    ],
    "preheat_reserve": [
     "Vorheiz-Reserve",
     "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min)."
+   ],
+   "vacation_ventilation_pause": [
+    "Lüftungsempfehlung ruht",
+    "Im Urlaub zeigt die Lüftungsempfehlung „Urlaub“, „Lüften empfohlen“ ist aus. Urlaubsminuten zählen nicht für die KI-Lüftungsprüfung und gehen nicht ins Feuchteprofil ein."
    ],
    "emergency_enabled": [
     "Notfallregel",
@@ -6240,7 +6418,8 @@ export const HEATING = {
     "ventilation_useful": "Lüften sinnvoll",
     "do_not_ventilate": "Nicht lüften",
     "blocked": "Lüften blockiert",
-    "optimal": "Alles optimal"
+    "optimal": "Alles optimal",
+    "vacation": "Urlaub"
    },
    "phase": {
     "ai_leads": "KI führt",
@@ -6325,7 +6504,7 @@ export const HEATING = {
    ],
    "vacation_entities": [
     "Vacation entities",
-    "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar)."
+    "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts."
    ],
    "vacation_temperature": [
     "Vacation temperature",
@@ -6333,11 +6512,15 @@ export const HEATING = {
    ],
    "return_entity": [
     "Return date/time",
-    "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return."
+    "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return. The return of the switch “Vacation” comes first; without it one set under Settings > Vacation."
    ],
    "preheat_reserve": [
     "Preheat reserve",
     "Additional time added to the calculated preheating time (e.g. 30 min)."
+   ],
+   "vacation_ventilation_pause": [
+    "Ventilation advice rests",
+    "On vacation the ventilation advice shows “Vacation”, “ventilation recommended” is off. Vacation minutes do not count for the AI ventilation check and stay out of the humidity profile."
    ],
    "emergency_enabled": [
     "Emergency rule",
@@ -6757,7 +6940,8 @@ export const HEATING = {
     "ventilation_useful": "Ventilation useful",
     "do_not_ventilate": "Do not ventilate",
     "blocked": "Ventilation blocked",
-    "optimal": "All fine"
+    "optimal": "All fine",
+    "vacation": "Vacation"
    },
    "phase": {
     "ai_leads": "AI leads",
@@ -7136,7 +7320,7 @@ export const SHUTTER = {
    ],
    "vacation_entities": [
     "Urlaubs-Entitäten",
-    "Urlaub ist aktiv, solange eine davon an ist (z. B. ein input_boolean „Urlaub“ oder ein Kalender)."
+    "Urlaub ist aktiv, solange eine davon an ist (z. B. ein input_boolean „Urlaub“ oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer."
    ],
    "vacation_evening_start": [
     "Urlaub abends ab",
@@ -7145,6 +7329,10 @@ export const SHUTTER = {
    "vacation_evening_window": [
     "Zufallszeitraum abends",
     "Jedes Fenster schließt zu einer zufälligen Zeit in diesem Zeitraum."
+   ],
+   "vacation_heat_protection": [
+    "Hitzeschutz im Urlaub",
+    "Der Sonnenschutz senkt im Urlaub ab, ohne auf Raumtemperatur, Klimaanlage oder Heizbedarf zu warten. Sommertag, Außentemperatur, Sonnensensoren, Haltezeiten und der Sonnenschalter des Fensters gelten weiter."
    ],
    "vacation_morning_start": [
     "Urlaub morgens ab",
@@ -7578,7 +7766,7 @@ export const SHUTTER = {
    ],
    "vacation_entities": [
     "Vacation entities",
-    "Vacation is active while one of them is on (e.g. an input_boolean \"vacation\" or a calendar)."
+    "Vacation is active while one of them is on (e.g. an input_boolean \"vacation\" or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts."
    ],
    "vacation_evening_start": [
     "Vacation evening from",
@@ -7587,6 +7775,10 @@ export const SHUTTER = {
    "vacation_evening_window": [
     "Random period in the evening",
     "Each window closes at a random time within this period."
+   ],
+   "vacation_heat_protection": [
+    "Heat protection on vacation",
+    "On vacation the sun protection lowers without waiting for room temperature, air conditioner or heat need. Summer day, outdoor temperature, sun sensors, hold times and the sun switch of the window still apply."
    ],
    "vacation_morning_start": [
     "Vacation morning from",
@@ -8015,6 +8207,18 @@ export const METER = {
    "notify_failed": [
     "Unlesbar oder Fehler",
     "KI liest nichts Eindeutiges, oder Kamera bzw. KI nicht erreichbar. Unlesbare Ablesungen unterbrechen die Zählung der anderen Fälle nicht."
+   ],
+   "vacation_alert": [
+    "Im Urlaub warnen",
+    "Standard: an beim Wasserzähler, sonst aus."
+   ],
+   "vacation_amount": [
+    "Menge",
+    "Verbrauch seit Urlaubsbeginn in Litern (Wasser, Gas) bzw. kWh (Strom), ab dem gewarnt wird. 0 = aus. Standard Wasser: 20 L."
+   ],
+   "vacation_rate": [
+    "Mittlerer Durchfluss bzw. Leistung",
+    "Mittel seit Urlaubsbeginn in L/h bzw. kW (frühestens nach einer Stunde), ab dem gewarnt wird. Bei Gas und Strom die Grundlast eintragen. 0 = aus. Standard Wasser: 5 L/h."
    ]
   },
   "sections": {
@@ -8045,6 +8249,10 @@ export const METER = {
    "notify_section": [
     "Benachrichtigungen",
     "Ab dem wievielten Mal in Folge eine Benachrichtigung in Home Assistant erscheint (0 = nie, 1 = sofort). Eine gültige Ablesung setzt die Zählung zurück. Gilt nur, solange in den Einstellungen der Integration Benachrichtigungen eingeschaltet sind."
+   ],
+   "vacation_section": [
+    "Urlaub",
+    "Warnt, wenn im Urlaub etwas läuft: eine Meldung, ein Logbuch-Eintrag und das Ereignis house_assistant_vacation_alert, einmal je Urlaub und Fall. Gezählt ab der letzten gültigen Ablesung vor dem Urlaub. Nicht für den Wärmezähler."
    ]
   },
   "errors": {
@@ -8233,6 +8441,18 @@ export const METER = {
    "notify_failed": [
     "Unreadable or error",
     "The AI reads nothing clear, or the camera or AI is not reachable. Unreadable readings do not interrupt the count of the other cases."
+   ],
+   "vacation_alert": [
+    "Warn on vacation",
+    "Default: on for a water meter, else off."
+   ],
+   "vacation_amount": [
+    "Amount",
+    "Used since the vacation started, in litres (water, gas) or kWh (electricity), from which it warns. 0 = off. Default water: 20 L."
+   ],
+   "vacation_rate": [
+    "Mean flow or power",
+    "Mean since the vacation started in L/h or kW (after an hour at the earliest) from which it warns. For gas and electricity enter the base load. 0 = off. Default water: 5 L/h."
    ]
   },
   "sections": {
@@ -8263,6 +8483,10 @@ export const METER = {
    "notify_section": [
     "Notifications",
     "From the how-many-th time in a row a notification appears in Home Assistant (0 = never, 1 = at once). A valid reading starts the count again. Only while notifications are switched on in the settings of the integration."
+   ],
+   "vacation_section": [
+    "Vacation",
+    "Warns when something runs on vacation: a message, a logbook entry and the event house_assistant_vacation_alert, once per vacation and case. Counted from the last valid reading before the vacation. Not for the heat meter."
    ]
   },
   "errors": {

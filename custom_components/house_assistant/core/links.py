@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from ..const import DOMAIN, MODULE_HEATING, MODULE_METER
+from ..const import DOMAIN, MODULE_HEATING, MODULE_METER, MODULE_SHUTTER
 from .entry import running_module
 
 # status of a meter reading confirmed below the previous one (meter.logic.reading)
@@ -70,3 +70,27 @@ def room_target(hass: HomeAssistant, room_id: str | None) -> float | None:
     if area is None or not area.has_circuit:
         return None
     return float(area.target)
+
+
+def preheat_start(hass: HomeAssistant) -> float | None:
+    """Earliest start of preheating for the return of a vacation (timestamp), None
+    without the heating or without a return ahead."""
+    coordinator = _heating(hass)
+    return coordinator.preheat_from if coordinator is not None else None
+
+
+def vacation_simulation(hass: HomeAssistant) -> bool | None:
+    """Do covers take part in the presence simulation of a vacation? None without the
+    cover module."""
+    engine = getattr(running_module(hass, MODULE_SHUTTER), "engine", None)
+    if engine is None:
+        return None
+    return any(win.rules.vacation for win in engine.windows.values())
+
+
+def leak_meters(hass: HomeAssistant) -> list[str] | None:
+    """Meters that warn when something runs on vacation, None without the meter module."""
+    manager = getattr(running_module(hass, MODULE_METER), "manager", None)
+    if manager is None:
+        return None
+    return [meter.title for meter in manager.meters.values() if meter.leak_warning]

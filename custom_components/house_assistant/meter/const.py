@@ -6,7 +6,7 @@ import logging
 
 from ..const import DOMAIN, MODULE_METER, NAME, STORAGE_VERSION, SUBENTRY_METER
 from .logic.image import crop_after_rotation, rotation
-from .logic.units import TYPE_DEFAULTS, TYPE_HEAT
+from .logic.units import TYPE_DEFAULTS, TYPE_HEAT, TYPE_WATER
 
 __all__ = ["DOMAIN", "MODULE_METER", "NAME", "STORAGE_VERSION", "SUBENTRY_METER"]
 
@@ -83,6 +83,13 @@ CONF_NOTIFY_SMALLER = "notify_smaller"
 CONF_NOTIFY_TOO_LARGE = "notify_too_large"
 CONF_NOTIFY_CORRECTED = "notify_corrected"
 CONF_NOTIFY_FAILED = "notify_failed"
+# warning on vacation: amount used since its start (L or kWh) and mean flow or power
+# (L/h or kW) above the base load; 0 switches a case off; not for the heat meter
+CONF_VACATION_ALERT = "vacation_alert"
+CONF_VACATION_AMOUNT = "vacation_amount"
+CONF_VACATION_RATE = "vacation_rate"
+# on by default only for water: 20 L or 5 L/h are a dripping tap or a running toilet
+VACATION_DEFAULTS = {TYPE_WATER: (True, 20.0, 5.0)}
 
 SECTION_CAMERA = "camera_section"
 SECTION_EXTERNAL_LIGHT = "external_light_section"
@@ -91,6 +98,7 @@ SECTION_DISPLAY = "display_section"
 SECTION_SCHEDULE = "schedule_section"
 SECTION_CHECKS = "checks_section"
 SECTION_NOTIFY = "notify_section"
+SECTION_VACATION = "vacation_section"
 METER_SECTIONS = (
     SECTION_CAMERA,
     SECTION_EXTERNAL_LIGHT,
@@ -99,6 +107,7 @@ METER_SECTIONS = (
     SECTION_SCHEDULE,
     SECTION_CHECKS,
     SECTION_NOTIFY,
+    SECTION_VACATION,
 )
 
 METER_DEFAULTS = {
@@ -134,12 +143,16 @@ METER_DEFAULTS = {
 def type_defaults(meter_type: str) -> dict:
     """Defaults that depend on the meter type."""
     d = TYPE_DEFAULTS.get(meter_type, TYPE_DEFAULTS[TYPE_HEAT])
+    alert, amount, rate = VACATION_DEFAULTS.get(meter_type, (False, 0.0, 0.0))
     return {
         CONF_UNIT: d.unit,
         CONF_DECIMALS: d.decimals,
         CONF_MAX_RATE: d.max_rate,
         CONF_MAX_CORRECTION: d.max_correction,
         CONF_INTERVAL: d.interval,
+        CONF_VACATION_ALERT: alert,
+        CONF_VACATION_AMOUNT: amount,
+        CONF_VACATION_RATE: rate,
     }
 
 

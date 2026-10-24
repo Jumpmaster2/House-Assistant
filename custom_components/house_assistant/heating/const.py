@@ -49,6 +49,8 @@ CONF_VACATION_ENTITIES = "vacation_entities"
 CONF_VACATION_TEMP = "vacation_temperature"
 CONF_RETURN_ENTITY = "return_entity"
 CONF_PREHEAT_RESERVE = "preheat_reserve"
+# the ventilation advice rests on vacation (nobody airs, nobody makes the air humid)
+CONF_VACATION_VENT_PAUSE = "vacation_ventilation_pause"
 
 CONF_EMERGENCY_ENABLED = "emergency_enabled"
 CONF_EMERGENCY_DELTA = "emergency_delta"
@@ -163,6 +165,7 @@ DEFAULTS: Final[dict[str, object]] = {
     CONF_VACATION_ENTITIES: [],
     CONF_VACATION_TEMP: 18.0,
     CONF_PREHEAT_RESERVE: 30,
+    CONF_VACATION_VENT_PAUSE: True,
     CONF_EMERGENCY_ENABLED: True,
     CONF_EMERGENCY_DELTA: 1.0,
     CONF_EMERGENCY_DURATION: 45,
