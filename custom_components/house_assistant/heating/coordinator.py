@@ -1540,8 +1540,11 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         day, month = _periods()
         self.room_energy.heating(area.area_id, minutes / 60, delta, day, month)
 
-    def rooms_on(self) -> bool:
-        """Is the circuit of a room on? Its start and its end ask for a meter reading."""
+    def rooms_on(self) -> bool | None:
+        """Is the circuit of a room on? Its start and its end ask for a meter reading. None
+        before the first tick: the switches are not read yet, their state is unknown."""
+        if not self._tick_count:
+            return None
         return any(area.switch_on for area in self.areas.values())
 
     def room_heating(self) -> bool:

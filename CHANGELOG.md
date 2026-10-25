@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b8 (2026-10-25)
+
+### Fixed
+
+- A restart of Home Assistant (or a reload of the heating) asked for an extra reading of the heat meter: the first state of the heating after the start counted as a start or end of a heating phase. The state the heating has at the start is now the starting point, only a real change of a room's circuit asks for a reading.
+
 ## 1.0.0b7 (2026-10-25)
 
 ### Fixed

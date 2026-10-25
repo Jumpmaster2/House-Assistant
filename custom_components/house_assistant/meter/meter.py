@@ -28,7 +28,14 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from ..const import CONF_LANGUAGE, EVENT_LOGBOOK, EVENT_VACATION_ALERT, SIGNAL_VACATION
-from ..core.links import SIGNAL_HEATING, heating_day, is_heat_meter, room_heating, rooms_on
+from ..core.links import (
+    SIGNAL_HEATING,
+    heating_day,
+    is_heat_meter,
+    room_heating,
+    rooms_on,
+    rooms_on_at_setup,
+)
 from ..core.notify import async_notify
 from ..core.store import module_store
 from .const import (
@@ -872,6 +879,9 @@ class MeterManager:
         self.module.async_on_stop(
             async_dispatcher_connect(self.hass, SIGNAL_VACATION, self._sync_vacation)
         )
+        # the heating starts before the meters: its start is not signalled to them, so the
+        # state it has now is the starting point (a start of a room is a change from it)
+        self._heating_seen = rooms_on_at_setup(self.module.runtime)
         self.module.async_on_stop(
             async_dispatcher_connect(self.hass, SIGNAL_HEATING, self._heating_changed)
         )
@@ -914,6 +924,14 @@ class MeterManager:
         for meter in self.meters.values():
             meter.notify()
         heating = rooms_on(self.hass)
+        if heating is None:
+            # the heating is not reachable (not started, or its first tick did not run yet):
+            # there is no state to compare with, the last known state is kept
+            return
+        if self._heating_seen is None:
+            # the first known state is the starting point, no change
+            self._heating_seen = heating
+            return
         if heating == self._heating_seen:
             return
         self._heating_seen = heating
