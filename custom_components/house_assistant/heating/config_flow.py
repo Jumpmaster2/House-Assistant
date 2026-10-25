@@ -964,6 +964,7 @@ def _fields_of(schema: vol.Schema) -> list[str]:
 def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
     flat: dict[str, Any] = {
         CONF_AREA_NAME: str(user_input.get(CONF_AREA_NAME, "")).strip(),
+        CONF_AREA: user_input.get(CONF_AREA),
         CONF_FLOOR_AREA: user_input.get(CONF_FLOOR_AREA),
     }
     for key in (

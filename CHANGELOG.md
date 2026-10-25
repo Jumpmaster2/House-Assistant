@@ -12,6 +12,10 @@
 - Heat meters and meters with the condition *Heating day* use the readings above instead of the intervals *Interval* and *Interval while the condition is off*. Without the heating module the old intervals apply.
 - The house panel shows the floor area of the rooms.
 
+### Fixed
+
+- Rooms added or changed in the settings dialog of the heating (a room of the integration) lost their Home Assistant area: it was not saved when the room was added, and every change of the room cleared it. The house panel was not affected.
+
 ## 1.0.0b4 (2026-10-25)
 
 ### Changed
