@@ -37,6 +37,7 @@ from homeassistant.util.unit_conversion import PowerConverter, TemperatureConver
 
 from ..const import CONF_LANGUAGE, SIGNAL_VACATION
 from ..core.house import (
+    CONF_FLOOR_AREA,
     CONF_TILT_SENSORS,
     CONF_WINDOW_SENSORS,
     house_plan,
@@ -190,6 +191,7 @@ from .logic.learning import (
 )
 from .logic.physics import absolute_humidity, clamp, in_season, parse_day_month
 from .logic.prompts import check_messages, nightly_messages, r, vent_check_messages
+from .logic.room_energy import RoomEnergyModel
 from .logic.start_values import (
     LEARNED_BOUNDS,
     apply_start_values,
@@ -249,6 +251,9 @@ PV_MISSING_WARN_MIN = 60.0  # daytime minutes without a PV value before a warnin
 OUTAGE_ISSUE_S = 15 * 60  # s a sensor or switch may be missing before a repair issue
 CMD_RETRY_MIN = (1, 2, 4, 8, 15)  # min before a switch command without effect is repeated
 CMD_ISSUE_ATTEMPTS = 3  # commands without effect before a repair issue
+# s after the last switch-off the meter is still read often: the heating phase closes at
+# the first reading that changes, which may never come (no heat left to count)
+OPEN_PHASE_MAX_S = 2 * 3600.0
 # Repair issues of this integration (translation keys; the issue id adds the area id).
 SWITCH_OFF_TIMEOUT = 10  # s to wait for a circuit to switch off when control ends
 TEMP_RANGE = (-50.0, 80.0)  # °C a temperature sensor can plausibly report
@@ -402,6 +407,8 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         self.ai_state: dict[str, Any] = {}
         self.budget = Budget()
         self.meter = HeatMeter()
+        self.room_energy = RoomEnergyModel()
+        self._last_room_off: float | None = None  # last switch-off of a room (see room_heating)
         self.client: ClaudeClient | None = None
         self.global_device_id: str | None = None
         self.outdoor_temp: float | None = None
@@ -577,6 +584,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         # Judged again at the next call: the budget may have been raised meanwhile.
         self.budget.blocked = False
         self.meter = HeatMeter.from_dict(stored.get("meter"))
+        self.room_energy = RoomEnergyModel.from_dict(stored.get("room_energy"))
         scale = (stored.get("sun") or {}).get("scale")
         self.sun_scale = SunScale(float(scale) if isinstance(scale, int | float) else None)
         stored_areas: dict[str, Any] = stored.get("areas", {})
@@ -613,6 +621,14 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             )
 
         self._clamp_to_limits()
+        # rooms that can heat and have a floor area take part in the split of the meter
+        self.room_energy.set_areas(
+            {
+                area.area_id: area.cfg[CONF_FLOOR_AREA]
+                for area in self.areas.values()
+                if area.has_circuit and area.cfg.get(CONF_FLOOR_AREA) is not None
+            }
+        )
         self._release_circuits(stored.get("circuits"), stored.get("release"))
         self._drop_stale_issues()
         self._register_listeners()
@@ -1213,6 +1229,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             },
             "release": self._pending_release,
             "meter": self.meter.as_dict(),
+            "room_energy": self.room_energy.as_dict(),
         }
 
     def diagnostics(self) -> dict[str, Any]:
@@ -1255,6 +1272,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         for area in self.areas.values():
             await self._tick_area(area, ts, minutes, heating_day, return_ts)
         self._update_meter(ts, minutes)
+        self.room_energy.roll(*_periods())
 
         # Missing or expired decision (first start, HA was down at the nightly run).
         # Started after the areas were read so the decision sees current values. Outside
@@ -1284,9 +1302,11 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         if not entity_id:
             if self.meter.entity:
                 self.meter = HeatMeter()  # set again later: the gap would count as one span
+                self.room_energy.restart()
             return
         if self.meter.entity != entity_id:
             self.meter = HeatMeter(entity=entity_id)  # readings of another meter do not compare
+            self.room_energy.restart()
         controlled = [a for a in self.areas.values() if a.has_circuit and a.hvac_on]
         if self.season_active and controlled and self.outdoor_temp is not None and minutes > 0:
             # The meter covers all circuits: the demand is the mean over the areas.
@@ -1324,9 +1344,11 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             # arrives up to a minute later here) and tells a correction from a reset
             reading = meter_reading(self.hass, entity_id)
             if reading is None:
-                self.meter.update(kwh, ts)
+                changed = self.meter.update(kwh, ts)
             else:
-                self.meter.update(kwh, min(reading.ts, ts), reading.corrected)
+                changed = self.meter.update(kwh, min(reading.ts, ts), reading.corrected)
+            if changed:  # a new value closes the heating phase: split it over the rooms
+                self.room_energy.reading(kwh, today.isoformat(), first.strftime("%Y-%m"))
             for name in ("check", "day", "today", "month"):  # periods start with the first reading
                 if name not in self.meter.baselines:
                     self.meter.rebase(name)
@@ -1482,6 +1504,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         area.window_open = area.own_window_open or area.draft
 
         if area.has_circuit:
+            was_on = area.switch_on
             switch_state = self._state(cfg[CONF_SWITCH])
             area.switch_available = switch_state is not None and switch_state.state in ("on", "off")
             area.switch_on = switch_state is not None and switch_state.state == STATE_ON
@@ -1490,6 +1513,10 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             )
             if area.switch_on and area.on_since is None:
                 area.on_since = area.last_switch_change
+            if was_on and not area.switch_on:
+                self._last_room_off = ts
+            if area.switch_on:
+                self._room_heat(area, minutes)
             sensor_id, switch_id = cfg[CONF_TEMP_SENSOR], cfg[CONF_SWITCH]
             self._track_outage("sensor_unavailable", area, sensor_id, area.temp is None, ts)
             self._track_outage(
@@ -1501,6 +1528,24 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             area.effective_target = None
 
         self._ventilation(area, heating_day, ts, minutes)
+
+    def _room_heat(self, area: Area, minutes: float) -> None:
+        """Run time and demand of a room, for the split of the heat meter per room."""
+        target = area.effective_target or area.target
+        delta = target - self.outdoor_temp if self.outdoor_temp is not None else 0.0
+        day, month = _periods()
+        self.room_energy.heating(area.area_id, minutes / 60, delta, day, month)
+
+    def room_heating(self) -> bool:
+        """A room heats now, or a heating phase waits for the reading after its end: the
+        heat meter is then read at the short interval."""
+        if any(area.switch_on for area in self.areas.values()):
+            return True
+        return (
+            bool(self.room_energy.runs)
+            and self._last_room_off is not None
+            and dt_util.utcnow().timestamp() - self._last_room_off < OPEN_PHASE_MAX_S
+        )
 
     def _draft(self, area: Area) -> None:
         """Draft through windows of other rooms: every window of one combination open (by
@@ -3059,6 +3104,12 @@ def _parse_time(value: str) -> time:
 def _local_date(item: dict[str, Any]) -> str | None:
     parsed = dt_util.parse_datetime(str(item.get("datetime", "")))
     return dt_util.as_local(parsed).date().isoformat() if parsed else None
+
+
+def _periods() -> tuple[str, str]:
+    """Calendar day and month of now: the counters of the rooms start over with them."""
+    today = dt_util.now().date()
+    return today.isoformat(), today.strftime("%Y-%m")
 
 
 def _today_extremes(

@@ -33,11 +33,14 @@ from .entity import global_device_info
 from .select import HeatingDayOverride
 from .sensor import (
     AREA_SENSORS,
+    ROOM_HEAT_KEYS,
     AiCostSensor,
     AiTimestampSensor,
     AreaSensor,
     HeatingDayPhaseSensor,
     HeatTodaySensor,
+    RoomHeatSensor,
+    UnassignedHeatSensor,
 )
 from .switch import AiEnabledSwitch
 
@@ -89,6 +92,8 @@ class HeatingModule(Module):
             sorted((a.area_id, a.target) for a in coordinator.areas.values() if a.has_circuit),
             # the house shows when preheating for the return of a vacation starts
             coordinator.preheat_from,
+            # start and end of a heating phase: the heat meter is read then
+            coordinator.room_heating(),
         )
         if current != self._announced:
             self._announced = current
@@ -130,9 +135,13 @@ class HeatingModule(Module):
         coordinator = self.coordinator
         assert coordinator is not None
         stale = set()
-        if not coordinator.opt(CONF_HEAT_METER):
+        heat_meter = bool(coordinator.opt(CONF_HEAT_METER))
+        if not heat_meter:
             stale.add(f"{self.entry.entry_id}_heat_today")
+            stale.add(f"{self.entry.entry_id}_unassigned_heat")
         for area in coordinator.areas.values():
+            if not heat_meter or not area.has_circuit:
+                stale.update(f"{area.area_id}_{key}" for key in ROOM_HEAT_KEYS.values())
             if not area.has_circuit:
                 stale.add(f"{area.area_id}_climate")
                 stale.update(f"{area.area_id}_{d.key}" for d in AREA_SENSORS if d.circuit_only)
@@ -186,8 +195,10 @@ class HeatingModule(Module):
                 AiTimestampSensor(coordinator, "ai_next_vent_check", "next_check", vent=True),
                 AiCostSensor(coordinator),
             ]
-            if coordinator.opt(CONF_HEAT_METER):
+            heat_meter = bool(coordinator.opt(CONF_HEAT_METER))
+            if heat_meter:
                 globals_.append(HeatTodaySensor(coordinator))
+                globals_.append(UnassignedHeatSensor(coordinator))
             return [
                 (None, globals_),
                 *(
@@ -197,7 +208,15 @@ class HeatingModule(Module):
                             AreaSensor(coordinator, area.area_id, description)
                             for description in AREA_SENSORS
                             if area.has_circuit or not description.circuit_only
-                        ],
+                        ]
+                        + (
+                            [
+                                RoomHeatSensor(coordinator, area.area_id, kind)
+                                for kind in ROOM_HEAT_KEYS
+                            ]
+                            if heat_meter and area.has_circuit
+                            else []
+                        ),
                     )
                     for area in areas
                 ),

@@ -876,11 +876,13 @@
           "description": "Ein Raum des Hauses. Mit Temperatursensor bekommt er Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat. Fenster werden als Fenster angelegt und dort dem Raum zugeordnet.",
           "data": {
             "name": "Name",
-            "area": "Bereich (Home Assistant)"
+            "area": "Bereich (Home Assistant)",
+            "floor_area": "Wohnfläche"
           },
           "data_description": {
             "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
-            "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
+            "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften.",
+            "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
           },
           "sections": {
             "sensors": {
@@ -976,11 +978,13 @@
           "description": "Ein Raum des Hauses. Mit Temperatursensor bekommt er Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat. Fenster werden als Fenster angelegt und dort dem Raum zugeordnet.",
           "data": {
             "name": "Name",
-            "area": "Bereich (Home Assistant)"
+            "area": "Bereich (Home Assistant)",
+            "floor_area": "Wohnfläche"
           },
           "data_description": {
             "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
-            "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
+            "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften.",
+            "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
           },
           "sections": {
             "sensors": {
@@ -1520,13 +1524,17 @@
                 "interval": "Intervall",
                 "condition_entity": "Bedingung",
                 "condition_heating_day": "Tage ohne Heizen wie Bedingung aus",
-                "interval_off": "Intervall, wenn die Bedingung aus ist"
+                "interval_off": "Intervall, wenn die Bedingung aus ist",
+                "heating_interval": "Intervall, solange ein Raum heizt",
+                "idle_interval": "Intervall sonst"
               },
               "data_description": {
                 "interval": "Zeit zwischen zwei automatischen Ablesungen.",
                 "condition_entity": "Optional. Solange diese Entität 'aus' ist, gilt das zweite Intervall (z. B. ein Heiztag-Sensor).",
                 "condition_heating_day": "Das zweite Intervall gilt auch an Tagen ohne Heizen (Heiztag des Heizungsmoduls, nur in der Heizperiode). Ist die Heizung aus oder der Heiztag unbekannt, gilt das normale Intervall.",
-                "interval_off": "Nur zusammen mit einer Bedingung oder den Tagen ohne Heizen."
+                "interval_off": "Nur zusammen mit einer Bedingung oder den Tagen ohne Heizen.",
+                "heating_interval": "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt. Jede Änderung des Zählerwerts schließt eine Heizphase ab.",
+                "idle_interval": "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, wenn kein Raum heizt (dann nur zur Kontrolle)."
               }
             },
             "checks_section": {
@@ -1670,12 +1678,16 @@
               "data": {
                 "interval": "Intervall",
                 "condition_entity": "Bedingung",
-                "interval_off": "Intervall, wenn die Bedingung aus ist"
+                "interval_off": "Intervall, wenn die Bedingung aus ist",
+                "heating_interval": "Intervall, solange ein Raum heizt",
+                "idle_interval": "Intervall sonst"
               },
               "data_description": {
                 "interval": "Zeit zwischen zwei automatischen Ablesungen.",
                 "condition_entity": "Optional. Solange diese Entität 'aus' ist, gilt das zweite Intervall (z. B. ein Heiztag-Sensor).",
-                "interval_off": "Nur zusammen mit einer Bedingung."
+                "interval_off": "Nur zusammen mit einer Bedingung.",
+                "heating_interval": "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt. Jede Änderung des Zählerwerts schließt eine Heizphase ab.",
+                "idle_interval": "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, wenn kein Raum heizt (dann nur zur Kontrolle)."
               }
             },
             "checks_section": {
@@ -2083,6 +2095,60 @@
             "name": "Letzter Zählerwert"
           }
         }
+      },
+      "heat_consumption": {
+        "name": "Wärmeverbrauch",
+        "state_attributes": {
+          "floor_area_missing": {
+            "name": "Fläche fehlt"
+          },
+          "confidence": {
+            "name": "Sicherheit"
+          },
+          "kwh_since_last_reading_estimate": {
+            "name": "Schätzung seit letzter Ablesung"
+          },
+          "minutes_heated_today": {
+            "name": "Heizminuten heute"
+          }
+        }
+      },
+      "heat_consumption_today": {
+        "name": "Wärmeverbrauch heute",
+        "state_attributes": {
+          "floor_area_missing": {
+            "name": "Fläche fehlt"
+          },
+          "confidence": {
+            "name": "Sicherheit"
+          },
+          "kwh_since_last_reading_estimate": {
+            "name": "Schätzung seit letzter Ablesung"
+          },
+          "minutes_heated_today": {
+            "name": "Heizminuten heute"
+          }
+        }
+      },
+      "heat_power": {
+        "name": "Heizleistung geschätzt",
+        "state_attributes": {
+          "floor_area_missing": {
+            "name": "Fläche fehlt"
+          },
+          "confidence": {
+            "name": "Sicherheit"
+          },
+          "kwh_since_last_reading_estimate": {
+            "name": "Schätzung seit letzter Ablesung"
+          },
+          "minutes_heated_today": {
+            "name": "Heizminuten heute"
+          }
+        }
+      },
+      "unassigned_heat": {
+        "name": "Nicht zugeordnet"
       },
       "ai_last_vent_check": {
         "name": "Letzte KI-Lüftungsprüfung"

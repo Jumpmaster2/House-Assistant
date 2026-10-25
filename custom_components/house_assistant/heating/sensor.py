@@ -17,6 +17,7 @@ from homeassistant.const import (
     PERCENTAGE,
     EntityCategory,
     UnitOfEnergy,
+    UnitOfPower,
     UnitOfTemperature,
     UnitOfTime,
 )
@@ -326,4 +327,82 @@ class HeatTodaySensor(GlobalEntity, SensorEntity):
             "month": meter.kwh_since("month"),
             "last_month": meter.closed.get("last_month"),
             "meter_reading_at": dt_util.utc_from_timestamp(last.ts).isoformat() if last else None,
+        }
+
+
+# heat of a room from the heat meter (logic.room_energy): total and today in kWh, and the
+# estimated power in kW
+ROOM_HEAT_KEYS = {
+    "total": "heat_consumption",
+    "today": "heat_consumption_today",
+    "power": "heat_power",
+}
+
+
+class UnassignedHeatSensor(GlobalEntity, SensorEntity):
+    """Heat of the meter that no room heated (hot water, pipes). It only changes with
+    the readings of the meter, so the total never falls."""
+
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator: HeatingCoordinator) -> None:
+        super().__init__(coordinator, "unassigned_heat")
+
+    @property
+    def native_value(self) -> float:
+        return round(self.coordinator.room_energy.unassigned.total, 3)
+
+
+class RoomHeatSensor(AreaEntity, SensorEntity):
+    """Heat of one room: the total and the one of today, changed by the readings of the
+    meter; or the power the room gives off now, estimated from its floor area."""
+
+    def __init__(self, coordinator: HeatingCoordinator, area_id: str, kind: str) -> None:
+        super().__init__(coordinator, area_id, ROOM_HEAT_KEYS[kind])
+        self._kind = kind
+        if kind == "power":
+            self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_suggested_display_precision = 2
+            return
+        self._attr_device_class = SensorDeviceClass.ENERGY
+        self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+        # the day starts at midnight: a total that is reset there
+        self._attr_state_class = (
+            SensorStateClass.TOTAL if kind == "today" else SensorStateClass.TOTAL_INCREASING
+        )
+        self._attr_suggested_display_precision = 1
+
+    @property
+    def last_reset(self) -> datetime | None:
+        return dt_util.start_of_local_day() if self._kind == "today" else None
+
+    @property
+    def native_value(self) -> float | None:
+        model = self.coordinator.room_energy
+        if self.area_id not in model.areas:
+            return None  # no floor area: the room takes no part in the split
+        if self._kind == "power":
+            outdoor = self.coordinator.outdoor_temp
+            target = self.area.effective_target or self.area.target
+            delta = target - outdoor if outdoor is not None else 0.0
+            return round(model.power_kw(self.area_id, delta) or 0.0, 2)
+        counter = model.peek(self.area_id)
+        if self._kind == "today":
+            return round(counter.day_kwh, 3)
+        return round(counter.total, 3)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        model = self.coordinator.room_energy
+        counter = model.peek(self.area_id)
+        return {
+            "floor_area_missing": self.area_id not in model.areas,
+            "confidence": round(model.confidence(self.area_id), 2),
+            "kwh_since_last_reading_estimate": round(model.open_kwh(self.area_id), 3),
+            "minutes_heated_today": round(counter.day_hours * 60),
         }

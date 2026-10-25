@@ -1330,6 +1330,10 @@ export const LABELS = {
      "area": [
       "Bereich (Home Assistant)",
       "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
+     ],
+     "floor_area": [
+      "Wohnfläche",
+      "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
      ]
     },
     "sections": {
@@ -1469,6 +1473,10 @@ export const LABELS = {
      "area": [
       "Bereich (Home Assistant)",
       "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
+     ],
+     "floor_area": [
+      "Wohnfläche",
+      "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
      ]
     },
     "sections": {
@@ -2178,6 +2186,14 @@ export const LABELS = {
        "interval_off": [
         "Intervall, wenn die Bedingung aus ist",
         "Nur zusammen mit einer Bedingung oder den Tagen ohne Heizen."
+       ],
+       "heating_interval": [
+        "Intervall, solange ein Raum heizt",
+        "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt. Jede Änderung des Zählerwerts schließt eine Heizphase ab."
+       ],
+       "idle_interval": [
+        "Intervall sonst",
+        "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, wenn kein Raum heizt (dann nur zur Kontrolle)."
        ]
       }
      },
@@ -2393,6 +2409,14 @@ export const LABELS = {
        "interval_off": [
         "Intervall, wenn die Bedingung aus ist",
         "Nur zusammen mit einer Bedingung."
+       ],
+       "heating_interval": [
+        "Intervall, solange ein Raum heizt",
+        "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt. Jede Änderung des Zählerwerts schließt eine Heizphase ab."
+       ],
+       "idle_interval": [
+        "Intervall sonst",
+        "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, wenn kein Raum heizt (dann nur zur Kontrolle)."
        ]
       }
      },
@@ -4032,6 +4056,10 @@ export const LABELS = {
      "area": [
       "Area",
       "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
+     ],
+     "floor_area": [
+      "Floor area",
+      "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split."
      ]
     },
     "sections": {
@@ -4171,6 +4199,10 @@ export const LABELS = {
      "area": [
       "Area",
       "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
+     ],
+     "floor_area": [
+      "Floor area",
+      "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split."
      ]
     },
     "sections": {
@@ -4880,6 +4912,14 @@ export const LABELS = {
        "interval_off": [
         "Interval while the condition is off",
         "Only together with a condition or the days without heating."
+       ],
+       "heating_interval": [
+        "Interval while a room heats",
+        "Heat meters and meters of the heating day: time between two readings while a room heats. Every change of the value closes a heating phase."
+       ],
+       "idle_interval": [
+        "Interval otherwise",
+        "Heat meters and meters of the heating day: time between two readings while no room heats (then the meter is only checked)."
        ]
       }
      },
@@ -5095,6 +5135,14 @@ export const LABELS = {
        "interval_off": [
         "Interval while the condition is off",
         "Only used together with a condition."
+       ],
+       "heating_interval": [
+        "Interval while a room heats",
+        "Heat meters and meters of the heating day: time between two readings while a room heats. Every change of the value closes a heating phase."
+       ],
+       "idle_interval": [
+        "Interval otherwise",
+        "Heat meters and meters of the heating day: time between two readings while no room heats (then the meter is only checked)."
        ]
       }
      },
@@ -5417,6 +5465,10 @@ export const HOUSE = {
      "Bereich (Home Assistant)",
      "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
     ],
+    "floor_area": [
+     "Wohnfläche",
+     "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
+    ],
     "temperature_sensor": [
      "Temperatursensor",
      "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos)."
@@ -5673,6 +5725,10 @@ export const HOUSE = {
     "area": [
      "Area",
      "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
+    ],
+    "floor_area": [
+     "Floor area",
+     "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split."
     ],
     "temperature_sensor": [
      "Temperature sensor",
@@ -6200,6 +6256,10 @@ export const HEATING = {
     "Bereich (Home Assistant)",
     "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
    ],
+   "floor_area": [
+    "Wohnfläche",
+    "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
+   ],
    "temperature_sensor": [
     "Temperatursensor",
     "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos)."
@@ -6721,6 +6781,10 @@ export const HEATING = {
    "area": [
     "Area",
     "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
+   ],
+   "floor_area": [
+    "Floor area",
+    "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split."
    ],
    "temperature_sensor": [
     "Temperature sensor",
@@ -8168,6 +8232,14 @@ export const METER = {
     "Intervall, wenn die Bedingung aus ist",
     "Nur zusammen mit einer Bedingung oder den Tagen ohne Heizen."
    ],
+   "heating_interval": [
+    "Intervall, solange ein Raum heizt",
+    "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt. Jede Änderung des Zählerwerts schließt eine Heizphase ab."
+   ],
+   "idle_interval": [
+    "Intervall sonst",
+    "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, wenn kein Raum heizt (dann nur zur Kontrolle)."
+   ],
    "max_rate": [
     "Größter Anstieg pro Stunde",
     "In der Einheit des Zählers. Ein größerer Anstieg seit der letzten gültigen Ablesung wird verworfen (z. B. 0,05 MWh = 50 kW)."
@@ -8401,6 +8473,14 @@ export const METER = {
    "interval_off": [
     "Interval while the condition is off",
     "Only together with a condition or the days without heating."
+   ],
+   "heating_interval": [
+    "Interval while a room heats",
+    "Heat meters and meters of the heating day: time between two readings while a room heats. Every change of the value closes a heating phase."
+   ],
+   "idle_interval": [
+    "Interval otherwise",
+    "Heat meters and meters of the heating day: time between two readings while no room heats (then the meter is only checked)."
    ],
    "max_rate": [
     "Largest increase per hour",

@@ -156,6 +156,18 @@
       "heat_today": {
         "default": "mdi:heat-wave"
       },
+      "heat_consumption": {
+        "default": "mdi:heat-wave"
+      },
+      "heat_consumption_today": {
+        "default": "mdi:calendar-today"
+      },
+      "heat_power": {
+        "default": "mdi:speedometer"
+      },
+      "unassigned_heat": {
+        "default": "mdi:help-rhombus-outline"
+      },
       "room_status": {
         "default": "mdi:radiator"
       }

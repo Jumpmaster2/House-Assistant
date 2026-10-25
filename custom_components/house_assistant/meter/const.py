@@ -25,6 +25,8 @@ REJECTED_KEEP = 20
 
 # how often due readings are looked for
 CHECK_EVERY_MINUTES = 5
+# least time between two readings that the start or end of a heating phase asks for
+HEATING_READ_GAP_MINUTES = 5
 
 EVENT_READING = f"{DOMAIN}_meter_reading"
 SIGNAL_UPDATE = f"{DOMAIN}_meter_update_{{}}"
@@ -72,6 +74,9 @@ CONF_CONDITION = "condition_entity"
 CONF_INTERVAL_OFF = "interval_off"
 # the second interval also on days without heating (heating module)
 CONF_CONDITION_HEATING_DAY = "condition_heating_day"
+# heat meters (and meters of the heating day): read while a room heats, else rarely
+CONF_HEATING_INTERVAL = "heating_interval"
+CONF_IDLE_INTERVAL = "idle_interval"
 CONF_MAX_RATE = "max_rate"
 CONF_MAX_CORRECTION = "max_correction"
 CONF_MAX_ATTEMPTS = "max_attempts"
@@ -130,6 +135,8 @@ METER_DEFAULTS = {
     CONF_INTERVAL: 60,
     CONF_INTERVAL_OFF: 360,
     CONF_CONDITION_HEATING_DAY: False,
+    CONF_HEATING_INTERVAL: 15,
+    CONF_IDLE_INTERVAL: 1440,
     CONF_MAX_ATTEMPTS: 4,
     CONF_CONFIRMATIONS: 2,
     CONF_HISTORY_HINT: False,

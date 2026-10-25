@@ -33,6 +33,8 @@ from .logic.geometry import DEFAULT_REACH, Plan, WindowPlace, plan
 CONF_NAME: Final = "name"
 # room: Home Assistant area (the room device is placed there, it gives the floor)
 CONF_AREA: Final = "area"
+# room: floor area (m²), splits the heat meter over the rooms (heating.logic.room_energy)
+CONF_FLOOR_AREA: Final = "floor_area"
 CONF_TEMP_SENSOR: Final = "temperature_sensor"
 CONF_HUMIDITY_SENSOR: Final = "humidity_sensor"
 # room: air conditioner, the default of the windows of the room for the covers
