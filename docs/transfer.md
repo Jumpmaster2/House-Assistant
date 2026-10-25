@@ -40,15 +40,17 @@ Das Skript braucht nur Python 3.11 oder neuer, kein Home Assistant. Es schreibt 
 4. **Probelauf** (ändert nichts):
 
    ```bash
-   python3 scripts/transfer_legacy.py --config /config --dry-run
+   python3 scripts/transfer_legacy.py --config /config --media /media --dry-run
    ```
+
+   `--media` ist der Medienordner von Home Assistant; unter Home Assistant OS ist das `/media`, ohne Angabe gilt `<config>/media`. Im Bericht muss bei den Bildern der Zähler „found“ stehen, sonst stimmt der Ordner nicht.
 
    Er schreibt `transfer-plan.json` und `transfer-report.md`. Im Bericht stehen Räume, Fenster, Entitäten, Speicher, Bilder, Dashboards, Automationen und offene Punkte, z. B. ein Rollo-Fenster ohne Raum oder eine Einstellung, die in den Modulen verschieden war. Offene Punkte lassen sich in `transfer-plan.json` entscheiden (z. B. `"room"` eines Fensters eintragen) oder später im Panel.
 5. **Home Assistant stoppen** und umziehen:
 
    ```bash
    ha core stop
-   python3 scripts/transfer_legacy.py --config /config --apply transfer-plan.json --stopped
+   python3 scripts/transfer_legacy.py --config /config --media /media --apply transfer-plan.json --stopped
    ha core start
    ```
 
@@ -98,15 +100,17 @@ The script needs only Python 3.11 or newer, not Home Assistant. It writes the st
 4. **Dry run** (changes nothing):
 
    ```bash
-   python3 scripts/transfer_legacy.py --config /config --dry-run
+   python3 scripts/transfer_legacy.py --config /config --media /media --dry-run
    ```
+
+   `--media` is the media folder of Home Assistant; on Home Assistant OS that is `/media`, without it `<config>/media` applies. In the report the pictures of the meters must say "found", otherwise the folder is wrong.
 
    It writes `transfer-plan.json` and `transfer-report.md`. The report lists rooms, windows, entities, storage, pictures, dashboards, automations and open points, e.g. a cover window without a room or a setting that differed between the modules. Open points can be decided in `transfer-plan.json` (e.g. enter the `"room"` of a window) or later in the panel.
 5. **Stop Home Assistant** and transfer:
 
    ```bash
    ha core stop
-   python3 scripts/transfer_legacy.py --config /config --apply transfer-plan.json --stopped
+   python3 scripts/transfer_legacy.py --config /config --media /media --apply transfer-plan.json --stopped
    ha core start
    ```
 
