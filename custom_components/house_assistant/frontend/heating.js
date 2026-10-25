@@ -31,7 +31,7 @@ const UI = {
     cards: {
       sensors: ["Sensoren", "Außentemperatur, Wetter und PV für alle Räume."],
       season: ["Heizperiode und Frostschutz", "Außerhalb der Heizperiode bleiben alle Kreise aus (nur Frostschutz)."],
-      vacation: ["Urlaub", "Urlaubserkennung und Vorheizen zur Rückkehr."],
+      vacation: ["Urlaub", "Urlaubstemperatur und Vorheizen zur Rückkehr. Der Urlaub selbst, seine Quellen und die Rückkehr stehen im Haus."],
       emergency: ["Notfallregel", "Komfort-Sicherheitsnetz an Tagen ohne Heizbetrieb."],
       ventilation: ["Lüftung", "Globale Schwellen der Lüftungsempfehlung. Die Feuchte-Schwelle wird je Raum eingestellt."],
       apikey: ["API-Key", "Ohne API-Key läuft nur die lokale Regelung."],
@@ -136,7 +136,7 @@ const UI = {
       areas: "Räume",
       outdoor: "Außentemperatur",
       season: "Heizperiode",
-      vacation: "Urlaubs-Entitäten",
+      vacation: "Urlaubstemperatur",
       emergency: "Notfallregel",
       model: "KI-Modell",
     },
@@ -218,7 +218,7 @@ const UI = {
     cards: {
       sensors: ["Sensors", "Outdoor temperature, weather and PV for all rooms."],
       season: ["Heating period and frost protection", "Outside the heating period all circuits stay off (frost protection only)."],
-      vacation: ["Vacation", "Vacation detection and preheating for the return."],
+      vacation: ["Vacation", "Vacation temperature and preheating for the return. The vacation itself, its sources and the return are set in the house."],
       emergency: ["Emergency rule", "Comfort safety net on days without heating."],
       ventilation: ["Ventilation", "Global thresholds of the ventilation recommendation. The humidity threshold is set per room."],
       apikey: ["API key", "Without an API key only the local control runs."],
@@ -323,7 +323,7 @@ const UI = {
       areas: "Rooms",
       outdoor: "Outdoor temperature",
       season: "Heating period",
-      vacation: "Vacation entities",
+      vacation: "Vacation temperature",
       emergency: "Emergency rule",
       model: "AI model",
     },
@@ -413,7 +413,7 @@ const SETTINGS = {
   general: [
     { id: "sensors", icon: "mdi:thermometer", fields: ["outdoor_temperature", "outdoor_humidity", "weather", "pv_power", "pv_forecast", "forecast_trust", "heat_meter"] },
     { id: "season", icon: "mdi:calendar-range", fields: ["season_start", "season_end", "frost_temperature"] },
-    { id: "vacation", icon: "mdi:bag-suitcase-outline", fields: ["vacation_entities", "vacation_temperature", "return_entity", "preheat_reserve"] },
+    { id: "vacation", icon: "mdi:bag-suitcase-outline", fields: ["vacation_temperature", "preheat_reserve"] },
   ],
   rules: [
     { id: "emergency", icon: "mdi:alert-outline", fields: ["emergency_enabled", "emergency_delta", "emergency_duration", "emergency_window_quiet", "force_on_below"] },
@@ -1032,7 +1032,7 @@ class HouseAssistantHeatingView extends HTMLElement {
       ["areas", "mdi:home-thermometer-outline", g.areas, this._cfg.areas.map((a) => a.title).join(", ") || ui.none],
       ["general", "mdi:thermometer", g.outdoor, outdoorText],
       ["general", "mdi:calendar-range", g.season, `${o.season_start} – ${o.season_end}`],
-      ["general", "mdi:bag-suitcase-outline", g.vacation, (o.vacation_entities || []).map((id) => this._name(id)).join(", ") || ui.none],
+      ["general", "mdi:bag-suitcase-outline", g.vacation, o.vacation_temperature != null ? `${o.vacation_temperature} °C` : ui.none],
       ["rules", "mdi:alert-outline", g.emergency, o.emergency_enabled ? ui.on : ui.off],
       ["ai", "mdi:robot-outline", g.model, `${o.model} (${effort})`],
     ];

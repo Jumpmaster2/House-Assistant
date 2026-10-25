@@ -79,7 +79,7 @@ Ein hier eingetragener Wert gilt für alle Module. Ohne Wert gilt der in den Ein
 Ein Urlaub für alle Module, ohne eigene Helfer:
 
 * **Schalter Urlaub** am Gerät „House Assistant“, bleibt über Neustarts erhalten. **Abreise** und **Rückkehr** (`datetime`-Entitäten, beide optional): Zur Abreise schaltet sich der Urlaub ein, zur Rückkehr aus, danach sind beide wieder leer. Ist nur die Rückkehr gesetzt, gilt der Urlaub ab sofort. Eine Abreise nach der Rückkehr wird abgelehnt, eine Rückkehr in der Vergangenheit ignoriert. Einstellbar auch im Panel unter *Haus > Urlaub* und mit dem Dienst `house_assistant.set_vacation`.
-* **Externe Quellen** zählen weiterhin: Urlaubs-Entitäten (`input_boolean`, `binary_sensor`, `switch`, `calendar`, `schedule`; an = Urlaub) und eine Rückkehr-Entität. Ohne Quellen des Hauses gelten die der Heizung und der Rollos.
+* **Externe Quellen** zählen weiterhin: Urlaubs-Entitäten (`input_boolean`, `binary_sensor`, `switch`, `calendar`, `schedule`; an = Urlaub) und eine Rückkehr-Entität. Sie werden nur im Haus eingestellt (Einstellungen > Haus > Urlaub oder im Panel); Heizung und Rollos haben keine eigenen Quellen mehr, und die Optionen *Lüftungsempfehlung ruht* und *Hitzeschutz im Urlaub* stehen ebenfalls dort.
 * **Binärsensor Urlaub aktiv** mit Quelle, Beginn, Abreise, Rückkehr, Beginn des Vorheizens, Anwesenheitssimulation, Leckwarnung und nicht geschlossenen Fenstern. Ereignis `house_assistant_vacation` (`active`, `source`) und Logbuch-Eintrag bei Beginn und Ende. Das Panel zeigt im Urlaub ein Banner.
 
 Wirkung:

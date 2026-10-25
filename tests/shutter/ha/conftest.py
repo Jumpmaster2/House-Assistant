@@ -117,12 +117,11 @@ def make_entry(
         title="House Assistant",
         data={},
         options={
-            "core": {"modules": [MODULE_SHUTTER]},
+            "core": {"modules": [MODULE_SHUTTER], "vacation_entities": [VACATION]},
             MODULE_SHUTTER: {
                 **DEFAULTS,
                 CONF_OUTDOOR_TEMP: OUTDOOR,
                 "notify_services": ["notify.phone"],
-                "vacation_entities": [VACATION],
                 # the mocked covers never move: no position check unless a test wants it
                 "verify_after": 0,
                 **options,

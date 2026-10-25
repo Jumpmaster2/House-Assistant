@@ -38,7 +38,14 @@ from .const import (
     SUBENTRY_ROOM,
     SUBENTRY_WINDOW,
 )
-from .core.settings import HOUSE_FORM, VACATION_FORM, house_schema, vacation_schema, validate_house
+from .core.settings import (
+    HOUSE_FORM,
+    VACATION_FORM,
+    VACATION_OPTIONS,
+    house_schema,
+    vacation_schema,
+    validate_house,
+)
 from .heating.config_flow import HeatingOptionsSteps, HeatingSetupSteps, RoomSubentryFlow
 from .meter.config_flow import MeterSubentryFlow
 from .meter.config_flow import options_schema as meter_schema
@@ -215,14 +222,22 @@ class HouseAssistantOptionsFlow(HeatingOptionsSteps, ShutterOptionsSteps, Option
     async def async_step_vacation(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """External sources of the vacation of the house and its reports."""
+        """The vacation of the house: external sources, return, report of open windows and
+        the vacation options of the modules (they are set only here)."""
         entry = self.config_entry
         core = module_options(entry, OPT_CORE)
+        modules = [m for m in enabled_modules(entry) if m in (MODULE_HEATING, MODULE_SHUTTER)]
         if user_input is not None:
-            return self.async_create_entry(
-                data={**entry.options, OPT_CORE: _replaced(core, VACATION_FORM, user_input)}
-            )
-        return self.async_show_form(step_id=STEP_VACATION, data_schema=vacation_schema(core))
+            options = dict(entry.options)
+            options[OPT_CORE] = _replaced(core, VACATION_FORM, user_input)
+            for module, key, _default in VACATION_OPTIONS:
+                if module in modules and key in user_input:
+                    options[module] = {**module_options(entry, module), key: user_input[key]}
+            return self.async_create_entry(data=options)
+        values = {m: module_options(entry, m) for m in modules}
+        return self.async_show_form(
+            step_id=STEP_VACATION, data_schema=vacation_schema(core, modules, values)
+        )
 
     async def async_step_modules(
         self, user_input: dict[str, Any] | None = None

@@ -48,7 +48,10 @@ async def test_config_payload(hass: HomeAssistant, base_states, hass_ws_client) 
     assert storage["entities"]["ventilation"].startswith("sensor.")
     spec = cfg["option_specs"]["frost_temperature"]
     assert (spec["selector"], spec["min"], spec["max"]) == ("number", 0, 15)
-    assert cfg["option_specs"]["vacation_entities"]["multiple"] is True
+    # the sources of the vacation are set only in the house
+    assert "vacation_entities" not in cfg["option_specs"]
+    assert "return_entity" not in cfg["option_specs"]
+    assert cfg["option_specs"]["vacation_temperature"]["selector"] == "number"
     assert cfg["area_specs"]["temperature_sensor"]["domain"] == ["sensor"]
     assert isinstance(cfg["house"], dict)
 

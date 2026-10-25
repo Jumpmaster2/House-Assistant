@@ -71,17 +71,13 @@
       },
       "heating_vacation": {
         "title": "Vacation",
-        "description": "Vacation detection and preheating for the return.",
+        "description": "Vacation temperature and preheating for the return. The vacation itself, its external sources and the return are set in the house.",
         "data": {
-          "vacation_entities": "Vacation entities",
           "vacation_temperature": "Vacation temperature",
-          "return_entity": "Return date/time",
           "preheat_reserve": "Preheat reserve"
         },
         "data_description": {
-          "vacation_entities": "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar).",
           "vacation_temperature": "Target for all rooms during vacation.",
-          "return_entity": "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return.",
           "preheat_reserve": "Additional time added to the calculated preheating time."
         }
       },
@@ -270,12 +266,16 @@
         "data": {
           "vacation_entities": "External vacation entities",
           "return_entity": "External return",
-          "vacation_window_alert": "Report open windows"
+          "vacation_window_alert": "Report open windows",
+          "vacation_ventilation_pause": "Ventilation advice rests",
+          "vacation_heat_protection": "Heat protection on vacation"
         },
         "data_description": {
-          "vacation_entities": "While one of them is on it is vacation as well (e.g. an input_boolean or a calendar). For heating and covers; without an entry here the entities in their settings apply.",
-          "return_entity": "Optional: input_datetime, datetime or timestamp entity. The heating preheats for it; an own return of the switch comes first.",
-          "vacation_window_alert": "When the vacation starts a message with every open, tilted or unknown window; on vacation a message right away when a window is opened or tilted. To the notification services of the house, without any as a notification in Home Assistant."
+          "vacation_entities": "While one of them is on it is vacation as well (e.g. an input_boolean or a calendar). Applies to every module.",
+          "return_entity": "Optional: input_datetime, datetime or timestamp entity. The heating starts early enough (learned heat-up time plus reserve) to reach the normal target on return; an own return of the switch comes first.",
+          "vacation_window_alert": "When the vacation starts a message with every open, tilted or unknown window; on vacation a message right away when a window is opened or tilted. To the notification services of the house, without any as a notification in Home Assistant.",
+          "vacation_ventilation_pause": "On vacation the ventilation advice shows “Vacation”, “ventilation recommended” is off. Vacation minutes do not count for the AI ventilation check and stay out of the humidity profile.",
+          "vacation_heat_protection": "On vacation the sun protection lowers without waiting for room temperature, air conditioner or heat need. Summer day, outdoor temperature, sun sensors, hold times and the sun switch of the window still apply."
         }
       },
       "meter": {
@@ -371,26 +371,22 @@
       },
       "shutter_vacation": {
         "title": "Vacation simulation",
-        "description": "Random opening in the morning and closing in the evening while vacation is active.",
+        "description": "Random opening in the morning and closing in the evening while the vacation of the house is active.",
         "data": {
-          "vacation_entities": "Vacation entities",
           "vacation_morning_start": "Vacation morning from",
           "vacation_morning_window": "Random period in the morning",
           "vacation_position_min": "Opening position from",
           "vacation_position_max": "Opening position to",
           "vacation_evening_start": "Vacation evening from",
-          "vacation_evening_window": "Random period in the evening",
-          "vacation_heat_protection": "Heat protection on vacation"
+          "vacation_evening_window": "Random period in the evening"
         },
         "data_description": {
-          "vacation_entities": "Vacation is active while one of them is on (e.g. an input_boolean \"vacation\" or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts.",
           "vacation_morning_start": "Closed covers of the windows in the simulation open at a random time after this.",
           "vacation_morning_window": "Each window opens at a random time within this period.",
           "vacation_position_min": "Random position between both values.",
           "vacation_position_max": "Random position between both values.",
           "vacation_evening_start": "Starts the evening for the windows in the simulation and closes them at random times. The normal evening run rests during vacation.",
-          "vacation_evening_window": "Each window closes at a random time within this period.",
-          "vacation_heat_protection": "On vacation the sun protection lowers without waiting for room temperature, air conditioner or heat need. Summer day, outdoor temperature, sun sensors, hold times and the sun switch of the window still apply."
+          "vacation_evening_window": "Each window closes at a random time within this period."
         }
       },
       "shutter_protection": {
@@ -486,20 +482,14 @@
       },
       "heating_vacation": {
         "title": "Vacation",
-        "description": "Vacation detection and preheating for the return.",
+        "description": "Vacation temperature and preheating for the return. The vacation itself, its external sources and the return are set in the house.",
         "data": {
-          "vacation_entities": "Vacation entities",
           "vacation_temperature": "Vacation temperature",
-          "return_entity": "Return date/time",
-          "preheat_reserve": "Preheat reserve",
-          "vacation_ventilation_pause": "Ventilation advice rests"
+          "preheat_reserve": "Preheat reserve"
         },
         "data_description": {
-          "vacation_entities": "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts.",
           "vacation_temperature": "Target for all rooms during vacation (e.g. 17 °C).",
-          "return_entity": "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return. The return of the switch “Vacation” comes first; without it one set under Settings > Vacation.",
-          "preheat_reserve": "Additional time added to the calculated preheating time (e.g. 30 min).",
-          "vacation_ventilation_pause": "On vacation the ventilation advice shows “Vacation”, “ventilation recommended” is off. Vacation minutes do not count for the AI ventilation check and stay out of the humidity profile."
+          "preheat_reserve": "Additional time added to the calculated preheating time (e.g. 30 min)."
         }
       },
       "heating_rules": {

@@ -140,7 +140,6 @@ from .const import (
     CONF_VAC_POS_MAX,
     CONF_VAC_POS_MIN,
     CONF_VACATION,
-    CONF_VACATION_ENTITIES,
     CONF_VACATION_HEAT_PROTECTION,
     CONF_VENT_DELAY_DAY,
     CONF_VENT_DELAY_EVENING,
@@ -699,11 +698,10 @@ class ShutterEngine(DataUpdateCoordinator[None]):
         )
         heating = self.opt(CONF_HEATING_ENTITY)
         track(heat_inputs | ({heating} if heating else set()), self._on_heat_input)
-        # the vacation of the house or a source of the covers (heat protection, status)
+        # the vacation of the house (heat protection, status)
         self._unsubs.append(
             async_dispatcher_connect(self.hass, SIGNAL_VACATION, self._on_heating_changed)
         )
-        track({str(e) for e in self.opt(CONF_VACATION_ENTITIES) or []}, self._on_heat_input)
 
     def _schedule_daily(self) -> None:
         def daily(value: Any, fallback: str, handler: Callable[[datetime], None]) -> None:
@@ -823,12 +821,9 @@ class ShutterEngine(DataUpdateCoordinator[None]):
 
     @property
     def vacation(self) -> bool:
-        """The vacation of the house, or a source of the covers (the house's when set)."""
-        sources = self.opt(CONF_VACATION_ENTITIES) or []
+        """The vacation of the house (its switch or an external source of the house)."""
         house = self.module.runtime.house
-        if house is not None:
-            return bool(house.applies(sources))
-        return any(self._state_value(e) == STATE_ON for e in sources)
+        return house is not None and house.applies()
 
     @property
     def vacation_heat_protection(self) -> bool:

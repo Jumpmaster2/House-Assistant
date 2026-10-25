@@ -73,7 +73,6 @@ async def test_options_flow(hass: HomeAssistant, base_states) -> None:
         result["flow_id"], {"next_step_id": "shutter_vacation"}
     )
     data = {
-        "vacation_entities": [],
         "vacation_morning_start": "07:00:00",
         "vacation_morning_window": 60,
         "vacation_position_min": 90,

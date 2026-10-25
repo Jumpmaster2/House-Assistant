@@ -513,7 +513,10 @@ async def test_vacation_return_in_past_is_ignored_and_preheat_before_return(
     hass.states.async_set("input_boolean.vacation", "on")
     set_return("2026-04-10 18:00:00")
     entry = make_entry(
-        vacation_entities=["input_boolean.vacation"], return_entity="input_datetime.vacation_end"
+        core={
+            "vacation_entities": ["input_boolean.vacation"],
+            "return_entity": "input_datetime.vacation_end",
+        }
     )
     await _setup(hass, entry)
     await _advance(hass, freezer, 1)

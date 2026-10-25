@@ -40,7 +40,11 @@ def _sub(sub_id: str, subentry_type: str, data: dict[str, Any]) -> ConfigSubentr
     )
 
 
-def _entry(core: dict[str, Any] | None = None, **heating: Any) -> MockConfigEntry:
+def _entry(
+    core: dict[str, Any] | None = None,
+    shutter: dict[str, Any] | None = None,
+    **heating: Any,
+) -> MockConfigEntry:
     return MockConfigEntry(
         domain=DOMAIN,
         title="House Assistant",
@@ -53,6 +57,7 @@ def _entry(core: dict[str, Any] | None = None, **heating: Any) -> MockConfigEntr
                 **(core or {}),
             },
             "heating": {**HEATING_DEFAULTS, "limits": default_limits(), **heating},
+            **({"shutter": shutter} if shutter is not None else {}),
         },
         subentries_data=[
             _sub(
@@ -213,33 +218,70 @@ async def test_service(hass: HomeAssistant) -> None:
 
 async def test_external_sources(hass: HomeAssistant) -> None:
     hass.states.async_set("input_boolean.away", "off")
-    hass.states.async_set("input_boolean.heating_away", "off")
-    entry = _entry(vacation_entities=["input_boolean.heating_away"])
+    entry = _entry({"vacation_entities": ["input_boolean.away"]})
     await _setup(hass, entry)
-    # without sources of the house the ones of the heating count
-    hass.states.async_set("input_boolean.heating_away", "on")
-    await hass.async_block_till_done()
-    assert hass.states.get(ACTIVE).attributes["source"] == "input_boolean.heating_away"
-    hass.states.async_set("input_boolean.heating_away", "off")
-    await hass.async_block_till_done()
-    assert hass.states.get(ACTIVE).state == "off"
-
-    # sources of the house win, for the heating as well
-    hass.config_entries.async_update_entry(
-        entry,
-        options={
-            **entry.options,
-            "core": {**entry.options["core"], "vacation_entities": ["input_boolean.away"]},
-        },
-    )
-    await hass.async_block_till_done(wait_background_tasks=True)
     hass.states.async_set("input_boolean.away", "on")
-    await hass.async_block_till_done(wait_background_tasks=True)
-    assert hass.states.get(ACTIVE).state == "on"
+    await hass.async_block_till_done()
+    assert hass.states.get(ACTIVE).attributes["source"] == "input_boolean.away"
     coordinator = _coordinator(entry)
     await coordinator.async_refresh()
-    assert coordinator.opt("vacation_entities") == ["input_boolean.away"]
     assert coordinator.vacation
+    hass.states.async_set("input_boolean.away", "off")
+    await hass.async_block_till_done()
+    assert hass.states.get(ACTIVE).state == "off"
+    await coordinator.async_refresh()
+    assert not coordinator.vacation
+
+
+async def test_sources_of_the_modules_move_to_the_house(hass: HomeAssistant) -> None:
+    """Values the heating or the covers still hold from before go to the house (its own
+    value wins for the return) and leave the module."""
+    hass.states.async_set("input_boolean.away", "off")
+    hass.states.async_set("input_boolean.heating_away", "off")
+    entry = _entry(
+        {"vacation_entities": ["input_boolean.away"]},
+        {"vacation_entities": ["input_boolean.cover_away"]},
+        vacation_entities=["input_boolean.heating_away", "input_boolean.away"],
+        return_entity="input_datetime.back",
+    )
+    await _setup(hass, entry)
+    core = entry.options["core"]
+    assert core["vacation_entities"] == [
+        "input_boolean.away",
+        "input_boolean.heating_away",
+        "input_boolean.cover_away",
+    ]
+    assert core["return_entity"] == "input_datetime.back"
+    assert "vacation_entities" not in entry.options["heating"]
+    assert "return_entity" not in entry.options["heating"]
+    assert "vacation_entities" not in entry.options["shutter"]
+
+
+async def test_vacation_step_of_the_house_holds_the_module_options(hass: HomeAssistant) -> None:
+    entry = _entry()
+    await _setup(hass, entry)
+    flow = hass.config_entries.options
+    result = await flow.async_init(entry.entry_id)
+    result = await flow.async_configure(result["flow_id"], {"next_step_id": "vacation"})
+    fields = {str(key) for key in result["data_schema"].schema}
+    assert fields == {
+        "vacation_entities",
+        "return_entity",
+        "vacation_window_alert",
+        "vacation_ventilation_pause",  # the heating runs, the covers do not
+    }
+    result = await flow.async_configure(
+        result["flow_id"],
+        {
+            "vacation_entities": ["input_boolean.away"],
+            "vacation_window_alert": False,
+            "vacation_ventilation_pause": False,
+        },
+    )
+    assert result["type"] == "create_entry"
+    assert entry.options["core"]["vacation_entities"] == ["input_boolean.away"]
+    assert entry.options["heating"]["vacation_ventilation_pause"] is False
+    assert "shutter" not in entry.options
 
 
 async def test_open_windows_at_the_departure_and_on_vacation(hass: HomeAssistant, freezer) -> None:

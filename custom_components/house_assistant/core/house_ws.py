@@ -38,10 +38,8 @@ from ..const import (
     SUBENTRY_WINDOW,
 )
 from ..heating.config_flow import area_schema, other_areas, validate_area
-from ..heating.const import CONF_VACATION_VENT_PAUSE
 from ..runtime import enabled_modules, module_options
 from ..shutter.config_flow import window_basics_fields
-from ..shutter.const import CONF_VACATION_HEAT_PROTECTION
 from ..shutter.websocket import WINDOW_WALL_FIELDS
 from .entry import house_entry, update_section
 from .house import (
@@ -59,14 +57,15 @@ from .house import (
 )
 from .logic.geometry import Plan
 from .schema import PanelError, coerce, spec
-from .settings import HOUSE_FORM, VACATION_FORM, house_schema, vacation_schema, validate_house
-from .vacation import DEFAULT_WINDOW_ALERT, HouseModule
-
-# vacation options of the modules shown in the vacation tab: module, key, default
-VACATION_OPTIONS = (
-    (MODULE_HEATING, CONF_VACATION_VENT_PAUSE, True),
-    (MODULE_SHUTTER, CONF_VACATION_HEAT_PROTECTION, True),
+from .settings import (
+    HOUSE_FORM,
+    VACATION_FORM,
+    VACATION_OPTIONS,
+    house_schema,
+    vacation_schema,
+    validate_house,
 )
+from .vacation import DEFAULT_WINDOW_ALERT, HouseModule
 
 PREFIX = f"{DOMAIN}/house"
 

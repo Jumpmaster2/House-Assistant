@@ -121,7 +121,12 @@ def room_subentries(areas: list[dict]) -> list[ConfigSubentryData]:
     return subentries
 
 
-def make_entry(api_key: str = "", areas: list[dict] | None = None, **options) -> MockConfigEntry:
+def make_entry(
+    api_key: str = "",
+    areas: list[dict] | None = None,
+    core: dict | None = None,
+    **options,
+) -> MockConfigEntry:
     """Config entry of the house with the heating: one room with a circuit and one only
     for the ventilation advice, the window contacts as windows of the rooms."""
     areas = [AREA_DATA, VENT_ONLY_DATA] if areas is None else areas
@@ -130,7 +135,7 @@ def make_entry(api_key: str = "", areas: list[dict] | None = None, **options) ->
         title="House Assistant",
         data={"api_key": api_key},
         options={
-            "core": {"modules": [MODULE_HEATING]},
+            "core": {"modules": [MODULE_HEATING], **(core or {})},
             MODULE_HEATING: {
                 **DEFAULTS,
                 CONF_OUTDOOR_TEMP: "sensor.outdoor_temperature",

@@ -90,7 +90,6 @@ from .const import (
     CONF_RECOVERY,
     CONF_REF_HUMIDITY,
     CONF_REF_TEMP,
-    CONF_RETURN_ENTITY,
     CONF_RULE_AGREEMENT,
     CONF_RULE_DAYS,
     CONF_SEASON_END,
@@ -104,9 +103,7 @@ from .const import (
     CONF_THETA_UP,
     CONF_TOO_COLD_MARGIN,
     CONF_TOO_COLD_MINUTES,
-    CONF_VACATION_ENTITIES,
     CONF_VACATION_TEMP,
-    CONF_VACATION_VENT_PAUSE,
     CONF_VENT_AI,
     CONF_VENT_BLOCK,
     CONF_VENT_CHECK_INTERVAL,
@@ -283,21 +280,8 @@ def general_schema(v: dict[str, Any], season_text: bool = False, shared: bool = 
 def vacation_schema(v: dict[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
-            vol.Optional(
-                CONF_VACATION_ENTITIES, default=v.get(CONF_VACATION_ENTITIES, [])
-            ): _entity(
-                ["input_boolean", "binary_sensor", "switch", "calendar", "schedule"], multiple=True
-            ),
             _req(CONF_VACATION_TEMP, v): _number(5, 25, 0.5, "°C"),
-            _opt_entity(CONF_RETURN_ENTITY, v): _entity(
-                ["input_datetime", "sensor", "datetime"],
-                filters=[
-                    {"domain": ["input_datetime", "datetime"]},
-                    {"domain": "sensor", "device_class": "timestamp"},
-                ],
-            ),
             _req(CONF_PREHEAT_RESERVE, v): _number(0, 720, 5, "min"),
-            _req(CONF_VACATION_VENT_PAUSE, v): BooleanSelector(),
         }
     )
 
@@ -758,7 +742,7 @@ class HeatingOptionsSteps:
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
-            return self._heating_save(_clean(user_input), remove=(CONF_RETURN_ENTITY,))
+            return self._heating_save(_clean(user_input))
         return self._heating_form("heating_vacation", vacation_schema(self._heating_values))
 
     async def async_step_heating_rules(
