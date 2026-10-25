@@ -12,7 +12,7 @@ from homeassistant.components.climate import (
 )
 from homeassistant.const import ATTR_TEMPERATURE, PRECISION_TENTHS, UnitOfTemperature
 
-from .const import CONF_MAX_TARGET, CONF_MIN_TARGET
+from .const import CONF_HUMIDITY_SENSOR, CONF_MAX_TARGET, CONF_MIN_TARGET, CONF_TEMP_SENSOR
 from .coordinator import HeatingCoordinator
 from .entity import AreaEntity
 
@@ -43,7 +43,15 @@ class AreaClimate(AreaEntity, ClimateEntity):
     _attr_precision = PRECISION_TENTHS
     # Forecast values change almost every minute: not recorded, and rounded so that the
     # state (and its row in the recorder) changes only when the shown value does.
-    _unrecorded_attributes = frozenset({"predicted_temperature", "expected_peak", "expected_pv_kw"})
+    _unrecorded_attributes = frozenset(
+        {
+            "predicted_temperature",
+            "expected_peak",
+            "expected_pv_kw",
+            "temperature_sensor",
+            "humidity_sensor",
+        }
+    )
 
     if _NATIVE:
         _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
@@ -105,6 +113,9 @@ class AreaClimate(AreaEntity, ClimateEntity):
             "predicted_temperature": _tenth(decision.predicted_temp) if decision else None,
             "expected_peak": _tenth(decision.expected_peak) if decision else None,
             "expected_pv_kw": _tenth(area.learned_values.pv_plan_kw) if area.has_circuit else None,
+            # the sensors of the room: the cards open their history on a tap
+            "temperature_sensor": area.cfg.get(CONF_TEMP_SENSOR),
+            "humidity_sensor": area.cfg.get(CONF_HUMIDITY_SENSOR) or None,
         }
 
     async def async_set_temperature(self, **kwargs: Any) -> None:

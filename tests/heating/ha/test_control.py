@@ -60,6 +60,9 @@ async def test_heats_respects_min_times_and_window(
     climate = hass.states.get("climate.living_room")
     assert climate is not None
     assert climate.attributes["temperature"] == 21.0
+    # the sensors of the room, for the cards (a tap opens their history)
+    assert climate.attributes["temperature_sensor"] == "sensor.living_room_temperature"
+    assert climate.attributes["humidity_sensor"] == "sensor.living_room_humidity"
     assert hass.states.get("binary_sensor.heating_heating_day").state == "on"
     # switch was just created: minimum off time first
     assert hass.states.get("input_boolean.heating_circuit_1").state == "off"

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0b4 (2026-10-25)
+
+### Changed
+
+- Thermostat cards: a tap on the temperature or on the humidity opens the history of the room's sensor (like the room climate tile), the name and the status line still open the thermostat. In the dial card the values below the big number open their sensor.
+- The thermostats carry the sensors of their room as attributes `temperature_sensor` and `humidity_sensor` (not recorded).
+
 ## 1.0.0b3 (2026-10-25)
 
 ### Changed
