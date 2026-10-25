@@ -5,6 +5,7 @@
 
 import { SHUTTER } from "./labels.js";
 import { SECTION_TABS } from "./shared/style.js";
+import { defineElement } from "./shared/define.js";
 
 const { CHOICES, ERRORS, LABELS, NEXT_ACTION, STATUS } = SHUTTER;
 const WS = "house_assistant/shutter";
@@ -2031,6 +2032,4 @@ tbody tr { cursor:pointer; }
 }
 `;
 
-if (!customElements.get("house-assistant-shutter-view")) {
-  customElements.define("house-assistant-shutter-view", HouseAssistantShutterView);
-}
+defineElement("house-assistant-shutter-view", HouseAssistantShutterView);

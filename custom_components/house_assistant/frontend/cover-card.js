@@ -11,6 +11,7 @@
 // only the texts of the card (labels.js with the texts of the whole panel is large)
 import { COVER } from "./card-labels.js";
 import "./tiles.js";
+import { defineElement } from "./shared/define.js";
 
 const { NEXT_ACTION, STATUS } = COVER;
 
@@ -401,8 +402,7 @@ button.link { border:none; background:none; padding:0; color:var(--primary-color
 @media (max-width: 380px) { .compass { width:96px; height:96px; } button.icon { width:32px; height:32px; } }
 `;
 
-if (!customElements.get("house-assistant-cover-card")) {
-  customElements.define("house-assistant-cover-card", ShutterAssistantCard);
+if (defineElement("house-assistant-cover-card", ShutterAssistantCard)) {
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: "house-assistant-cover-card",

@@ -6,6 +6,7 @@ import "./house.js";
 import "./heating.js";
 import "./shutter.js";
 import "./meter.js";
+import { defineElement } from "./shared/define.js";
 
 const DOMAIN = "house_assistant";
 
@@ -209,6 +210,4 @@ const STYLE = `
 }
 `;
 
-if (!customElements.get("house-assistant-panel")) {
-  customElements.define("house-assistant-panel", HouseAssistantPanel);
-}
+defineElement("house-assistant-panel", HouseAssistantPanel);

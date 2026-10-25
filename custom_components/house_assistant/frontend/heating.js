@@ -10,6 +10,7 @@
 // element (blank page on the first open).
 import { HEATING as LABELS } from "./labels.js";
 import { SECTION_TABS } from "./shared/style.js";
+import { defineElement } from "./shared/define.js";
 
 const DOMAIN = "house_assistant";
 const WS = `${DOMAIN}/heating`;
@@ -1906,6 +1907,4 @@ details .desc { margin-top:8px; }
 }
 `;
 
-if (!customElements.get("house-assistant-heating-view")) {
-  customElements.define("house-assistant-heating-view", HouseAssistantHeatingView);
-}
+defineElement("house-assistant-heating-view", HouseAssistantHeatingView);

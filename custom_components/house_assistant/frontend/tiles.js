@@ -20,6 +20,8 @@
 // Both take the colors color_cover, color_closed, color_open and color_tilted:
 // a name of the theme (purple, orange, ...) or any CSS color.
 
+import { defineElement } from "./shared/define.js";
+
 const UI = {
   de: { open: "Offen", tilted: "Gekippt", closed: "Zu", opening: "Öffnet", closing: "Schließt", unavailable: "n. v.", notFound: "Nicht gefunden" },
   en: { open: "Open", tilted: "Tilted", closed: "Closed", opening: "Opening", closing: "Closing", unavailable: "n/a", notFound: "Not found" },
@@ -357,8 +359,7 @@ const TILES = [
 ];
 
 for (const [type, cls, name, description] of TILES) {
-  if (customElements.get(type)) continue;
-  customElements.define(type, cls);
+  if (!defineElement(type, cls)) continue;
   window.customCards = window.customCards || [];
   window.customCards.push({ type, name, description, preview: true });
 }

@@ -6,6 +6,7 @@
 
 import { METER as LABELS } from "./labels.js";
 import { SECTION_TABS } from "./shared/style.js";
+import { defineElement } from "./shared/define.js";
 
 const DOMAIN = "house_assistant";
 const WS = `${DOMAIN}/meter`;
@@ -1539,6 +1540,4 @@ th.c-reading { width:150px; }
 }
 `;
 
-if (!customElements.get("house-assistant-meter-view")) {
-  customElements.define("house-assistant-meter-view", HouseAssistantMeterView);
-}
+defineElement("house-assistant-meter-view", HouseAssistantMeterView);

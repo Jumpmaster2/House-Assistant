@@ -5,6 +5,7 @@
 
 import { HOUSE } from "./labels.js";
 import { SECTION_TABS } from "./shared/style.js";
+import { defineElement } from "./shared/define.js";
 
 const WS = "house_assistant/house";
 
@@ -929,6 +930,4 @@ tbody tr:hover { background:var(--secondary-background-color, #f5f5f5); }
 }
 `;
 
-if (!customElements.get("house-assistant-house-view")) {
-  customElements.define("house-assistant-house-view", HouseAssistantHouseView);
-}
+defineElement("house-assistant-house-view", HouseAssistantHouseView);
