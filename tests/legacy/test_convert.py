@@ -74,6 +74,8 @@ def test_entry_rooms_and_windows() -> None:
     assert windows[WIN_LIVING]["data"]["cover"] == "cover.living"
     # the room from the thermostat of its room entity
     assert windows[WIN_KITCHEN]["data"]["room"] == BATH
+    # that thermostat is the one of its room: the room gives temperature and target
+    assert "room_entity" not in windows[WIN_KITCHEN]["data"]
     # the other contacts: windows without a cover, named after the contact
     plain = {
         w["data"]["window_sensors"][0]: w["data"]
@@ -96,6 +98,10 @@ def test_entry_rooms_and_windows() -> None:
     }
     assert set(_subs(plan, "group")) == {GROUP}
     assert set(_subs(plan, "meter")) == {WATER}
+    # the heating day sensor as condition becomes the link to the heating module
+    water = _subs(plan, "meter")[WATER]["data"]
+    assert water["condition_heating_day"] is True
+    assert "condition_entity" not in water
     assert cv.summary(plan)["windows with a cover"] == 2
 
 
@@ -114,9 +120,17 @@ def test_options() -> None:
     # the language stays with the covers
     assert "language" not in options["core"]
     assert options["shutter"]["language"] == "de"
-    # the heat need of the covers stays as it was
-    assert options["shutter"]["use_heating_day"] is False
-    assert options["shutter"]["heating_entity"] == "binary_sensor.heating_heating_day"
+    # set in the house: no copy in the modules
+    assert "vacation_entities" not in options["heating"]
+    assert "outdoor_temperature" not in options["shutter"]
+    assert "notify_services" not in options["shutter"]
+    assert "house_azimuth" not in options["shutter"]
+    # differing values stay in the modules
+    assert options["heating"]["weather"] == "weather.home"
+    assert options["shutter"]["weather"] == "weather.forecast"
+    # the heating day sensor of the heating becomes the link to the heating module
+    assert options["shutter"]["use_heating_day"] is True
+    assert "heating_entity" not in options["shutter"]
     assert options["heating"]["max_output_tokens"] == 16000
     assert options["heating"]["night_start_hour"] == "22:00:00"
     assert options["meter"]["ai_task_entity"] == "ai_task.claude"

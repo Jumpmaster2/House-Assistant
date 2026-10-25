@@ -348,6 +348,8 @@ def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
     return {
         "entry_id": entry.entry_id,
         "options": options,
+        # settings of the house that win over the ones of the heating (shown, not edited here)
+        "house": shared_options(entry),
         "has_api_key": bool(entry.data.get(CONF_API_KEY)),
         "areas": areas,
         "entities": entities,

@@ -348,6 +348,27 @@ async def test_options_general_clears_weather(hass: HomeAssistant, base_states) 
     assert "workday_entity" not in entry.options["shutter"]
 
 
+async def test_options_general_without_house_settings(hass: HomeAssistant, base_states) -> None:
+    """Settings the house sets for every module are not asked for again by the covers."""
+    entry = make_entry()
+    entry.add_to_hass(hass)
+    core = {**entry.options["core"], "outdoor_temperature": OUTDOOR, "language": "de"}
+    hass.config_entries.async_update_entry(entry, options={**entry.options, "core": core})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    result = await open_options(hass, entry, "general")
+    keys = {str(key) for key in result["data_schema"].schema}
+    assert "outdoor_temperature" not in keys
+    assert "language" not in keys
+    assert "notify_services" in keys
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"notify_services": []}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    # the house still decides
+    assert entry.options["core"]["outdoor_temperature"] == OUTDOOR
+
+
 async def test_options_evening_and_startup(hass: HomeAssistant, base_states) -> None:
     entry = make_entry()
     await setup_entry(hass, entry)

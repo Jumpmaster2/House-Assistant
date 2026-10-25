@@ -11,6 +11,7 @@
 import { HEATING as LABELS } from "./labels.js";
 import { SECTION_TABS } from "./shared/style.js";
 import { defineElement } from "./shared/define.js";
+import { HOUSE_NOTE, fromHouse, houseValues } from "./shared/house.js";
 
 const DOMAIN = "house_assistant";
 const WS = `${DOMAIN}/heating`;
@@ -798,7 +799,7 @@ class HouseAssistantHeatingView extends HTMLElement {
     const ids = [
       ...Object.values(this._cfg.entities || {}),
       ...this._cfg.areas.flatMap((a) => [...Object.values(a.entities || {}), a.data.temperature_sensor]),
-      this._cfg.options.outdoor_temperature || this._cfg.options.weather,
+      this._eff().outdoor_temperature || this._eff().weather,
     ];
     return ids
       .map((id) => {
@@ -854,7 +855,7 @@ class HouseAssistantHeatingView extends HTMLElement {
   _overview() {
     const ui = this.ui;
     const ent = this._cfg.entities || {};
-    const o = this._cfg.options;
+    const o = this._eff();
 
     // heating day
     const day = this._state(ent.heating_day);
@@ -1230,8 +1231,26 @@ class HouseAssistantHeatingView extends HTMLElement {
     if (card.special === "prompts") return this._promptsCard(card);
     if (card.special === "theta") return this._thetaCard(card);
     const specs = this._cfg.option_specs;
-    const fields = card.fields.map((key) => this._field(card.id, key, specs[key], this._value(card.id, key))).join("");
-    return `<div class="card" data-card="${card.id}">${this._head(card)}<div class="fields">${fields}</div>${this._actions(card.id)}</div>`;
+    const own = card.fields.filter((key) => !fromHouse(this._cfg.house, key));
+    const fields = own.map((key) => this._field(card.id, key, specs[key], this._value(card.id, key))).join("");
+    const note = this._houseNote(card.fields);
+    const actions = own.length ? this._actions(card.id) : "";
+    return `<div class="card" data-card="${card.id}">${this._head(card)}<div class="fields">${note}${fields}</div>${actions}</div>`;
+  }
+
+  // values of the card the house sets: one note instead of the fields
+  _houseNote(keys) {
+    const values = houseValues(this._cfg.house, keys, (key) => this.label(key));
+    if (!values.length) return "";
+    const [title, help] = HOUSE_NOTE[this.lang] || HOUSE_NOTE.en;
+    return `<div class="field house-note"><span class="lbl">${esc(title)}</span>
+      ${values.map(([name, value]) => `<span><span class="muted">${esc(name)}:</span> ${esc(value)}</span>`).join("")}
+      <small>${esc(help)}</small></div>`;
+  }
+
+  // options in effect: a setting of the house wins
+  _eff() {
+    return { ...this._cfg.options, ...(this._cfg.house || {}) };
   }
 
   _apiKeyCard(card) {
@@ -1796,6 +1815,7 @@ h3 { margin:20px 0 4px; font-size:15px; font-weight:500; }
 .desc { margin:0 0 12px; color:var(--secondary-text-color); font-size:14px; }
 .fields { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px 20px; margin-top:8px; }
 .field { display:flex; flex-direction:column; gap:4px; font-size:14px; }
+.house-note { grid-column:1 / -1; overflow-wrap:anywhere; }
 .lbl { font-weight:500; }
 small { color:var(--secondary-text-color); font-size:12px; line-height:1.3; }
 input[type=text], input[type=number], input[type=time], input[type=password], select {

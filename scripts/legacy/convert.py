@@ -283,6 +283,25 @@ def build_plan(
         "modules": [MODULE_OF[d] for d in LEGACY if d in entries],
         **shared_settings({k: v for k, v in sections.items() if k != "meter"}, notes),
     }
+    # set once in the house: the modules do not keep a copy (the house wins anyway)
+    for name in ("heating", "shutter"):
+        for key in core:
+            sections.get(name, {}).pop(key, None)
+
+    # the heating day sensor of the heating becomes the link to the heating module
+    heating_day = next(
+        (
+            item["entity_id"]
+            for item in _entities(entity_registry)
+            if heating is not None
+            and item.get("platform") == HEATING
+            and item.get("unique_id") == f"{heating['entry_id']}_heating_day"
+        ),
+        None,
+    )
+    if heating_day and sections.get("shutter", {}).get("heating_entity") == heating_day:
+        del sections["shutter"]["heating_entity"]
+        sections["shutter"]["use_heating_day"] = True
     if "language" in sections.get("shutter", {}):
         notes.append(
             "the language of the covers stays in their settings (the heating keeps the "
@@ -292,12 +311,14 @@ def build_plan(
     # ------------------------------------------------ rooms
     subentries: list[dict[str, Any]] = []
     contact_room: dict[str, tuple[str, str]] = {}  # contact -> room, size
+    room_data: dict[str, dict[str, Any]] = {}
     for area in _subentries(heating, SUBENTRY_AREA):
         area_id = area["subentry_id"]
         data = {k: v for k, v in area["data"].items() if k not in WINDOW_FIELDS}
         if ha_area := _area_of_device(device_registry, HEATING, area_id):
             data["area"] = ha_area
         subentries.append(_sub(area_id, "room", area["title"], data))
+        room_data[area_id] = data
         for key, size in WINDOW_FIELDS.items():
             for contact in area["data"].get(key) or []:
                 if contact in contact_room:
@@ -334,6 +355,14 @@ def build_plan(
             data.setdefault("size", "medium")
         if room:
             data["room"] = room
+            # the room gives the temperature and the target: the same entity is not kept
+            room_conf = room_data.get(room, {})
+            own = data.get("room_entity")
+            if own and (
+                thermostat_room.get(str(own)) == room
+                or (own == room_conf.get("temperature_sensor") and not room_conf.get("heater_switch"))
+            ):
+                del data["room_entity"]
         else:
             notes.append(f"window {window['title']}: room unknown, choose it in House > Windows")
         subentries.append(_sub(window["subentry_id"], "window", window["title"], data))
@@ -359,10 +388,13 @@ def build_plan(
         )
 
     # ------------------------------------------------ meters
-    subentries += [
-        _sub(m["subentry_id"], "meter", m["title"], dict(m["data"]))
-        for m in _subentries(meter, "meter")
-    ]
+    for m in _subentries(meter, "meter"):
+        data = dict(m["data"])
+        if heating_day and data.get("condition_entity") == heating_day:
+            # the heating day of the heating module (within the heating period)
+            del data["condition_entity"]
+            data["condition_heating_day"] = True
+        subentries.append(_sub(m["subentry_id"], "meter", m["title"], data))
 
     # in the form of the existing entries (fields of this Home Assistant version)
     template = heating or shutter or meter
