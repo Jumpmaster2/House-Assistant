@@ -14,10 +14,11 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.house_assistant.const import DOMAIN
-from custom_components.house_assistant.core.links import heating_day, meter_reading
+from custom_components.house_assistant.core.links import heating_changed, heating_day, meter_reading
 from custom_components.house_assistant.heating.const import DEFAULTS as HEATING_DEFAULTS
 from custom_components.house_assistant.heating.logic.ai_schema import default_limits
 from custom_components.house_assistant.meter.const import meter_defaults
+from custom_components.house_assistant.meter.meter import Meter, MeterManager
 
 IN_SEASON = "2026-11-16 10:00:00+01:00"
 SUMMER = "2026-07-16 10:00:00+02:00"
@@ -293,3 +294,157 @@ async def test_next_reading_shown_follows_the_interval(hass: HomeAssistant, free
         await hass.async_block_till_done()
     assert meter.interval_minutes() == 1440
     assert hass.states.get(next_check).attributes["interval"] == 1440
+
+
+async def _restart(hass: HomeAssistant, entry: MockConfigEntry) -> None:
+    """Home Assistant starts anew: the entry is loaded again, the meters keep their state."""
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+
+async def test_restart_with_the_rooms_off_asks_for_no_reading(hass: HomeAssistant, freezer) -> None:
+    """A signal of the heating after the start (rooms off) is no start: the last reading is
+    old enough, but the meter is not due."""
+    entry = _entry(heating={"heat_meter": READING})
+    await _setup(hass, freezer, entry)
+    _module(entry, "meter").manager.meters[HEAT_METER_ID].state.last_check = (
+        dt_util.utcnow() - timedelta(hours=2)
+    )
+    with patch.object(MeterManager, "start_reading") as start:
+        await _restart(hass, entry)
+        assert _module(entry, "heating").coordinator.rooms_on() is False
+        heating_changed(hass)
+        await hass.async_block_till_done()
+        assert _module(entry, "meter").manager.meters[HEAT_METER_ID].interval_minutes() == 1440
+        start.assert_not_called()
+
+
+async def test_restart_then_a_phase_asks_for_readings_at_start_and_end(
+    hass: HomeAssistant, freezer
+) -> None:
+    entry = _entry(heating={"heat_meter": READING})
+    await _setup(hass, freezer, entry)
+    meter = _module(entry, "meter").manager.meters[HEAT_METER_ID]
+    meter.state.last_check = dt_util.utcnow() - timedelta(hours=2)
+    with (
+        patch.object(MeterManager, "start_reading") as start,
+        patch.object(Meter, "is_due", return_value=False),
+    ):
+        await _restart(hass, entry)
+        heating_changed(hass)
+        await hass.async_block_till_done()
+        assert start.call_count == 0  # the restart is no start of a phase
+
+        heating = _module(entry, "heating").coordinator
+        heating._control_area = AsyncMock()
+        meter = _module(entry, "meter").manager.meters[HEAT_METER_ID]
+        meter.state.last_check = dt_util.utcnow() - timedelta(minutes=30)
+        hass.states.async_set("input_boolean.circuit", "on")
+        await heating.async_refresh()
+        await hass.async_block_till_done()
+        assert start.call_count == 1  # a room starts heating
+
+        meter.state.last_check = dt_util.utcnow() - timedelta(minutes=10)
+        hass.states.async_set("input_boolean.circuit", "off")
+        await heating.async_refresh()
+        await hass.async_block_till_done()
+        assert start.call_count == 2  # the room stops heating
+
+        # within the minimum gap of the last reading: no reading at the start or the end
+        meter.state.last_check = dt_util.utcnow() - timedelta(minutes=2)
+        hass.states.async_set("input_boolean.circuit", "on")
+        await heating.async_refresh()
+        await hass.async_block_till_done()
+        hass.states.async_set("input_boolean.circuit", "off")
+        await heating.async_refresh()
+        await hass.async_block_till_done()
+        assert start.call_count == 2
+
+
+async def test_restart_while_a_room_heats_asks_for_a_reading_at_the_end_only(
+    hass: HomeAssistant, freezer
+) -> None:
+    entry = _entry(heating={"heat_meter": READING})
+    await _setup(hass, freezer, entry)
+    hass.states.async_set("input_boolean.circuit", "on")
+    await _module(entry, "heating").coordinator.async_refresh()
+    await hass.async_block_till_done()
+    meter = _module(entry, "meter").manager.meters[HEAT_METER_ID]
+    meter.state.last_check = dt_util.utcnow() - timedelta(hours=2)
+    with (
+        patch.object(MeterManager, "start_reading") as start,
+        patch.object(Meter, "is_due", return_value=False),
+    ):
+        await _restart(hass, entry)
+        heating = _module(entry, "heating").coordinator
+        heating._control_area = AsyncMock()
+        assert heating.rooms_on() is True
+        heating_changed(hass)
+        await hass.async_block_till_done()
+        start.assert_not_called()  # the phase started before the restart
+
+        meter = _module(entry, "meter").manager.meters[HEAT_METER_ID]
+        meter.state.last_check = dt_util.utcnow() - timedelta(minutes=30)
+        hass.states.async_set("input_boolean.circuit", "off")
+        await heating.async_refresh()
+        await hass.async_block_till_done()
+        assert start.call_count == 1  # the end of the phase
+
+
+async def test_heating_reload_while_a_room_heats_asks_for_no_reading(
+    hass: HomeAssistant, freezer
+) -> None:
+    entry = _entry(heating={"heat_meter": READING})
+    await _setup(hass, freezer, entry)
+    heating = _module(entry, "heating").coordinator
+    heating._control_area = AsyncMock()
+    hass.states.async_set("input_boolean.circuit", "on")
+    await heating.async_refresh()
+    await hass.async_block_till_done()
+    meter_module = _module(entry, "meter")
+    meter = meter_module.manager.meters[HEAT_METER_ID]
+
+    with (
+        patch.object(MeterManager, "start_reading") as start,
+        patch.object(Meter, "is_due", return_value=False),
+    ):
+        # a changed api key restarts the heating module only
+        hass.config_entries.async_update_entry(entry, data={**entry.data, "api_key": "reload"})
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert _module(entry, "heating").coordinator is not heating
+        assert _module(entry, "meter") is meter_module
+        heating = _module(entry, "heating").coordinator
+        heating._control_area = AsyncMock()
+        assert heating.rooms_on() is True
+        start.assert_not_called()
+
+        meter.state.last_check = dt_util.utcnow() - timedelta(minutes=30)
+        hass.states.async_set("input_boolean.circuit", "off")
+        await heating.async_refresh()
+        await hass.async_block_till_done()
+        assert start.call_count == 1  # the end of the phase still counts
+
+
+async def test_a_room_that_starts_right_after_the_restart_asks_for_a_reading(
+    hass: HomeAssistant, freezer
+) -> None:
+    """Nothing is signalled between the start and the start of a room: the state the heating
+    had at the start is the baseline, so the start is still a change."""
+    entry = _entry(heating={"heat_meter": READING})
+    await _setup(hass, freezer, entry)
+    _module(entry, "meter").manager.meters[HEAT_METER_ID].state.last_check = (
+        dt_util.utcnow() - timedelta(hours=2)
+    )
+    with (
+        patch.object(MeterManager, "start_reading") as start,
+        patch.object(Meter, "is_due", return_value=False),
+    ):
+        await _restart(hass, entry)
+        heating = _module(entry, "heating").coordinator
+        heating._control_area = AsyncMock()
+        meter = _module(entry, "meter").manager.meters[HEAT_METER_ID]
+        meter.state.last_check = dt_util.utcnow() - timedelta(minutes=30)
+        hass.states.async_set("input_boolean.circuit", "on")
+        await heating.async_refresh()
+        await hass.async_block_till_done()
+        assert start.call_count == 1

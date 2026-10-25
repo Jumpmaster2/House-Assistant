@@ -56,6 +56,14 @@ def rooms_on(hass: HomeAssistant) -> bool | None:
     return None if coordinator is None else coordinator.rooms_on()
 
 
+def rooms_on_at_setup(runtime: Any) -> bool | None:
+    """Like ``rooms_on``, for a module set up while the entry is still being set up: the
+    heating is running then, but the entry is not loaded yet (``running_module`` finds
+    nothing)."""
+    coordinator = getattr(runtime.module(MODULE_HEATING), "coordinator", None)
+    return None if coordinator is None else coordinator.rooms_on()
+
+
 def is_heat_meter(hass: HomeAssistant, meter_id: str) -> bool:
     """Is the meter (its config subentry) the heat meter of the heating?"""
     coordinator = _heating(hass)
