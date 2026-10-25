@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -264,6 +265,11 @@ async def test_short_interval_ends_30_minutes_after_the_heating(
         assert not heating.room_heating()
         assert meter.interval_minutes() == 1440
         assert start.call_count == 2  # the end of the window asks for no reading
+        # the next reading shown follows the interval
+        next_check = er.async_get(hass).async_get_entity_id(
+            "sensor", DOMAIN, f"{HEAT_METER_ID}_next_check"
+        )
+        assert hass.states.get(next_check).attributes["interval"] == 1440
 
     # the last heat of the phase still goes to the room
     hass.states.async_set(READING, "1001", {"unit_of_measurement": "kWh"})

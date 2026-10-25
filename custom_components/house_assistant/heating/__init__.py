@@ -94,6 +94,8 @@ class HeatingModule(Module):
             coordinator.preheat_from,
             # start and end of a heating phase: the heat meter is read then
             coordinator.rooms_on(),
+            # the short interval of the heat meter, up to 30 minutes after the end
+            coordinator.room_heating(),
         )
         if current != self._announced:
             self._announced = current

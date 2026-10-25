@@ -908,7 +908,10 @@ class MeterManager:
     def _heating_changed(self) -> None:
         """A room started or stopped heating: the heat meters are read then, if their
         last reading is a few minutes old (the phase is closed by a changed value). A
-        meter not read yet waits for its schedule."""
+        meter not read yet waits for its schedule. The next reading shown is updated on
+        every change of the heating (its interval may depend on it)."""
+        for meter in self.meters.values():
+            meter.notify()
         heating = rooms_on(self.hass)
         if heating == self._heating_seen:
             return
