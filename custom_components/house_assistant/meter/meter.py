@@ -851,6 +851,7 @@ class MeterManager:
         self._store: Store[dict[str, Any]] = module_store(self.hass, self.entry, MODULE_METER)
         self._unsub: Callable[[], None] | None = None
         self._heating_seen: bool | None = None  # a circuit is on (None: no heating module)
+        self._shown_interval: dict[str, float] = {}  # interval the sensors last showed
         media = self.hass.config.media_dirs.get("local") or self.hass.config.path("media")
         self.media_root = Path(media) / MEDIA_FOLDER
 
@@ -932,6 +933,12 @@ class MeterManager:
     @callback
     def _async_tick(self, now: datetime) -> None:
         for meter in self.meters.values():
+            # the interval may change without a signal (the heating becomes reachable
+            # only once the integration is loaded): the next reading shown follows it
+            interval = meter.interval_minutes()
+            if self._shown_interval.get(meter.id) != interval:
+                self._shown_interval[meter.id] = interval
+                meter.notify()
             if meter.is_due(dt_util.utcnow()):
                 self.start_reading(meter)
 

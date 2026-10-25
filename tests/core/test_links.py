@@ -276,3 +276,20 @@ async def test_short_interval_ends_30_minutes_after_the_heating(
     await tick(1)
     assert heating.room_energy.counter("room_living").total == 1.0
     assert not heating.room_energy.runs
+
+
+async def test_next_reading_shown_follows_the_interval(hass: HomeAssistant, freezer) -> None:
+    """At the start the heating is not reachable yet (the entry loads), the sensor of
+    the next reading showed the old interval: the tick of the meters updates it."""
+    entry = _entry(heating={"heat_meter": READING})
+    await _setup(hass, freezer, entry)
+    manager = _module(entry, "meter").manager
+    meter = manager.meters[HEAT_METER_ID]
+    next_check = er.async_get(hass).async_get_entity_id(
+        "sensor", DOMAIN, f"{HEAT_METER_ID}_next_check"
+    )
+    with patch.object(manager, "start_reading"):
+        manager._async_tick(dt_util.utcnow())
+        await hass.async_block_till_done()
+    assert meter.interval_minutes() == 1440
+    assert hass.states.get(next_check).attributes["interval"] == 1440
