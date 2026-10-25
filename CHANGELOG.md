@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.0.0b1 (2026-10-25)
+
+First release: AI Heating Assistant 1.7.0, Shutter Assistant 0.9.0 and Zähler-Ablesung 0.8.0 in one integration on one model of the house, with every function of the three.
 
 ### Added
 
@@ -31,8 +33,10 @@
 - Open windows: at the start of the vacation a message lists every window not closed (open, tilted, unknown); on vacation a window opened or tilted is reported once it stayed so for 10 s. To the notification services of the house, without any as a notification in Home Assistant (option, on by default).
 - Meters warn on vacation (leak warning per meter): amount used since the start and mean flow or power, counted from the last valid reading before the vacation; once per vacation and case with a message, a logbook entry, the event `house_assistant_vacation_alert` and the attribute `vacation_alerts`. On by default for water meters (20 L, 5 L/h), off for gas and electricity, never for the heat meter.
 - The panel shows a banner while it is vacation.
+- Transfer of an existing installation (`scripts/transfer_legacy.py`, see `docs/transfer.md`): with Home Assistant stopped it turns the entries of the three former integrations into one House Assistant entry with the same entity ids, devices and learned data. Rooms from the heating areas, windows of the covers merged with the heating contacts they share, the other contacts as windows without a cover, stores, pictures of the meters, card types of the dashboards, dashboard resources, service and event names in automations and scripts. A dry run writes a plan and a report first; every file changed is backed up.
+- Documentation: README in German and English, one page per module (`docs/heating.md`, `docs/covers.md`, `docs/meters.md`, each also in English), the transfer (`docs/transfer.md`) and the ESPHome example of the meter camera.
 
-### Fixed
+### Fixed (compared to the former integrations)
 
 - Dashboard cards sometimes showed “configuration error” (often in the companion app, sometimes in the browser after a reload): a dashboard that opened while Home Assistant was starting asked for the cards before they were served, and the browser kept that failed load until the page was reloaded. The cards are now served and added to the frontend when the integration is set up, before its modules start; the dashboard resource has an address of its own (`cards-resource.js`), so one failed early load does not block the other; all files lie below a folder with the version (cached, never mixed after an update); the cover card loads only its own texts (1 KB instead of the 330 KB of the panel).
 
