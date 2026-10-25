@@ -161,7 +161,12 @@ def config_entries() -> dict[str, Any]:
                         _sub(
                             WATER,
                             "meter",
-                            {**meter_defaults("water"), "name": "Wasser", "camera": "camera.water"},
+                            {
+                                **meter_defaults("water"),
+                                "name": "Wasser",
+                                "camera": "camera.water",
+                                "condition_entity": "binary_sensor.heating_heating_day",
+                            },
                         )
                     ],
                 ),

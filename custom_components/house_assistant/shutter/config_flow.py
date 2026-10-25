@@ -38,6 +38,7 @@ from ..core.house import (
     rooms,
     window_errors,
 )
+from ..core.schema import without
 from ..runtime import module_options, shared_options
 from .const import (
     ACTIVE_STATES_DEFAULT,
@@ -507,8 +508,11 @@ class ShutterOptionsSteps:
         )
 
     def _form(self, step_id: str, schema: vol.Schema, errors: dict[str, str] | None = None):
+        # the settings the house sets for every module are not asked for again
         return self.async_show_form(  # type: ignore[attr-defined]
-            step_id=step_id, data_schema=schema, errors=errors or {}
+            step_id=step_id,
+            data_schema=without(schema, shared_options(self.config_entry)),
+            errors=errors or {},
         )
 
     async def async_step_shutter(

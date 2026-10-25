@@ -6,9 +6,11 @@ serialised (types, ranges, domains) and its input is checked with them.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 import probatio as vol
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
@@ -41,6 +43,22 @@ def optional(key: str, values: dict[str, Any]) -> vol.Optional:
 def fields(schema: vol.Schema) -> dict[str, Selector]:
     """Field key -> selector of a form."""
     return {str(marker): value for marker, value in schema.schema.items()}
+
+
+def without(schema: vol.Schema, keys: Iterable[str]) -> vol.Schema:
+    """The form without the given fields, also inside its sections (e.g. the settings
+    the house sets for every module: a module does not ask for them a second time)."""
+    drop = set(keys)
+    if not drop:
+        return schema
+    kept: dict[Any, Any] = {}
+    for marker, value in schema.schema.items():
+        if str(marker) in drop:
+            continue
+        if isinstance(value, section):
+            value = section(without(value.schema, drop), value.options)
+        kept[marker] = value
+    return vol.Schema(kept)
 
 
 def spec(selector: Selector) -> dict[str, Any]:

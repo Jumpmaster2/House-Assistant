@@ -50,6 +50,7 @@ async def test_config_payload(hass: HomeAssistant, base_states, hass_ws_client) 
     assert (spec["selector"], spec["min"], spec["max"]) == ("number", 0, 15)
     assert cfg["option_specs"]["vacation_entities"]["multiple"] is True
     assert cfg["area_specs"]["temperature_sensor"]["domain"] == ["sensor"]
+    assert isinstance(cfg["house"], dict)
 
 
 async def test_save_options(hass: HomeAssistant, base_states, hass_ws_client) -> None:

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0b3 (2026-10-25)
+
+### Changed
+
+- Settings the house sets for every module (outdoor values, weather, language, notifications, working days, size of the house, vacation) are no longer offered a second time by the heating and the covers: their panels show them as a note "From the house", their settings dialogs leave them out. Without a value in the house the field of the module stays.
+- The panels of the heating and the covers show the values in effect (the house wins) in their overview, hints and live values.
+- Transfer: settings that go to the house are no longer kept as a copy in the modules. The heating day sensor of AI Heating Assistant used by the covers (heat need) or by a meter (condition) becomes the link to the heating module. The room entity of a cover window is dropped when it is the thermostat or the temperature sensor of the window's room, which the room provides anyway.
+
 ## 1.0.0b2 (2026-10-25)
 
 ### Fixed
