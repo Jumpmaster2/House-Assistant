@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b6 (2026-10-25)
+
+### Fixed
+
+- The sensor *Next reading* of the heat meter showed the interval from before the start of the heating module (e.g. 30 minutes) instead of the one in effect (15 minutes while a room heats, once a day otherwise). It now follows every change of the heating.
+
 ## 1.0.0b5 (2026-10-25)
 
 ### Added
