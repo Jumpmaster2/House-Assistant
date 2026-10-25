@@ -81,7 +81,7 @@ Mit einer Wohnfläche je Raum (Feld **Wohnfläche**, m², 1 bis 200) verteilt da
 
 * **Sensoren:** je Raum **Wärmeverbrauch** (kWh gesamt, für das Energie-Dashboard), **Wärmeverbrauch heute** und **Heizleistung geschätzt** (kW bei Sollwert und Außentemperatur von jetzt; Attribute `confidence`, `kwh_since_last_reading_estimate`, `minutes_heated_today`). Im Haus **Nicht zugeordnet**. Die Summen ändern sich nur mit den Ablesungen und fallen nie.
 * **Sicherheit:** `confidence` steigt mit den Heizphasen des Raums. Phasen, in denen nur dieser Raum heizte, lernen am schnellsten. Der Zähler liefert nur ganze kWh; kurze Phasen werden mit der nächsten zusammengelegt. Am Anfang sind die Anteile grob.
-* **Ablesung:** Solange ein Raum heizt, wird der Wärmezähler alle 15 Minuten gelesen, sonst nur einmal am Tag (Optionen des Zählers „Intervall, solange ein Raum heizt“ und „Intervall sonst“). Beginn und Ende einer Heizphase fordern eine Ablesung an, mindestens 5 Minuten nach der letzten. Nach dem Ende bleibt das kurze Intervall höchstens 2 Stunden, bis der Zählerwert sich ändert. Das gilt für Wärmezähler und Zähler mit der Bedingung „Heiztag“.
+* **Ablesung:** Solange ein Raum heizt, wird der Wärmezähler alle 15 Minuten gelesen, sonst nur einmal am Tag (Optionen des Zählers „Intervall, solange ein Raum heizt“ und „Intervall sonst“). Das Ein- und Ausschalten der Heizung (der erste Heizkreis an, der letzte aus) fordert eine Ablesung an, mindestens 5 Minuten nach der letzten. Nach dem Ende bleibt das kurze Intervall noch höchstens 30 Minuten, damit die letzte Wärme der Phase ihr zugeordnet wird; ohne laufenden Heizkreis wird danach nichts mehr verbraucht. Das gilt für Wärmezähler und Zähler mit der Bedingung „Heiztag“.
 
 ## Lüftungsempfehlung
 

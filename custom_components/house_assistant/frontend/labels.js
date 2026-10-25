@@ -2189,7 +2189,7 @@ export const LABELS = {
        ],
        "heating_interval": [
         "Intervall, solange ein Raum heizt",
-        "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt. Jede Änderung des Zählerwerts schließt eine Heizphase ab."
+        "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt und bis 30 Minuten danach. Jede Änderung des Zählerwerts schließt eine Heizphase ab."
        ],
        "idle_interval": [
         "Intervall sonst",
@@ -2412,7 +2412,7 @@ export const LABELS = {
        ],
        "heating_interval": [
         "Intervall, solange ein Raum heizt",
-        "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt. Jede Änderung des Zählerwerts schließt eine Heizphase ab."
+        "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt und bis 30 Minuten danach. Jede Änderung des Zählerwerts schließt eine Heizphase ab."
        ],
        "idle_interval": [
         "Intervall sonst",
@@ -4915,7 +4915,7 @@ export const LABELS = {
        ],
        "heating_interval": [
         "Interval while a room heats",
-        "Heat meters and meters of the heating day: time between two readings while a room heats. Every change of the value closes a heating phase."
+        "Heat meters and meters of the heating day: time between two readings while a room heats and up to 30 minutes after. Every change of the value closes a heating phase."
        ],
        "idle_interval": [
         "Interval otherwise",
@@ -5138,7 +5138,7 @@ export const LABELS = {
        ],
        "heating_interval": [
         "Interval while a room heats",
-        "Heat meters and meters of the heating day: time between two readings while a room heats. Every change of the value closes a heating phase."
+        "Heat meters and meters of the heating day: time between two readings while a room heats and up to 30 minutes after. Every change of the value closes a heating phase."
        ],
        "idle_interval": [
         "Interval otherwise",
@@ -8234,7 +8234,7 @@ export const METER = {
    ],
    "heating_interval": [
     "Intervall, solange ein Raum heizt",
-    "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt. Jede Änderung des Zählerwerts schließt eine Heizphase ab."
+    "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt und bis 30 Minuten danach. Jede Änderung des Zählerwerts schließt eine Heizphase ab."
    ],
    "idle_interval": [
     "Intervall sonst",
@@ -8476,7 +8476,7 @@ export const METER = {
    ],
    "heating_interval": [
     "Interval while a room heats",
-    "Heat meters and meters of the heating day: time between two readings while a room heats. Every change of the value closes a heating phase."
+    "Heat meters and meters of the heating day: time between two readings while a room heats and up to 30 minutes after. Every change of the value closes a heating phase."
    ],
    "idle_interval": [
     "Interval otherwise",

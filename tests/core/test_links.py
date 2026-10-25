@@ -24,7 +24,11 @@ HEAT_METER_ID = "meter_heat"
 READING = "sensor.heat_meter_reading"
 
 
-def _entry(heating: dict[str, Any] | None = None, shutter: dict[str, Any] | None = None):
+def _entry(
+    heating: dict[str, Any] | None = None,
+    shutter: dict[str, Any] | None = None,
+    room: dict[str, Any] | None = None,
+):
     return MockConfigEntry(
         domain=DOMAIN,
         title="House Assistant",
@@ -46,6 +50,7 @@ def _entry(heating: dict[str, Any] | None = None, shutter: dict[str, Any] | None
                     "name": "Living room",
                     "temperature_sensor": "sensor.living_temperature",
                     "heater_switch": "input_boolean.circuit",
+                    **(room or {}),
                 },
                 subentry_id="room_living",
                 subentry_type="room",
@@ -213,3 +218,55 @@ async def test_heat_meter_is_read_while_a_room_heats(hass: HomeAssistant, freeze
         await heating.async_refresh()
         await hass.async_block_till_done()
         assert start.call_count == 2
+
+
+async def test_short_interval_ends_30_minutes_after_the_heating(
+    hass: HomeAssistant, freezer
+) -> None:
+    """With a floor area the phase stays open after the circuit is off: the end of the
+    heating asks for a reading at once, the short interval lasts 30 minutes for the last
+    heat of the phase, then the meter is read once a day without a further reading."""
+    entry = _entry(heating={"heat_meter": READING}, room={"floor_area": 20.0})
+    hass.states.async_set(READING, "1000", {"unit_of_measurement": "kWh"})
+    await _setup(hass, freezer, entry)
+    manager = _module(entry, "meter").manager
+    meter = manager.meters[HEAT_METER_ID]
+    heating = _module(entry, "heating").coordinator
+    heating._control_area = AsyncMock()
+
+    async def tick(minutes: float) -> None:
+        freezer.tick(timedelta(minutes=minutes))
+        await heating.async_refresh()
+        await hass.async_block_till_done()
+
+    await tick(1)  # first reading of the meter: the phase starts
+    meter.state.last_check = dt_util.utcnow() - timedelta(minutes=30)
+    # only the readings asked for by the start and the end, not those of the schedule
+    with (
+        patch.object(manager, "start_reading") as start,
+        patch.object(meter, "is_due", return_value=False),
+    ):
+        hass.states.async_set("input_boolean.circuit", "on")
+        await tick(1)
+        assert start.call_count == 1  # the start of the heating
+        for _ in range(6):
+            await tick(5)
+        assert start.call_count == 1
+        meter.state.last_check = dt_util.utcnow() - timedelta(minutes=10)
+        hass.states.async_set("input_boolean.circuit", "off")
+        await tick(1)
+        assert start.call_count == 2  # the end of the heating, at once
+        assert heating.room_energy.runs  # the phase waits for a changed value
+        assert meter.interval_minutes() == 15
+        await tick(28)  # 29 minutes after the end
+        assert heating.room_heating() and meter.interval_minutes() == 15
+        await tick(2)  # 31 minutes
+        assert not heating.room_heating()
+        assert meter.interval_minutes() == 1440
+        assert start.call_count == 2  # the end of the window asks for no reading
+
+    # the last heat of the phase still goes to the room
+    hass.states.async_set(READING, "1001", {"unit_of_measurement": "kWh"})
+    await tick(1)
+    assert heating.room_energy.counter("room_living").total == 1.0
+    assert not heating.room_energy.runs

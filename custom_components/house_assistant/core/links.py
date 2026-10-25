@@ -50,6 +50,12 @@ def room_heating(hass: HomeAssistant) -> bool | None:
     return None if coordinator is None else coordinator.room_heating()
 
 
+def rooms_on(hass: HomeAssistant) -> bool | None:
+    """Is the circuit of a room on? None without the heating module."""
+    coordinator = _heating(hass)
+    return None if coordinator is None else coordinator.rooms_on()
+
+
 def is_heat_meter(hass: HomeAssistant, meter_id: str) -> bool:
     """Is the meter (its config subentry) the heat meter of the heating?"""
     coordinator = _heating(hass)

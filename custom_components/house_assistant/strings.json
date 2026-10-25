@@ -1533,7 +1533,7 @@
                 "condition_entity": "Optional. While this entity is 'off', the second interval applies (e.g. a heating day sensor).",
                 "condition_heating_day": "The second interval also applies on days without heating (heating day of the heating module, only within the heating period). With the heating off or an unknown heating day the normal interval applies.",
                 "interval_off": "Only together with a condition or the days without heating.",
-                "heating_interval": "Heat meters and meters of the heating day: time between two readings while a room heats. Every change of the value closes a heating phase.",
+                "heating_interval": "Heat meters and meters of the heating day: time between two readings while a room heats and up to 30 minutes after. Every change of the value closes a heating phase.",
                 "idle_interval": "Heat meters and meters of the heating day: time between two readings while no room heats (then the meter is only checked)."
               }
             },
@@ -1686,7 +1686,7 @@
                 "interval": "Time between two automatic readings.",
                 "condition_entity": "Optional. While this entity is 'off', the second interval applies (e.g. a heating day sensor).",
                 "interval_off": "Only used together with a condition.",
-                "heating_interval": "Heat meters and meters of the heating day: time between two readings while a room heats. Every change of the value closes a heating phase.",
+                "heating_interval": "Heat meters and meters of the heating day: time between two readings while a room heats and up to 30 minutes after. Every change of the value closes a heating phase.",
                 "idle_interval": "Heat meters and meters of the heating day: time between two readings while no room heats (then the meter is only checked)."
               }
             },

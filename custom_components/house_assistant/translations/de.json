@@ -1533,7 +1533,7 @@
                 "condition_entity": "Optional. Solange diese Entität 'aus' ist, gilt das zweite Intervall (z. B. ein Heiztag-Sensor).",
                 "condition_heating_day": "Das zweite Intervall gilt auch an Tagen ohne Heizen (Heiztag des Heizungsmoduls, nur in der Heizperiode). Ist die Heizung aus oder der Heiztag unbekannt, gilt das normale Intervall.",
                 "interval_off": "Nur zusammen mit einer Bedingung oder den Tagen ohne Heizen.",
-                "heating_interval": "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt. Jede Änderung des Zählerwerts schließt eine Heizphase ab.",
+                "heating_interval": "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt und bis 30 Minuten danach. Jede Änderung des Zählerwerts schließt eine Heizphase ab.",
                 "idle_interval": "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, wenn kein Raum heizt (dann nur zur Kontrolle)."
               }
             },
@@ -1686,7 +1686,7 @@
                 "interval": "Zeit zwischen zwei automatischen Ablesungen.",
                 "condition_entity": "Optional. Solange diese Entität 'aus' ist, gilt das zweite Intervall (z. B. ein Heiztag-Sensor).",
                 "interval_off": "Nur zusammen mit einer Bedingung.",
-                "heating_interval": "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt. Jede Änderung des Zählerwerts schließt eine Heizphase ab.",
+                "heating_interval": "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, solange ein Raum heizt und bis 30 Minuten danach. Jede Änderung des Zählerwerts schließt eine Heizphase ab.",
                 "idle_interval": "Wärmezähler und Zähler am Heiztag: Abstand zwischen zwei Ablesungen, wenn kein Raum heizt (dann nur zur Kontrolle)."
               }
             },

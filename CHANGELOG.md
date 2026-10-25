@@ -5,7 +5,7 @@
 ### Added
 
 - Heat per room: with a floor area per room (field *Floor area*, 1 to 200 m²), every reading of the heat meter is split over the rooms that heated in the phase since the last reading. The split is learned from run time, floor area and heating demand (target minus outdoor temperature); the shares always add up to the reading, what no room heated is *Not assigned*. New sensors per room (*Heat consumption*, *Heat consumption today*, *Estimated heat output*) and for the house (*Not assigned*); the heating panel shows a table per room.
-- Heat meter read more often while a room heats: every 15 minutes, otherwise once a day (meter options *Interval while a room heats* and *Interval otherwise*). The start and the end of a heating phase ask for a reading, at least 5 minutes after the last one.
+- Heat meter read more often while a room heats: every 15 minutes, otherwise once a day (meter options *Interval while a room heats* and *Interval otherwise*). Switching the heating on and off (the first circuit on, the last one off) asks for a reading, at least 5 minutes after the last one; after the end the short interval lasts 30 more minutes for the last heat of the phase.
 
 ### Changed
 

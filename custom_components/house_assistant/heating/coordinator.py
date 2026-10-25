@@ -251,9 +251,10 @@ PV_MISSING_WARN_MIN = 60.0  # daytime minutes without a PV value before a warnin
 OUTAGE_ISSUE_S = 15 * 60  # s a sensor or switch may be missing before a repair issue
 CMD_RETRY_MIN = (1, 2, 4, 8, 15)  # min before a switch command without effect is repeated
 CMD_ISSUE_ATTEMPTS = 3  # commands without effect before a repair issue
-# s after the last switch-off the meter is still read often: the heating phase closes at
-# the first reading that changes, which may never come (no heat left to count)
-OPEN_PHASE_MAX_S = 2 * 3600.0
+# s after the last switch-off the meter is still read often, so the last heat of the
+# phase is still counted for it: the phase closes at the first reading that changes. With
+# no circuit on nothing is used any more, a change may never come.
+OPEN_PHASE_MAX_S = 30 * 60.0
 # Repair issues of this integration (translation keys; the issue id adds the area id).
 SWITCH_OFF_TIMEOUT = 10  # s to wait for a circuit to switch off when control ends
 TEMP_RANGE = (-50.0, 80.0)  # °C a temperature sensor can plausibly report
@@ -1539,10 +1540,14 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         day, month = _periods()
         self.room_energy.heating(area.area_id, minutes / 60, delta, day, month)
 
+    def rooms_on(self) -> bool:
+        """Is the circuit of a room on? Its start and its end ask for a meter reading."""
+        return any(area.switch_on for area in self.areas.values())
+
     def room_heating(self) -> bool:
-        """A room heats now, or a heating phase waits for the reading after its end: the
-        heat meter is then read at the short interval."""
-        if any(area.switch_on for area in self.areas.values()):
+        """A room heats now, or a heating phase waits for the reading after its end (at
+        most ``OPEN_PHASE_MAX_S``): the heat meter is then read at the short interval."""
+        if self.rooms_on():
             return True
         return (
             bool(self.room_energy.runs)

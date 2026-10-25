@@ -28,7 +28,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from ..const import CONF_LANGUAGE, EVENT_LOGBOOK, EVENT_VACATION_ALERT, SIGNAL_VACATION
-from ..core.links import SIGNAL_HEATING, heating_day, is_heat_meter, room_heating
+from ..core.links import SIGNAL_HEATING, heating_day, is_heat_meter, room_heating, rooms_on
 from ..core.notify import async_notify
 from ..core.store import module_store
 from .const import (
@@ -850,7 +850,7 @@ class MeterManager:
         }
         self._store: Store[dict[str, Any]] = module_store(self.hass, self.entry, MODULE_METER)
         self._unsub: Callable[[], None] | None = None
-        self._heating_seen: bool | None = None  # a room heats (None: no heating module)
+        self._heating_seen: bool | None = None  # a circuit is on (None: no heating module)
         media = self.hass.config.media_dirs.get("local") or self.hass.config.path("media")
         self.media_root = Path(media) / MEDIA_FOLDER
 
@@ -909,7 +909,7 @@ class MeterManager:
         """A room started or stopped heating: the heat meters are read then, if their
         last reading is a few minutes old (the phase is closed by a changed value). A
         meter not read yet waits for its schedule."""
-        heating = room_heating(self.hass)
+        heating = rooms_on(self.hass)
         if heating == self._heating_seen:
             return
         self._heating_seen = heating

@@ -81,7 +81,7 @@ With a floor area per room (field **Floor area**, m², 1 to 200) the module spli
 
 * **Sensors:** per room **Heat consumption** (total kWh, for the energy dashboard), **Heat consumption today** and **Estimated heat output** (kW at the target and the outdoor temperature of now; attributes `confidence`, `kwh_since_last_reading_estimate`, `minutes_heated_today`). For the house **Not assigned**. The totals only change with the readings and never fall.
 * **Confidence:** `confidence` grows with the heating phases of the room. Phases in which this room alone heated teach fastest. The meter only reports whole kWh; short phases are merged with the next one. At the start the shares are rough.
-* **Readings:** while a room heats, the heat meter is read every 15 minutes, otherwise once a day (options of the meter "Interval while a room heats" and "Interval otherwise"). The start and the end of a heating phase ask for a reading, at least 5 minutes after the last one. After the end the short interval lasts at most 2 hours, until the value changes. This applies to heat meters and to meters with the condition "Heating day".
+* **Readings:** while a room heats, the heat meter is read every 15 minutes, otherwise once a day (options of the meter "Interval while a room heats" and "Interval otherwise"). Switching the heating on and off (the first circuit on, the last one off) asks for a reading, at least 5 minutes after the last one. After the end the short interval lasts at most 30 more minutes, so the last heat of the phase is still counted for it; with no circuit on nothing is used after that. This applies to heat meters and to meters with the condition "Heating day".
 
 ## Ventilation advice
 

@@ -93,7 +93,7 @@ class HeatingModule(Module):
             # the house shows when preheating for the return of a vacation starts
             coordinator.preheat_from,
             # start and end of a heating phase: the heat meter is read then
-            coordinator.room_heating(),
+            coordinator.rooms_on(),
         )
         if current != self._announced:
             self._announced = current

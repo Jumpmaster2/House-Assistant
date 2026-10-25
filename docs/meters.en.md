@@ -78,6 +78,7 @@ Counted from the last valid reading before the vacation. When a value exceeds it
 
 * Every meter is read automatically at the configured **interval** (checked every 5 minutes). After an unreadable or failed reading the next attempt comes after 15 minutes.
 * Optionally a **condition**: while this entity is `off`, a second interval applies. With the option **days without heating** the second interval also applies on days the heating module does not heat (unknown counts as a heating day). Example: every 30 minutes on heating days, otherwise every 6 hours.
+* The **heat meter** of the heating and meters with **days without heating**: with the heating module **Interval while a room heats** (15 minutes, until 30 minutes after the heating ends) and **Interval otherwise** (once a day) apply instead. Switching the heating on and off asks for a reading, at least 5 minutes after the last one.
 * The switch **Automatic** stops the automatic readings; the button **Read now** reads at once.
 
 ## Entities per meter

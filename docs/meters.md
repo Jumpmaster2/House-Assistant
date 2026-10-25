@@ -78,6 +78,7 @@ Gezählt wird ab der letzten gültigen Ablesung vor dem Urlaub. Überschreitet e
 
 * Jeder Zähler wird automatisch im eingestellten **Intervall** abgelesen (Prüfung alle 5 Minuten). Nach einer unlesbaren oder fehlgeschlagenen Ablesung kommt der nächste Versuch schon nach 15 Minuten.
 * Optional eine **Bedingung**: Solange diese Entität `off` ist, gilt ein zweites Intervall. Mit der Option **Tage ohne Heizen** gilt das zweite Intervall auch an Tagen, an denen das Modul Heizung nicht heizt (unbekannt zählt wie ein Heiztag). Beispiel: an Heiztagen alle 30 Minuten, sonst alle 6 Stunden.
+* **Wärmezähler** der Heizung und Zähler mit **Tage ohne Heizen**: Mit dem Modul Heizung gelten stattdessen **Intervall, solange ein Raum heizt** (15 Minuten, bis 30 Minuten nach dem Ende der Heizung) und **Intervall sonst** (einmal am Tag). Ein- und Ausschalten der Heizung fordern eine Ablesung an, mindestens 5 Minuten nach der letzten.
 * Der Schalter **Automatik** stoppt die automatischen Ablesungen, die Schaltfläche **Jetzt ablesen** liest sofort ab.
 
 ## Entitäten je Zähler
