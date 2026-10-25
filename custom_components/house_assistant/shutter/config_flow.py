@@ -130,8 +130,6 @@ from .const import (
     CONF_VAC_POS_MAX,
     CONF_VAC_POS_MIN,
     CONF_VACATION,
-    CONF_VACATION_ENTITIES,
-    CONF_VACATION_HEAT_PROTECTION,
     CONF_VENT_DELAY_DAY,
     CONF_VENT_DELAY_EVENING,
     CONF_VENT_POSITION,
@@ -376,16 +374,12 @@ def _evening_schema(v: dict[str, Any]) -> vol.Schema:
 def _vacation_schema(v: dict[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
-            vol.Optional(
-                CONF_VACATION_ENTITIES, default=v.get(CONF_VACATION_ENTITIES, [])
-            ): _entity(["input_boolean", "binary_sensor", "switch", "calendar", "schedule"], True),
             _req(CONF_VAC_MORNING, v): TimeSelector(),
             _req(CONF_VAC_MORNING_WINDOW, v): _number(0, 240, 1, "min"),
             _req(CONF_VAC_POS_MIN, v): _number(0, 100, 1, "%"),
             _req(CONF_VAC_POS_MAX, v): _number(0, 100, 1, "%"),
             _req(CONF_VAC_EVENING, v): TimeSelector(),
             _req(CONF_VAC_EVENING_WINDOW, v): _number(0, 240, 1, "min"),
-            _req(CONF_VACATION_HEAT_PROTECTION, v): BooleanSelector(),
         }
     )
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0b9 (2026-10-25)
+
+### Changed
+
+- The vacation is set only in the house (Settings > House > Vacation, or the tab *Vacation* of the panel). The heating and the covers no longer offer their own *Vacation entities* and the heating no longer its own *Return date/time*: the external sources and the external return count for every module, as set in the house. Values a module still held from before move to the house when Home Assistant starts (the house's own value wins for the return) and leave the module.
+- The options *Ventilation advice rests* and *Heat protection on vacation* are no longer asked a second time in the dialogs of the heating and the covers. They are set with the rest of the vacation in the house (the dialog and the panel tab, which now show their texts).
+- The vacation temperature and the preheat reserve stay with the heating, the simulation times and positions with the covers, the leak warning with each meter.
+- The overview of the heating shows the vacation temperature instead of the vacation entities.
+- A change of the external return entity makes the heating look again at once.
+
 ## 1.0.0b8 (2026-10-25)
 
 ### Fixed

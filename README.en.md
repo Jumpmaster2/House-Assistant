@@ -79,7 +79,7 @@ A value set here applies to every module. Without one the value in the settings 
 One vacation for every module, without own helpers:
 
 * **Switch Vacation** on the device "House Assistant", kept across restarts. **Departure** and **return** (`datetime` entities, both optional): at the departure the vacation switches on, at the return off, then both are empty again. With only a return set, the vacation applies from now on. A departure after the return is refused, a return in the past ignored. Also in the panel under *House > Vacation* and with the service `house_assistant.set_vacation`.
-* **External sources** still count: vacation entities (`input_boolean`, `binary_sensor`, `switch`, `calendar`, `schedule`; on = vacation) and a return entity. Without sources of the house those of the heating and the covers apply.
+* **External sources** still count: vacation entities (`input_boolean`, `binary_sensor`, `switch`, `calendar`, `schedule`; on = vacation) and a return entity. They are set only in the house (Settings > House > Vacation or in the panel); heating and covers have no sources of their own any more, and the options *Ventilation advice rests* and *Heat protection on vacation* are set there as well.
 * **Binary sensor Vacation active** with source, start, departure, return, start of preheating, presence simulation, leak warning and windows not closed. Event `house_assistant_vacation` (`active`, `source`) and a logbook entry at start and end. The panel shows a banner during the vacation.
 
 Effect:

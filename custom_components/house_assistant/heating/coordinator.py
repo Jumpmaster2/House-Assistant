@@ -49,7 +49,6 @@ from ..core.links import meter_reading
 from ..core.logic.contacts import OPEN, TILTED, contact_state, opening_share, window_state
 from ..core.logic.geometry import KIND_CROSS
 from ..core.store import module_store
-from ..core.vacation import return_ts
 from .ai_client import AiAuthError, AiError, ClaudeClient
 from .const import (
     CONF_AI_CHECK_DAYS,
@@ -95,7 +94,6 @@ from .const import (
     CONF_RECOVERY,
     CONF_REF_HUMIDITY,
     CONF_REF_TEMP,
-    CONF_RETURN_ENTITY,
     CONF_RULE_AGREEMENT,
     CONF_RULE_DAYS,
     CONF_SEASON_END,
@@ -109,7 +107,6 @@ from .const import (
     CONF_THETA_UP,
     CONF_TOO_COLD_MARGIN,
     CONF_TOO_COLD_MINUTES,
-    CONF_VACATION_ENTITIES,
     CONF_VACATION_TEMP,
     CONF_VACATION_VENT_PAUSE,
     CONF_VENT_AI,
@@ -887,12 +884,10 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
 
     def _register_listeners(self) -> None:
         watched: set[str] = set()
-        for key in (CONF_OUTDOOR_TEMP, CONF_RETURN_ENTITY):
-            if self.opt(key):
-                watched.add(self.opt(key))
+        if self.opt(CONF_OUTDOOR_TEMP):
+            watched.add(self.opt(CONF_OUTDOOR_TEMP))
         if not self.opt(CONF_OUTDOOR_TEMP) and self.opt(CONF_WEATHER):
             watched.add(self.opt(CONF_WEATHER))  # the outdoor temperature comes from it
-        watched.update(self.opt(CONF_VACATION_ENTITIES) or [])
         switches: dict[str, str] = {}
         for area in self.areas.values():
             for key in (CONF_TEMP_SENSOR, CONF_VENT_BLOCK):
@@ -1129,10 +1124,6 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             return self._implausible(weather_id, value)
         return celsius
 
-    def _is_on(self, entity_id: str | None) -> bool:
-        state = self._state(entity_id)
-        return state is not None and state.state == STATE_ON
-
     def _is_blocking(self, entity_id: str | None) -> bool:
         """Does the ventilation block entity block right now (see ``is_blocking``)?"""
         state = self._state(entity_id)
@@ -1174,7 +1165,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         house = self.module.runtime.house
         if house is not None and (own := house.own_return()) is not None:
             return own.timestamp()
-        return return_ts(self._state(self.opt(CONF_RETURN_ENTITY)))
+        return house.external_return_ts() if house is not None else None
 
     def _season(self) -> bool:
         try:
@@ -1261,12 +1252,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         self.pv_assumed = self.pv_kw if self.pv_kw is not None else (self._pv_estimate(ts) or 0.0)
         self.season_active = self._season()
         self.budget.roll(dt_util.now().strftime("%Y-%m"))  # the cost sensor shows the new month
-        # the vacation of the house, or a source of the heating (the house's when set)
+        # the vacation of the house (its switch or an external source of the house)
         house = self.module.runtime.house
-        sources = self.opt(CONF_VACATION_ENTITIES) or []
-        self.vacation = (
-            house.applies(sources) if house is not None else any(self._is_on(e) for e in sources)
-        )
+        self.vacation = house.applies() if house is not None else False
         return_ts = self._return_ts() if self.vacation else None
         heating_day = self.heating_day
 

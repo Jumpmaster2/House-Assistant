@@ -71,17 +71,13 @@
       },
       "heating_vacation": {
         "title": "Urlaub",
-        "description": "Urlaubserkennung und Vorheizen zur Rückkehr.",
+        "description": "Urlaubstemperatur und Vorheizen zur Rückkehr. Der Urlaub selbst, seine externen Quellen und die Rückkehr werden im Haus eingestellt.",
         "data": {
-          "vacation_entities": "Urlaubs-Entitäten",
           "vacation_temperature": "Urlaubstemperatur",
-          "return_entity": "Rückkehr Datum/Uhrzeit",
           "preheat_reserve": "Vorheiz-Reserve"
         },
         "data_description": {
-          "vacation_entities": "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender).",
           "vacation_temperature": "Sollwert für alle Räume im Urlaub.",
-          "return_entity": "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist.",
           "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit."
         }
       },
@@ -270,12 +266,16 @@
         "data": {
           "vacation_entities": "Externe Urlaubs-Entitäten",
           "return_entity": "Externe Rückkehr",
-          "vacation_window_alert": "Offene Fenster melden"
+          "vacation_window_alert": "Offene Fenster melden",
+          "vacation_ventilation_pause": "Lüftungsempfehlung ruht",
+          "vacation_heat_protection": "Hitzeschutz im Urlaub"
         },
         "data_description": {
-          "vacation_entities": "Ist eine davon an, gilt ebenfalls Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt für Heizung und Rollos; ohne Eintrag hier gelten die Entitäten in deren Einstellungen.",
-          "return_entity": "Optional: input_datetime, datetime- oder Zeitstempel-Entität. Die Heizung heizt darauf vor; eine eigene Rückkehr des Schalters hat Vorrang.",
-          "vacation_window_alert": "Zu Beginn des Urlaubs eine Meldung mit allen offenen, gekippten oder unbekannten Fenstern, im Urlaub sofort eine Meldung, wenn ein Fenster geöffnet oder gekippt wird. An die Benachrichtigungsdienste des Hauses, ohne sie als Benachrichtigung in Home Assistant."
+          "vacation_entities": "Ist eine davon an, gilt ebenfalls Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt für alle Module.",
+          "return_entity": "Optional: input_datetime, datetime- oder Zeitstempel-Entität. Die Heizung heizt rechtzeitig vor (gelernte Aufheizzeit plus Reserve), damit bei Rückkehr der normale Sollwert erreicht ist; eine eigene Rückkehr des Schalters hat Vorrang.",
+          "vacation_window_alert": "Zu Beginn des Urlaubs eine Meldung mit allen offenen, gekippten oder unbekannten Fenstern, im Urlaub sofort eine Meldung, wenn ein Fenster geöffnet oder gekippt wird. An die Benachrichtigungsdienste des Hauses, ohne sie als Benachrichtigung in Home Assistant.",
+          "vacation_ventilation_pause": "Im Urlaub zeigt die Lüftungsempfehlung „Urlaub“, „Lüften empfohlen“ ist aus. Urlaubsminuten zählen nicht für die KI-Lüftungsprüfung und gehen nicht ins Feuchteprofil ein.",
+          "vacation_heat_protection": "Der Sonnenschutz senkt im Urlaub ab, ohne auf Raumtemperatur, Klimaanlage oder Heizbedarf zu warten. Sommertag, Außentemperatur, Sonnensensoren, Haltezeiten und der Sonnenschalter des Fensters gelten weiter."
         }
       },
       "meter": {
@@ -371,26 +371,22 @@
       },
       "shutter_vacation": {
         "title": "Urlaubssimulation",
-        "description": "Zufälliges Öffnen am Morgen und Schließen am Abend, solange Urlaub aktiv ist.",
+        "description": "Zufälliges Öffnen am Morgen und Schließen am Abend, solange der Urlaub des Hauses aktiv ist.",
         "data": {
-          "vacation_entities": "Urlaubs-Entitäten",
           "vacation_morning_start": "Urlaub morgens ab",
           "vacation_morning_window": "Zufallszeitraum morgens",
           "vacation_position_min": "Öffnungsposition von",
           "vacation_position_max": "Öffnungsposition bis",
           "vacation_evening_start": "Urlaub abends ab",
-          "vacation_evening_window": "Zufallszeitraum abends",
-          "vacation_heat_protection": "Hitzeschutz im Urlaub"
+          "vacation_evening_window": "Zufallszeitraum abends"
         },
         "data_description": {
-          "vacation_entities": "Urlaub ist aktiv, solange eine davon an ist (z. B. ein input_boolean „Urlaub“ oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer.",
           "vacation_morning_start": "Geschlossene Rollos der Fenster in der Simulation öffnen danach zu einer zufälligen Zeit.",
           "vacation_morning_window": "Jedes Fenster öffnet zu einer zufälligen Zeit in diesem Zeitraum.",
           "vacation_position_min": "Zufällige Position zwischen beiden Werten.",
           "vacation_position_max": "Zufällige Position zwischen beiden Werten.",
           "vacation_evening_start": "Beginnt den Abend für die Fenster der Simulation und schließt sie zu zufälligen Zeiten. Der normale Abendlauf ruht im Urlaub.",
-          "vacation_evening_window": "Jedes Fenster schließt zu einer zufälligen Zeit in diesem Zeitraum.",
-          "vacation_heat_protection": "Der Sonnenschutz senkt im Urlaub ab, ohne auf Raumtemperatur, Klimaanlage oder Heizbedarf zu warten. Sommertag, Außentemperatur, Sonnensensoren, Haltezeiten und der Sonnenschalter des Fensters gelten weiter."
+          "vacation_evening_window": "Jedes Fenster schließt zu einer zufälligen Zeit in diesem Zeitraum."
         }
       },
       "shutter_protection": {
@@ -486,20 +482,14 @@
       },
       "heating_vacation": {
         "title": "Urlaub",
-        "description": "Urlaubserkennung und Vorheizen zur Rückkehr.",
+        "description": "Urlaubstemperatur und Vorheizen zur Rückkehr. Der Urlaub selbst, seine externen Quellen und die Rückkehr werden im Haus eingestellt.",
         "data": {
-          "vacation_entities": "Urlaubs-Entitäten",
           "vacation_temperature": "Urlaubstemperatur",
-          "return_entity": "Rückkehr Datum/Uhrzeit",
-          "preheat_reserve": "Vorheiz-Reserve",
-          "vacation_ventilation_pause": "Lüftungsempfehlung ruht"
+          "preheat_reserve": "Vorheiz-Reserve"
         },
         "data_description": {
-          "vacation_entities": "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer.",
           "vacation_temperature": "Sollwert für alle Räume im Urlaub (z. B. 17 °C).",
-          "return_entity": "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist. Die Rückkehr des Schalters „Urlaub“ hat Vorrang; ohne sie gilt eine unter Einstellungen > Urlaub eingetragene.",
-          "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min).",
-          "vacation_ventilation_pause": "Im Urlaub zeigt die Lüftungsempfehlung „Urlaub“, „Lüften empfohlen“ ist aus. Urlaubsminuten zählen nicht für die KI-Lüftungsprüfung und gehen nicht ins Feuchteprofil ein."
+          "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min)."
         }
       },
       "heating_rules": {

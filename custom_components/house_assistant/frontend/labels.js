@@ -115,17 +115,9 @@ export const LABELS = {
    "config.heating_vacation": {
     "title": "Urlaub",
     "fields": {
-     "vacation_entities": [
-      "Urlaubs-Entitäten",
-      "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender)."
-     ],
      "vacation_temperature": [
       "Urlaubstemperatur",
       "Sollwert für alle Räume im Urlaub."
-     ],
-     "return_entity": [
-      "Rückkehr Datum/Uhrzeit",
-      "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist."
      ],
      "preheat_reserve": [
       "Vorheiz-Reserve",
@@ -336,15 +328,23 @@ export const LABELS = {
     "fields": {
      "vacation_entities": [
       "Externe Urlaubs-Entitäten",
-      "Ist eine davon an, gilt ebenfalls Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt für Heizung und Rollos; ohne Eintrag hier gelten die Entitäten in deren Einstellungen."
+      "Ist eine davon an, gilt ebenfalls Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt für alle Module."
      ],
      "return_entity": [
       "Externe Rückkehr",
-      "Optional: input_datetime, datetime- oder Zeitstempel-Entität. Die Heizung heizt darauf vor; eine eigene Rückkehr des Schalters hat Vorrang."
+      "Optional: input_datetime, datetime- oder Zeitstempel-Entität. Die Heizung heizt rechtzeitig vor (gelernte Aufheizzeit plus Reserve), damit bei Rückkehr der normale Sollwert erreicht ist; eine eigene Rückkehr des Schalters hat Vorrang."
      ],
      "vacation_window_alert": [
       "Offene Fenster melden",
       "Zu Beginn des Urlaubs eine Meldung mit allen offenen, gekippten oder unbekannten Fenstern, im Urlaub sofort eine Meldung, wenn ein Fenster geöffnet oder gekippt wird. An die Benachrichtigungsdienste des Hauses, ohne sie als Benachrichtigung in Home Assistant."
+     ],
+     "vacation_ventilation_pause": [
+      "Lüftungsempfehlung ruht",
+      "Im Urlaub zeigt die Lüftungsempfehlung „Urlaub“, „Lüften empfohlen“ ist aus. Urlaubsminuten zählen nicht für die KI-Lüftungsprüfung und gehen nicht ins Feuchteprofil ein."
+     ],
+     "vacation_heat_protection": [
+      "Hitzeschutz im Urlaub",
+      "Der Sonnenschutz senkt im Urlaub ab, ohne auf Raumtemperatur, Klimaanlage oder Heizbedarf zu warten. Sommertag, Außentemperatur, Sonnensensoren, Haltezeiten und der Sonnenschalter des Fensters gelten weiter."
      ]
     },
     "sections": {}
@@ -467,10 +467,6 @@ export const LABELS = {
    "options.shutter_vacation": {
     "title": "Urlaubssimulation",
     "fields": {
-     "vacation_entities": [
-      "Urlaubs-Entitäten",
-      "Urlaub ist aktiv, solange eine davon an ist (z. B. ein input_boolean „Urlaub“ oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer."
-     ],
      "vacation_morning_start": [
       "Urlaub morgens ab",
       "Geschlossene Rollos der Fenster in der Simulation öffnen danach zu einer zufälligen Zeit."
@@ -494,10 +490,6 @@ export const LABELS = {
      "vacation_evening_window": [
       "Zufallszeitraum abends",
       "Jedes Fenster schließt zu einer zufälligen Zeit in diesem Zeitraum."
-     ],
-     "vacation_heat_protection": [
-      "Hitzeschutz im Urlaub",
-      "Der Sonnenschutz senkt im Urlaub ab, ohne auf Raumtemperatur, Klimaanlage oder Heizbedarf zu warten. Sommertag, Außentemperatur, Sonnensensoren, Haltezeiten und der Sonnenschalter des Fensters gelten weiter."
      ]
     },
     "sections": {}
@@ -634,25 +626,13 @@ export const LABELS = {
    "options.heating_vacation": {
     "title": "Urlaub",
     "fields": {
-     "vacation_entities": [
-      "Urlaubs-Entitäten",
-      "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer."
-     ],
      "vacation_temperature": [
       "Urlaubstemperatur",
       "Sollwert für alle Räume im Urlaub (z. B. 17 °C)."
      ],
-     "return_entity": [
-      "Rückkehr Datum/Uhrzeit",
-      "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist. Die Rückkehr des Schalters „Urlaub“ hat Vorrang; ohne sie gilt eine unter Einstellungen > Urlaub eingetragene."
-     ],
      "preheat_reserve": [
       "Vorheiz-Reserve",
       "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min)."
-     ],
-     "vacation_ventilation_pause": [
-      "Lüftungsempfehlung ruht",
-      "Im Urlaub zeigt die Lüftungsempfehlung „Urlaub“, „Lüften empfohlen“ ist aus. Urlaubsminuten zählen nicht für die KI-Lüftungsprüfung und gehen nicht ins Feuchteprofil ein."
      ]
     },
     "sections": {}
@@ -2841,17 +2821,9 @@ export const LABELS = {
    "config.heating_vacation": {
     "title": "Vacation",
     "fields": {
-     "vacation_entities": [
-      "Vacation entities",
-      "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar)."
-     ],
      "vacation_temperature": [
       "Vacation temperature",
       "Target for all rooms during vacation."
-     ],
-     "return_entity": [
-      "Return date/time",
-      "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return."
      ],
      "preheat_reserve": [
       "Preheat reserve",
@@ -3062,15 +3034,23 @@ export const LABELS = {
     "fields": {
      "vacation_entities": [
       "External vacation entities",
-      "While one of them is on it is vacation as well (e.g. an input_boolean or a calendar). For heating and covers; without an entry here the entities in their settings apply."
+      "While one of them is on it is vacation as well (e.g. an input_boolean or a calendar). Applies to every module."
      ],
      "return_entity": [
       "External return",
-      "Optional: input_datetime, datetime or timestamp entity. The heating preheats for it; an own return of the switch comes first."
+      "Optional: input_datetime, datetime or timestamp entity. The heating starts early enough (learned heat-up time plus reserve) to reach the normal target on return; an own return of the switch comes first."
      ],
      "vacation_window_alert": [
       "Report open windows",
       "When the vacation starts a message with every open, tilted or unknown window; on vacation a message right away when a window is opened or tilted. To the notification services of the house, without any as a notification in Home Assistant."
+     ],
+     "vacation_ventilation_pause": [
+      "Ventilation advice rests",
+      "On vacation the ventilation advice shows “Vacation”, “ventilation recommended” is off. Vacation minutes do not count for the AI ventilation check and stay out of the humidity profile."
+     ],
+     "vacation_heat_protection": [
+      "Heat protection on vacation",
+      "On vacation the sun protection lowers without waiting for room temperature, air conditioner or heat need. Summer day, outdoor temperature, sun sensors, hold times and the sun switch of the window still apply."
      ]
     },
     "sections": {}
@@ -3193,10 +3173,6 @@ export const LABELS = {
    "options.shutter_vacation": {
     "title": "Vacation simulation",
     "fields": {
-     "vacation_entities": [
-      "Vacation entities",
-      "Vacation is active while one of them is on (e.g. an input_boolean \"vacation\" or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts."
-     ],
      "vacation_morning_start": [
       "Vacation morning from",
       "Closed covers of the windows in the simulation open at a random time after this."
@@ -3220,10 +3196,6 @@ export const LABELS = {
      "vacation_evening_window": [
       "Random period in the evening",
       "Each window closes at a random time within this period."
-     ],
-     "vacation_heat_protection": [
-      "Heat protection on vacation",
-      "On vacation the sun protection lowers without waiting for room temperature, air conditioner or heat need. Summer day, outdoor temperature, sun sensors, hold times and the sun switch of the window still apply."
      ]
     },
     "sections": {}
@@ -3360,25 +3332,13 @@ export const LABELS = {
    "options.heating_vacation": {
     "title": "Vacation",
     "fields": {
-     "vacation_entities": [
-      "Vacation entities",
-      "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts."
-     ],
      "vacation_temperature": [
       "Vacation temperature",
       "Target for all rooms during vacation (e.g. 17 °C)."
      ],
-     "return_entity": [
-      "Return date/time",
-      "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return. The return of the switch “Vacation” comes first; without it one set under Settings > Vacation."
-     ],
      "preheat_reserve": [
       "Preheat reserve",
       "Additional time added to the calculated preheating time (e.g. 30 min)."
-     ],
-     "vacation_ventilation_pause": [
-      "Ventilation advice rests",
-      "On vacation the ventilation advice shows “Vacation”, “ventilation recommended” is off. Vacation minutes do not count for the AI ventilation check and stay out of the humidity profile."
      ]
     },
     "sections": {}
@@ -5645,11 +5605,11 @@ export const HOUSE = {
    "vacation": {
     "vacation_entities": [
      "Externe Urlaubs-Entitäten",
-     "Ist eine davon an, gilt ebenfalls Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt für Heizung und Rollos; ohne Eintrag hier gelten die Entitäten in deren Einstellungen."
+     "Ist eine davon an, gilt ebenfalls Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt für alle Module."
     ],
     "return_entity": [
      "Externe Rückkehr",
-     "Optional: input_datetime, datetime- oder Zeitstempel-Entität. Die Heizung heizt darauf vor; eine eigene Rückkehr des Schalters hat Vorrang."
+     "Optional: input_datetime, datetime- oder Zeitstempel-Entität. Die Heizung heizt rechtzeitig vor (gelernte Aufheizzeit plus Reserve), damit bei Rückkehr der normale Sollwert erreicht ist; eine eigene Rückkehr des Schalters hat Vorrang."
     ],
     "vacation_window_alert": [
      "Offene Fenster melden",
@@ -5906,11 +5866,11 @@ export const HOUSE = {
    "vacation": {
     "vacation_entities": [
      "External vacation entities",
-     "While one of them is on it is vacation as well (e.g. an input_boolean or a calendar). For heating and covers; without an entry here the entities in their settings apply."
+     "While one of them is on it is vacation as well (e.g. an input_boolean or a calendar). Applies to every module."
     ],
     "return_entity": [
      "External return",
-     "Optional: input_datetime, datetime or timestamp entity. The heating preheats for it; an own return of the switch comes first."
+     "Optional: input_datetime, datetime or timestamp entity. The heating starts early enough (learned heat-up time plus reserve) to reach the normal target on return; an own return of the switch comes first."
     ],
     "vacation_window_alert": [
      "Report open windows",
@@ -6036,25 +5996,13 @@ export const HEATING = {
     "Heizperiode endet: Monat",
     ""
    ],
-   "vacation_entities": [
-    "Urlaubs-Entitäten",
-    "Ist eine dieser Entitäten 'an', gilt Urlaub (z. B. ein input_boolean oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer."
-   ],
    "vacation_temperature": [
     "Urlaubstemperatur",
     "Sollwert für alle Räume im Urlaub (z. B. 17 °C)."
    ],
-   "return_entity": [
-    "Rückkehr Datum/Uhrzeit",
-    "Optional: input_datetime, Zeitstempel-Sensor oder datetime-Entität. Es wird so rechtzeitig vorgeheizt (gelernte Aufheizzeit), dass bei Rückkehr der normale Sollwert erreicht ist. Die Rückkehr des Schalters „Urlaub“ hat Vorrang; ohne sie gilt eine unter Einstellungen > Urlaub eingetragene."
-   ],
    "preheat_reserve": [
     "Vorheiz-Reserve",
     "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min)."
-   ],
-   "vacation_ventilation_pause": [
-    "Lüftungsempfehlung ruht",
-    "Im Urlaub zeigt die Lüftungsempfehlung „Urlaub“, „Lüften empfohlen“ ist aus. Urlaubsminuten zählen nicht für die KI-Lüftungsprüfung und gehen nicht ins Feuchteprofil ein."
    ],
    "emergency_enabled": [
     "Notfallregel",
@@ -6562,25 +6510,13 @@ export const HEATING = {
     "Heating period ends: month",
     ""
    ],
-   "vacation_entities": [
-    "Vacation entities",
-    "Any of these entities being 'on' means vacation (e.g. an input_boolean or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts."
-   ],
    "vacation_temperature": [
     "Vacation temperature",
     "Target for all rooms during vacation (e.g. 17 °C)."
    ],
-   "return_entity": [
-    "Return date/time",
-    "Optional input_datetime, timestamp sensor or datetime entity. Heating starts early enough (learned heat-up time) to reach the normal target on return. The return of the switch “Vacation” comes first; without it one set under Settings > Vacation."
-   ],
    "preheat_reserve": [
     "Preheat reserve",
     "Additional time added to the calculated preheating time (e.g. 30 min)."
-   ],
-   "vacation_ventilation_pause": [
-    "Ventilation advice rests",
-    "On vacation the ventilation advice shows “Vacation”, “ventilation recommended” is off. Vacation minutes do not count for the AI ventilation check and stay out of the humidity profile."
    ],
    "emergency_enabled": [
     "Emergency rule",
@@ -7382,10 +7318,6 @@ export const SHUTTER = {
     "Urlaubssimulation",
     "An der zufälligen Öffnung und Schließung im Urlaub teilnehmen."
    ],
-   "vacation_entities": [
-    "Urlaubs-Entitäten",
-    "Urlaub ist aktiv, solange eine davon an ist (z. B. ein input_boolean „Urlaub“ oder ein Kalender). Gilt nur, solange unter Einstellungen > Urlaub nichts eingetragen ist. Der Schalter „Urlaub“ des Hauses gilt immer."
-   ],
    "vacation_evening_start": [
     "Urlaub abends ab",
     "Beginnt den Abend für die Fenster der Simulation und schließt sie zu zufälligen Zeiten. Der normale Abendlauf ruht im Urlaub."
@@ -7393,10 +7325,6 @@ export const SHUTTER = {
    "vacation_evening_window": [
     "Zufallszeitraum abends",
     "Jedes Fenster schließt zu einer zufälligen Zeit in diesem Zeitraum."
-   ],
-   "vacation_heat_protection": [
-    "Hitzeschutz im Urlaub",
-    "Der Sonnenschutz senkt im Urlaub ab, ohne auf Raumtemperatur, Klimaanlage oder Heizbedarf zu warten. Sommertag, Außentemperatur, Sonnensensoren, Haltezeiten und der Sonnenschalter des Fensters gelten weiter."
    ],
    "vacation_morning_start": [
     "Urlaub morgens ab",
@@ -7828,10 +7756,6 @@ export const SHUTTER = {
     "Vacation simulation",
     "Take part in the random opening and closing during vacation."
    ],
-   "vacation_entities": [
-    "Vacation entities",
-    "Vacation is active while one of them is on (e.g. an input_boolean \"vacation\" or a calendar). Only while nothing is set under Settings > Vacation. The switch “Vacation” of the house always counts."
-   ],
    "vacation_evening_start": [
     "Vacation evening from",
     "Starts the evening for the windows in the simulation and closes them at random times. The normal evening run rests during vacation."
@@ -7839,10 +7763,6 @@ export const SHUTTER = {
    "vacation_evening_window": [
     "Random period in the evening",
     "Each window closes at a random time within this period."
-   ],
-   "vacation_heat_protection": [
-    "Heat protection on vacation",
-    "On vacation the sun protection lowers without waiting for room temperature, air conditioner or heat need. Summer day, outdoor temperature, sun sensors, hold times and the sun switch of the window still apply."
    ],
    "vacation_morning_start": [
     "Vacation morning from",

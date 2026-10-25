@@ -351,7 +351,7 @@ const SETTINGS = {
     {
       id: "vacation",
       icon: "mdi:airplane",
-      fields: ["vacation_entities", "vacation_morning_start", "vacation_morning_window", "vacation_position_min", "vacation_position_max", "vacation_evening_start", "vacation_evening_window"],
+      fields: ["vacation_morning_start", "vacation_morning_window", "vacation_position_min", "vacation_position_max", "vacation_evening_start", "vacation_evening_window"],
     },
   ],
 };

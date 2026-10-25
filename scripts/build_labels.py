@@ -228,14 +228,8 @@ def house_labels(translation: dict[str, Any]) -> dict[str, Any]:
     _add(settings, translation["options"]["step"]["house"])
     _add(settings, translation["options"]["step"]["modules"])
     # the vacation: settings of the house and the vacation options of heating and covers
-    steps = translation["options"]["step"]
     vacation: dict[str, list[str]] = {}
-    _add(vacation, steps["vacation"])
-    for step, key in (
-        ("heating_vacation", "vacation_ventilation_pause"),
-        ("shutter_vacation", "vacation_heat_protection"),
-    ):
-        vacation[key] = [steps[step]["data"][key], steps[step]["data_description"].get(key, "")]
+    _add(vacation, translation["options"]["step"]["vacation"])
     selectors = translation["selector"]
     exceptions = translation["exceptions"]
     return {

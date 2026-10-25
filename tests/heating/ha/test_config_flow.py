@@ -23,7 +23,7 @@ GENERAL = {
     "season_end_month": "3",
     "frost_temperature": 7.0,
 }
-VACATION = {"vacation_entities": [], "vacation_temperature": 18.0, "preheat_reserve": 30}
+VACATION = {"vacation_temperature": 18.0, "preheat_reserve": 30}
 DECISION = {"theta_start": 15.5}
 AI = {"nightly_time": "03:00:00"}
 AI_MODEL = {"model": "claude-sonnet-5-5", "monthly_budget": 5.0}

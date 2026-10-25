@@ -3,6 +3,7 @@ notifications and the working days (see ``SHARED_KEYS``)."""
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 import probatio as vol
@@ -34,6 +35,8 @@ from ..const import (
     MODULE_HEATING,
     MODULE_SHUTTER,
 )
+from ..heating.const import CONF_VACATION_VENT_PAUSE
+from ..shutter.const import CONF_VACATION_HEAT_PROTECTION
 from .logic.geometry import DEFAULT_REACH
 from .schema import entity, number, optional
 
@@ -52,6 +55,11 @@ HOUSE_FORM = (
     CONF_DRAFT_REACH,
 )
 VACATION_FORM = (CONF_VACATION_ENTITIES, CONF_RETURN_ENTITY, CONF_VACATION_WINDOW_ALERT)
+# vacation options that belong to a module but are set only in the house: module, key, default
+VACATION_OPTIONS = (
+    (MODULE_HEATING, CONF_VACATION_VENT_PAUSE, True),
+    (MODULE_SHUTTER, CONF_VACATION_HEAT_PROTECTION, True),
+)
 
 LANGUAGES = ["auto", "de", "en"]
 WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
@@ -116,9 +124,22 @@ def house_schema(hass: HomeAssistant, v: dict[str, Any]) -> vol.Schema:
     )
 
 
-def vacation_schema(v: dict[str, Any]) -> vol.Schema:
-    """External sources of the vacation of the house and its reports (panel tab
-    Vacation and Settings > House)."""
+def vacation_schema(
+    v: dict[str, Any],
+    modules: Iterable[str] = (),
+    module_values: dict[str, dict[str, Any]] | None = None,
+) -> vol.Schema:
+    """External sources of the vacation of the house and its reports, plus the vacation
+    options of the given modules (Settings > House > Vacation; the panel tab saves the
+    module options on its own)."""
+    module_values = module_values or {}
+    options: dict[Any, Any] = {
+        vol.Required(key, default=module_values.get(module, {}).get(key, default)): (
+            BooleanSelector()
+        )
+        for module, key, default in VACATION_OPTIONS
+        if module in modules
+    }
     return vol.Schema(
         {
             vol.Optional(
@@ -140,6 +161,7 @@ def vacation_schema(v: dict[str, Any]) -> vol.Schema:
             vol.Required(
                 CONF_VACATION_WINDOW_ALERT, default=v.get(CONF_VACATION_WINDOW_ALERT, True)
             ): BooleanSelector(),
+            **options,
         }
     )
 

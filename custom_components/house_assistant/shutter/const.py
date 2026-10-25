@@ -71,7 +71,6 @@ CONF_EVENING_LATEST = "evening_latest"
 CONF_NIGHT_END = "night_end"
 CONF_FOLLOW_UP_EARLIEST = "follow_up_earliest"
 
-CONF_VACATION_ENTITIES = "vacation_entities"
 CONF_VAC_MORNING = "vacation_morning_start"
 CONF_VAC_MORNING_WINDOW = "vacation_morning_window"
 CONF_VAC_POS_MIN = "vacation_position_min"
@@ -120,7 +119,6 @@ DEFAULTS: Final[dict[str, object]] = {
     CONF_EVENING_LATEST: "21:00:00",
     CONF_NIGHT_END: "03:30:00",
     CONF_FOLLOW_UP_EARLIEST: "16:00:00",
-    CONF_VACATION_ENTITIES: [],
     CONF_VACATION_HEAT_PROTECTION: True,
     CONF_VAC_MORNING: "07:00:00",
     CONF_VAC_MORNING_WINDOW: 60,

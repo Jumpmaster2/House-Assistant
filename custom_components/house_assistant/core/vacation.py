@@ -2,8 +2,8 @@
 
 The house runs always, with or without modules. Its switch, departure and return are
 kept in the store of the house (``house_assistant.<entry>.house``). Besides the switch
-external sources still count (an input_boolean, a calendar): the ones of the house, or
-without them the ones the heating and the covers had. The modules read the vacation
+external sources still count (an input_boolean, a calendar), set only in the settings of
+the house. The modules read the vacation
 here and look again on ``SIGNAL_VACATION``:
 
 * heating: vacation temperature, preheating for the return (the own return first);
@@ -45,13 +45,11 @@ from ..const import (
     EVENT_LOGBOOK,
     EVENT_VACATION,
     LOGGER,
-    MODULE_HEATING,
-    MODULE_SHUTTER,
     OPT_CORE,
     SIGNAL_VACATION,
     SUBENTRY_WINDOW,
 )
-from ..runtime import HouseRuntime, Module, enabled_modules, module_options, register_house
+from ..runtime import HouseRuntime, Module, module_options, register_house
 from .entities import vacation_entities
 from .house import CONF_TILT_SENSORS, CONF_WINDOW_SENSORS, windows
 from .links import SIGNAL_HEATING
@@ -140,41 +138,31 @@ class HouseModule(Module):
         # Only what the listeners are built from: a restart makes the entities briefly
         # unavailable, "vacation active" would turn on anew. Language, notification
         # services and the window report are read when needed.
-        return json.dumps([self.sources(), sorted(self._windows().items())])
+        return json.dumps([self.sources(), self.return_entity, sorted(self._windows().items())])
 
     # ------------------------------------------------------------------ sources
 
     def sources(self) -> list[str]:
-        """External sources: the ones of the house, else the ones of the modules."""
-        own = [str(e) for e in self.options.get(CONF_VACATION_ENTITIES) or []]
-        if own:
-            return own
-        found: list[str] = []
-        for key in (MODULE_HEATING, MODULE_SHUTTER):
-            if key not in enabled_modules(self.entry):
-                continue
-            for entity_id in module_options(self.entry, key).get(CONF_VACATION_ENTITIES) or []:
-                if entity_id not in found:
-                    found.append(str(entity_id))
-        return found
+        """The external sources of the vacation (entities that mean vacation when on)."""
+        return [str(e) for e in self.options.get(CONF_VACATION_ENTITIES) or []]
 
     @property
     def return_entity(self) -> str | None:
-        """External return: the one of the house, else the one of the heating."""
-        return self.options.get(CONF_RETURN_ENTITY) or (
-            module_options(self.entry, MODULE_HEATING).get(CONF_RETURN_ENTITY)
-            if MODULE_HEATING in enabled_modules(self.entry)
-            else None
-        )
+        """The external return (input_datetime, datetime or timestamp sensor)."""
+        return self.options.get(CONF_RETURN_ENTITY) or None
+
+    def external_return_ts(self) -> float | None:
+        """Time of the external return, None without one."""
+        return return_ts(self.hass.states.get(self.return_entity) if self.return_entity else None)
 
     def external_return(self) -> str | None:
         """The external return (local time), None without one."""
-        ts = return_ts(self.hass.states.get(self.return_entity) if self.return_entity else None)
+        ts = self.external_return_ts()
         return dt_util.as_local(dt_util.utc_from_timestamp(ts)).isoformat() if ts else None
 
-    def applies(self, entities: list[str] | None) -> bool:
-        """Vacation for a module: the own switch, or one of the module's sources on."""
-        return self.times.on or any(self._value(e) == "on" for e in entities or [])
+    def applies(self) -> bool:
+        """Is it vacation: the own switch, or one of the external sources on."""
+        return vac.active(self.times.on, [(e, self._value(e)) for e in self.sources()])[0]
 
     def own_return(self) -> datetime | None:
         """Return of the own vacation while it runs (it wins over an external one)."""
@@ -196,6 +184,8 @@ class HouseModule(Module):
         self.since = _dt(stored.get("since"))
         self._window_states = {wid: self._window_state(wid) for wid in self._windows()}
         watched = set(self.sources())
+        if self.return_entity:
+            watched.add(self.return_entity)
         for _, contacts, tilts in self._windows().values():
             watched.update(contacts)
             watched.update(tilts)
@@ -408,6 +398,9 @@ class HouseModule(Module):
         entity_id = event.data["entity_id"]
         if entity_id in self.sources():
             self._evaluate()
+        elif entity_id == self.return_entity:
+            async_dispatcher_send(self.hass, SIGNAL_VACATION)  # the heating preheats anew
+            self._write()
         for window_id, (_, contacts, tilts) in self._windows().items():
             if entity_id not in contacts and entity_id not in tilts:
                 continue

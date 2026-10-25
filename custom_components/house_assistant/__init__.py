@@ -8,7 +8,16 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 
 from . import modules  # noqa: F401  (the modules register themselves)
-from .const import CONF_SHOW_PANEL, DOMAIN, OPT_CORE, PLATFORMS
+from .const import (
+    CONF_RETURN_ENTITY,
+    CONF_SHOW_PANEL,
+    CONF_VACATION_ENTITIES,
+    DOMAIN,
+    MODULE_HEATING,
+    MODULE_SHUTTER,
+    OPT_CORE,
+    PLATFORMS,
+)
 from .core.panel import (
     async_register_frontend,
     async_register_panel,
@@ -39,6 +48,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> bool:
     """Start the enabled modules, then the platforms they add their entities to."""
+    _move_vacation_sources(hass, entry)
     runtime = HouseRuntime(hass, entry)
     await runtime.async_start()
     entry.runtime_data = runtime
@@ -51,6 +61,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> boo
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await async_register_panel(hass, entry.entry_id, _sidebar(entry))
     return True
+
+
+def _move_vacation_sources(hass: HomeAssistant, entry: HouseConfigEntry) -> None:
+    """The external vacation sources are set only in the house. Values a module still
+    holds (from before) go to the house unless it has its own, and leave the module."""
+    options = dict(entry.options)
+    core = dict(options.get(OPT_CORE) or {})
+    changed = False
+    for module in (MODULE_HEATING, MODULE_SHUTTER):
+        section = dict(options.get(module) or {})
+        for key in (CONF_VACATION_ENTITIES, CONF_RETURN_ENTITY):
+            if key not in section:
+                continue
+            value = section.pop(key)
+            changed = True
+            if value in (None, "", []):
+                continue
+            if key == CONF_VACATION_ENTITIES:
+                known = list(core.get(key) or [])
+                core[key] = known + [e for e in value if e not in known]
+            elif not core.get(key):
+                core[key] = value
+        options[module] = section
+    if changed:
+        options[OPT_CORE] = core
+        hass.config_entries.async_update_entry(entry, options=options)
 
 
 def _sidebar(entry: HouseConfigEntry) -> bool:
