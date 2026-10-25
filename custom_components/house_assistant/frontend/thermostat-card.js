@@ -1,4 +1,4 @@
-// Thermostat cards of House Assistant (formerly House Assistant), plain web
+// Thermostat cards of House Assistant (formerly AI Heating Assistant), plain web
 // components without build step, loaded on every dashboard by the integration:
 // custom:house-assistant-thermostat-card: the dial of the Home Assistant thermostat card,
 //   with the room humidity next to the second temperature (same size).
@@ -6,6 +6,8 @@
 //   humidity side by side.
 // custom:house-assistant-thermostat-compact-card: the thermostat without the dial, half as
 //   high; a colour bar shows the state, a tap opens the thermostat.
+
+import { defineElement } from "./shared/define.js";
 
 const DOMAIN = "house_assistant";
 const CARD = "house-assistant-thermostat-card";
@@ -702,8 +704,7 @@ class AiHeatingThermostatCompactCard extends HTMLElement {
   }
 }
 
-if (!customElements.get(COMPACT)) {
-  customElements.define(COMPACT, AiHeatingThermostatCompactCard);
+if (defineElement(COMPACT, AiHeatingThermostatCompactCard)) {
   const t = ui(docLang());
   window.customCards = window.customCards || [];
   window.customCards.push({
@@ -715,8 +716,7 @@ if (!customElements.get(COMPACT)) {
   });
 }
 
-if (!customElements.get(TILE)) {
-  customElements.define(TILE, AiHeatingClimateTileCard);
+if (defineElement(TILE, AiHeatingClimateTileCard)) {
   const t = ui(docLang());
   window.customCards = window.customCards || [];
   window.customCards.push({
@@ -728,8 +728,7 @@ if (!customElements.get(TILE)) {
   });
 }
 
-if (!customElements.get(CARD)) {
-  customElements.define(CARD, AiHeatingThermostatCard);
+if (defineElement(CARD, AiHeatingThermostatCard)) {
   const t = ui(docLang());
   window.customCards = window.customCards || [];
   window.customCards.push({

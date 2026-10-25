@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b2 (2026-10-25)
+
+### Fixed
+
+- Dashboard cards showed "Configuration error" after reloading a view with a media control card (also in the Companion app). The frontend loads its polyfill for scoped custom element registries on demand and then replaces `window.customElements`; cards defined before were unknown to the new registry. The cards and the panel now define their elements again as soon as the registry is replaced.
+
 ## 1.0.0b1 (2026-10-25)
 
 First release: AI Heating Assistant 1.7.0, Shutter Assistant 0.9.0 and Zähler-Ablesung 0.8.0 in one integration on one model of the house, with every function of the three.
