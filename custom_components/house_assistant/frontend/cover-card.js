@@ -8,10 +8,11 @@
 //   windows: [Wohnzimmer]  # optional: names or ids, default all
 //   compass: true          # optional: show the sun compass
 
-import { SHUTTER } from "./labels.js";
-
-const { NEXT_ACTION, STATUS } = SHUTTER;
+// only the texts of the card (labels.js with the texts of the whole panel is large)
+import { COVER } from "./card-labels.js";
 import "./tiles.js";
+
+const { NEXT_ACTION, STATUS } = COVER;
 
 const UI = {
   de: {

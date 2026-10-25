@@ -1,9 +1,11 @@
-"""Build frontend/labels.js for the panel from the translation files.
+"""Build frontend/labels.js for the panel from the translation files, and
+frontend/card-labels.js with the few texts of the dashboard cards.
 
 The panel shows the same names and help texts as the dialogs, so every text stays
 in one place. Fields are kept per dialog step: the modules use the same keys with
-different meanings (``weather``, ``window_sensors``). Run after changing a
-translation (a test checks that the file is current):
+different meanings (``weather``, ``window_sensors``). The cards load on every dashboard,
+also on a phone: they get only their own texts, not the whole panel. Run after changing
+a translation (a test checks that the files are current):
 
     python scripts/build_labels.py
 """
@@ -18,6 +20,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 COMPONENT = ROOT / "custom_components" / "house_assistant"
 TARGET = COMPONENT / "frontend" / "labels.js"
+CARD_TARGET = COMPONENT / "frontend" / "card-labels.js"
 LANGUAGES = ("de", "en")
 HEADER = (
     "// Generated from the translation files by scripts/build_labels.py, do not edit by hand.\n"
@@ -265,7 +268,7 @@ SECTIONS = {
 }
 
 
-def render() -> str:
+def _data() -> dict[str, dict[str, Any]]:
     data: dict[str, dict[str, Any]] = {name: {} for name in SECTIONS}
     for language in LANGUAGES:
         path = COMPONENT / "translations" / f"{language}.json"
@@ -277,23 +280,41 @@ def render() -> str:
         kind: {language: data["SHUTTER"][language][kind] for language in LANGUAGES}
         for kind in data["SHUTTER"][LANGUAGES[0]]
     }
+    return data
+
+
+def _render(exports: dict[str, Any]) -> str:
     parts = [HEADER]
-    for name, value in data.items():
+    for name, value in exports.items():
         parts.append(f"export const {name} = {json.dumps(value, ensure_ascii=False, indent=1)};\n")
     return "".join(parts)
 
 
+def render() -> str:
+    return _render(_data())
+
+
+def render_cards() -> str:
+    """The texts of the cover card: next action and status of a window."""
+    shutter = _data()["SHUTTER"]
+    return _render({"COVER": {key: shutter[key] for key in ("NEXT_ACTION", "STATUS")}})
+
+
 def main() -> int:
-    content = render()
+    files = ((TARGET, render()), (CARD_TARGET, render_cards()))
     if "--check" in sys.argv:
-        current = TARGET.read_text(encoding="utf-8") if TARGET.exists() else ""
-        if current != content:
-            print(f"{TARGET.relative_to(ROOT)} is out of date, run python scripts/build_labels.py")
-            return 1
-        return 0
-    TARGET.parent.mkdir(exist_ok=True)
-    TARGET.write_text(content, encoding="utf-8")
-    print(f"Wrote {TARGET.relative_to(ROOT)}")
+        stale = [
+            target
+            for target, content in files
+            if (target.read_text(encoding="utf-8") if target.exists() else "") != content
+        ]
+        for target in stale:
+            print(f"{target.relative_to(ROOT)} is out of date, run python scripts/build_labels.py")
+        return 1 if stale else 0
+    for target, content in files:
+        target.parent.mkdir(exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        print(f"Wrote {target.relative_to(ROOT)}")
     return 0
 
 

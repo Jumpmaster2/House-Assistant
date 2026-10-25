@@ -41,3 +41,12 @@ def test_labels_js_is_up_to_date() -> None:
     assert module.TARGET.read_text(encoding="utf-8") == module.render(), (
         "frontend/labels.js is out of date, run python scripts/build_labels.py"
     )
+
+
+def test_card_labels_js_is_up_to_date() -> None:
+    spec = importlib.util.spec_from_file_location("build_labels", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.CARD_TARGET.read_text(encoding="utf-8") == module.render_cards(), (
+        "frontend/card-labels.js is out of date, run python scripts/build_labels.py"
+    )
