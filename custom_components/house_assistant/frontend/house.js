@@ -15,7 +15,7 @@ const UI = {
     general: ["Allgemein", "Außenwerte, Wetter, Sprache, Benachrichtigungen und Arbeitstage gelten für alle Module. Ist hier nichts eingetragen, gilt der Wert in den Einstellungen des Moduls."],
     rooms: ["Räume", "Mit Temperatursensor bekommt ein Raum Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat. Die Rollos seiner Fenster nehmen Raumtemperatur und Klimaanlage des Raums."],
     windows: ["Fenster", "Jedes Fenster einmal: mit Raum und Größe für die Heizung, mit Rollo für den Sonnenschutz. Ein Kontakt gehört zu genau einem Fenster."],
-    columns: { name: "Name", area: "Bereich", temperature: "Temperatur", windows: "Fenster", heating: "Heizung", room: "Raum", size: "Größe", contacts: "Kontakte", cover: "Rollo" },
+    columns: { name: "Name", area: "Bereich", floor: "Fläche", temperature: "Temperatur", windows: "Fenster", heating: "Heizung", room: "Raum", size: "Größe", contacts: "Kontakte", cover: "Rollo" },
     newRoom: "Neuer Raum",
     newWindow: "Neues Fenster",
     add: "Hinzufügen",
@@ -79,7 +79,7 @@ const UI = {
     general: ["General", "Outdoor values, weather, language, notifications and working days apply to every module. Without a value here the one in the settings of the module applies."],
     rooms: ["Rooms", "With a temperature sensor a room gets heating and ventilation advice, with a heating circuit also a thermostat. The covers of its windows take room temperature and air conditioner of the room."],
     windows: ["Windows", "Every window once: with room and size for the heating, with a cover for the sun protection. A contact belongs to one window only."],
-    columns: { name: "Name", area: "Area", temperature: "Temperature", windows: "Windows", heating: "Heating", room: "Room", size: "Size", contacts: "Contacts", cover: "Cover" },
+    columns: { name: "Name", area: "Area", floor: "Floor area", temperature: "Temperature", windows: "Windows", heating: "Heating", room: "Room", size: "Size", contacts: "Contacts", cover: "Cover" },
     newRoom: "New room",
     newWindow: "New window",
     add: "Add",
@@ -437,6 +437,7 @@ class HouseAssistantHouseView extends HTMLElement {
           <td class="c-icon"><ha-icon icon="${d.heater_switch ? "mdi:home-thermometer-outline" : "mdi:floor-plan"}"></ha-icon></td>
           <td class="c-name"><div>${esc(room.title)}</div></td>
           <td class="hide-narrow">${esc(this._areaName(d.area) || ui.none)}</td>
+          <td class="hide-narrow">${d.floor_area ? esc(`${d.floor_area} m²`) : esc(ui.none)}</td>
           <td>${esc(temp)}</td>
           <td>${room.windows.length}</td>
           <td class="hide-narrow">${esc(heating)}</td></tr>`;
@@ -444,7 +445,7 @@ class HouseAssistantHouseView extends HTMLElement {
       .join("");
     return `<div class="card">
       <h2>${esc(ui.rooms[0])}</h2><p class="desc">${esc(ui.rooms[1])}</p>
-      ${rows ? `<div class="table-wrap"><table><thead><tr><th class="c-icon"></th><th>${esc(cols.name)}</th><th class="hide-narrow">${esc(cols.area)}</th><th>${esc(cols.temperature)}</th><th>${esc(cols.windows)}</th><th class="hide-narrow">${esc(cols.heating)}</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="muted">${esc(ui.noRooms)}</p>`}
+      ${rows ? `<div class="table-wrap"><table><thead><tr><th class="c-icon"></th><th>${esc(cols.name)}</th><th class="hide-narrow">${esc(cols.area)}</th><th class="hide-narrow">${esc(cols.floor)}</th><th>${esc(cols.temperature)}</th><th>${esc(cols.windows)}</th><th class="hide-narrow">${esc(cols.heating)}</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="muted">${esc(ui.noRooms)}</p>`}
       <div class="actions"><button class="btn primary" data-new="room"><ha-icon icon="mdi:plus"></ha-icon>${esc(ui.add)}</button></div>
     </div>`;
   }

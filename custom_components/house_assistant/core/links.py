@@ -15,6 +15,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from ..const import DOMAIN, MODULE_HEATING, MODULE_METER, MODULE_SHUTTER
+from ..heating.const import CONF_HEAT_METER
 from .entry import running_module
 
 # status of a meter reading confirmed below the previous one (meter.logic.reading)
@@ -40,6 +41,27 @@ def heating_day(hass: HomeAssistant) -> bool | None:
     if coordinator is None:
         return None
     return bool(coordinator.heats_now and coordinator.heating_day)
+
+
+def room_heating(hass: HomeAssistant) -> bool | None:
+    """Does a room heat now, or is a heating phase still open for its reading? None
+    without the heating module."""
+    coordinator = _heating(hass)
+    return None if coordinator is None else coordinator.room_heating()
+
+
+def rooms_on(hass: HomeAssistant) -> bool | None:
+    """Is the circuit of a room on? None without the heating module."""
+    coordinator = _heating(hass)
+    return None if coordinator is None else coordinator.rooms_on()
+
+
+def is_heat_meter(hass: HomeAssistant, meter_id: str) -> bool:
+    """Is the meter (its config subentry) the heat meter of the heating?"""
+    coordinator = _heating(hass)
+    entity_id = coordinator.opt(CONF_HEAT_METER) if coordinator is not None else None
+    entry = er.async_get(hass).async_get(entity_id) if entity_id else None
+    return entry is not None and entry.platform == DOMAIN and entry.config_subentry_id == meter_id
 
 
 @dataclass(frozen=True, slots=True)

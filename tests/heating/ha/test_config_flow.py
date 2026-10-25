@@ -8,6 +8,7 @@ import pytest
 from homeassistant.config_entries import SOURCE_USER, FlowType
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import area_registry as ar
 from pytest_homeassistant_custom_component.common import async_capture_events
 
 from custom_components.house_assistant.heating.ai_client import AiAuthError
@@ -407,6 +408,61 @@ async def test_switch_of_another_area_is_rejected(hass: HomeAssistant, base_stat
     )
     await hass.async_block_till_done(wait_background_tasks=True)
     assert result["reason"] == "reconfigure_successful"
+
+
+async def test_subentry_flow_keeps_the_area(hass: HomeAssistant, base_states) -> None:
+    """The Home Assistant area of a room is saved when the room is added, kept when it
+    is changed without touching it, and dropped when it is cleared."""
+    area_id = ar.async_get(hass).async_create("Kitchen").id
+    entry = make_entry(areas=[])
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_ROOM), context={"source": SOURCE_USER}
+    )
+    user_input = {
+        "name": "Kitchen",
+        "area": area_id,
+        "floor_area": 12.5,
+        "sensors": {"temperature_sensor": "sensor.storage_temperature"},
+        "heating": {
+            "heater_switch": "input_boolean.heating_circuit_1",
+            "default_target": 21.0,
+            "min_target": 16.0,
+            "max_target": 24.0,
+            "min_on_time": 10,
+            "min_off_time": 10,
+        },
+        "start_values": {"window_delay": 5, "recovery_time": 30, "dead_time": 30, "puffer": 0.7},
+        "ventilation": {"ventilation_rh_threshold": 60},
+        "draft": {},
+    }
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], user_input)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    kitchen = next(s for s in entry.subentries.values() if s.title == "Kitchen")
+    assert kitchen.data["area"] == area_id
+    assert kitchen.data["floor_area"] == 12.5
+
+    async def reconfigure(changes: dict, drop: str = "") -> None:
+        result = await entry.start_subentry_reconfigure_flow(hass, kitchen.subentry_id)
+        learned = result["data_schema"].schema["learned_values"].schema.schema
+        form = {k: v for k, v in user_input.items() if k not in ("start_values", drop)}
+        result = await hass.config_entries.subentries.async_configure(
+            result["flow_id"],
+            {**form, **changes, "learned_values": {str(k): k.default() for k in learned}},
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert result["reason"] == "reconfigure_successful"
+
+    await reconfigure({})  # unchanged: the area stays
+    kitchen = entry.subentries[kitchen.subentry_id]
+    assert kitchen.data["area"] == area_id
+    await reconfigure({}, drop="area")  # cleared (the form sends no value): it is gone
+    kitchen = entry.subentries[kitchen.subentry_id]
+    assert "area" not in kitchen.data
+    assert kitchen.data["floor_area"] == 12.5
 
 
 async def test_reauth_flow_replaces_the_key(hass: HomeAssistant, base_states) -> None:

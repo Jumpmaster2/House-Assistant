@@ -117,6 +117,14 @@ const UI = {
     heatYesterday: "Gestern",
     heatMonth: "Diesen Monat",
     heatReading: "Letzter Zählerwert",
+    roomHeat: "Wärme je Raum",
+    roomHeatHint: "Der Zählerwert verteilt auf die Räume, gelernt aus Fläche und Heizzeit. Die Sicherheit steigt mit den Heizphasen.",
+    roomHeatRoom: "Raum",
+    roomHeatArea: "Fläche",
+    roomHeatPower: "Leistung",
+    roomHeatConfidence: "Sicherheit",
+    roomHeatUnassigned: "Nicht zugeordnet",
+    roomHeatMissingArea: "Fläche fehlt",
     noApiKey: "Kein API-Key: nur lokale Regelung",
     budgetReached: "Monatsbudget erreicht, keine KI-Abfragen bis zum Monatswechsel",
     lastError: "Letzter KI-Fehler",
@@ -296,6 +304,14 @@ const UI = {
     heatYesterday: "Yesterday",
     heatMonth: "This month",
     heatReading: "Last meter reading",
+    roomHeat: "Heat per room",
+    roomHeatHint: "The meter reading split over the rooms, learned from floor area and heating time. The confidence grows with the heating phases.",
+    roomHeatRoom: "Room",
+    roomHeatArea: "Area",
+    roomHeatPower: "Power",
+    roomHeatConfidence: "Confidence",
+    roomHeatUnassigned: "Not assigned",
+    roomHeatMissingArea: "floor area missing",
     noApiKey: "No API key: local control only",
     budgetReached: "Monthly budget reached, no AI requests until the next month",
     lastError: "Last AI error",
@@ -971,6 +987,22 @@ class HouseAssistantHeatingView extends HTMLElement {
       </div>`
       : "";
 
+    // heat per room (the heat meter split over the rooms)
+    const rooms = this._cfg.room_energy;
+    const roomKwh = (value) => `${this._num(value, 1)} kWh`;
+    const roomCard = rooms
+      ? `
+      <div class="card">
+        <h2><ha-icon icon="mdi:floor-plan"></ha-icon>${esc(ui.roomHeat)}</h2>
+        <div class="muted small">${esc(ui.roomHeatHint)}</div>
+        <table class="room-heat">
+          <tr><th>${esc(ui.roomHeatRoom)}</th><th>${esc(ui.roomHeatArea)}</th><th>${esc(ui.heatToday)}</th><th>${esc(ui.heatMonth)}</th><th>${esc(ui.roomHeatPower)}</th><th>${esc(ui.roomHeatConfidence)}</th></tr>
+          ${rooms.rooms.map((r) => `<tr><td>${esc(r.title)}</td><td>${r.floor_area == null ? esc(ui.roomHeatMissingArea) : `${this._num(r.floor_area, 1)} m²`}</td><td>${roomKwh(r.today)}</td><td>${roomKwh(r.month)}</td><td>${r.power == null ? esc(ui.none) : `${this._num(r.power, 2)} kW`}</td><td>${Math.round(r.confidence * 100)} %</td></tr>`).join("")}
+          <tr class="muted"><td>${esc(ui.roomHeatUnassigned)}</td><td></td><td>${roomKwh(rooms.unassigned.today)}</td><td>${roomKwh(rooms.unassigned.month)}</td><td></td><td></td></tr>
+        </table>
+      </div>`
+      : "";
+
     // notes
     const warnings = [];
     if (cost?.attributes?.budget_reached) warnings.push(ui.budgetReached);
@@ -1013,7 +1045,7 @@ class HouseAssistantHeatingView extends HTMLElement {
             .join("")}
         </div>
       </div>`;
-    return `<div class="grid">${status}${areas}${ai}${heatCard}${info}${glance}</div>`;
+    return `<div class="grid">${status}${areas}${ai}${heatCard}${roomCard}${info}${glance}</div>`;
   }
 
   _missingEntities() {
@@ -1860,6 +1892,9 @@ input:focus, select:focus { outline:2px solid var(--primary-color); outline-offs
 .tile.on ha-icon { color:var(--primary-color); }
 .tile:disabled { opacity:.45; cursor:default; }
 .rows { display:flex; flex-direction:column; }
+.room-heat { width:100%; border-collapse:collapse; margin-top:8px; font-size:0.9em; }
+.room-heat th, .room-heat td { padding:4px 6px; text-align:right; border-bottom:1px solid var(--divider-color); }
+.room-heat th:first-child, .room-heat td:first-child { text-align:left; }
 .row { display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid var(--divider-color); font:inherit; font-size:14px; color:var(--primary-text-color); background:none; border-left:none; border-right:none; border-top:none; text-align:left; width:100%; }
 .row:last-child { border-bottom:none; }
 .row > span { min-width:0; overflow-wrap:anywhere; }

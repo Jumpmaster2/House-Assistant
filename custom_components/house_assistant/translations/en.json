@@ -876,11 +876,13 @@
           "description": "A room of the house. With a temperature sensor it gets heating and ventilation advice, with a heating circuit also a thermostat. Windows are added as windows and assigned to the room there.",
           "data": {
             "name": "Name",
-            "area": "Area"
+            "area": "Area",
+            "floor_area": "Floor area"
           },
           "data_description": {
             "name": "Name of the room, also used for the device and its entities.",
-            "area": "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
+            "area": "Optional. The device of the room is placed in this area; its floor counts for cross ventilation.",
+            "floor_area": "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split."
           },
           "sections": {
             "sensors": {
@@ -976,11 +978,13 @@
           "description": "A room of the house. With a temperature sensor it gets heating and ventilation advice, with a heating circuit also a thermostat. Windows are added as windows and assigned to the room there.",
           "data": {
             "name": "Name",
-            "area": "Area"
+            "area": "Area",
+            "floor_area": "Floor area"
           },
           "data_description": {
             "name": "Name of the room, also used for the device and its entities.",
-            "area": "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
+            "area": "Optional. The device of the room is placed in this area; its floor counts for cross ventilation.",
+            "floor_area": "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split."
           },
           "sections": {
             "sensors": {
@@ -1520,13 +1524,17 @@
                 "interval": "Interval",
                 "condition_entity": "Condition",
                 "condition_heating_day": "Days without heating like condition off",
-                "interval_off": "Interval while the condition is off"
+                "interval_off": "Interval while the condition is off",
+                "heating_interval": "Interval while a room heats",
+                "idle_interval": "Interval otherwise"
               },
               "data_description": {
                 "interval": "Time between two automatic readings.",
                 "condition_entity": "Optional. While this entity is 'off', the second interval applies (e.g. a heating day sensor).",
                 "condition_heating_day": "The second interval also applies on days without heating (heating day of the heating module, only within the heating period). With the heating off or an unknown heating day the normal interval applies.",
-                "interval_off": "Only together with a condition or the days without heating."
+                "interval_off": "Only together with a condition or the days without heating.",
+                "heating_interval": "Heat meters and meters of the heating day: time between two readings while a room heats and up to 30 minutes after. Every change of the value closes a heating phase.",
+                "idle_interval": "Heat meters and meters of the heating day: time between two readings while no room heats (then the meter is only checked)."
               }
             },
             "checks_section": {
@@ -1670,12 +1678,16 @@
               "data": {
                 "interval": "Interval",
                 "condition_entity": "Condition",
-                "interval_off": "Interval while the condition is off"
+                "interval_off": "Interval while the condition is off",
+                "heating_interval": "Interval while a room heats",
+                "idle_interval": "Interval otherwise"
               },
               "data_description": {
                 "interval": "Time between two automatic readings.",
                 "condition_entity": "Optional. While this entity is 'off', the second interval applies (e.g. a heating day sensor).",
-                "interval_off": "Only used together with a condition."
+                "interval_off": "Only used together with a condition.",
+                "heating_interval": "Heat meters and meters of the heating day: time between two readings while a room heats and up to 30 minutes after. Every change of the value closes a heating phase.",
+                "idle_interval": "Heat meters and meters of the heating day: time between two readings while no room heats (then the meter is only checked)."
               }
             },
             "checks_section": {
@@ -2083,6 +2095,60 @@
             "name": "Last meter reading"
           }
         }
+      },
+      "heat_consumption": {
+        "name": "Heat consumption",
+        "state_attributes": {
+          "floor_area_missing": {
+            "name": "Floor area missing"
+          },
+          "confidence": {
+            "name": "Confidence"
+          },
+          "kwh_since_last_reading_estimate": {
+            "name": "Estimate since last reading"
+          },
+          "minutes_heated_today": {
+            "name": "Minutes heated today"
+          }
+        }
+      },
+      "heat_consumption_today": {
+        "name": "Heat consumption today",
+        "state_attributes": {
+          "floor_area_missing": {
+            "name": "Floor area missing"
+          },
+          "confidence": {
+            "name": "Confidence"
+          },
+          "kwh_since_last_reading_estimate": {
+            "name": "Estimate since last reading"
+          },
+          "minutes_heated_today": {
+            "name": "Minutes heated today"
+          }
+        }
+      },
+      "heat_power": {
+        "name": "Estimated heat output",
+        "state_attributes": {
+          "floor_area_missing": {
+            "name": "Floor area missing"
+          },
+          "confidence": {
+            "name": "Confidence"
+          },
+          "kwh_since_last_reading_estimate": {
+            "name": "Estimate since last reading"
+          },
+          "minutes_heated_today": {
+            "name": "Minutes heated today"
+          }
+        }
+      },
+      "unassigned_heat": {
+        "name": "Not assigned"
       },
       "ai_last_vent_check": {
         "name": "Last AI ventilation check"

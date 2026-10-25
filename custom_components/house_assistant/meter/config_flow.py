@@ -40,8 +40,10 @@ from .const import (
     CONF_EXTERNAL_LIGHT_LEAD_TIME,
     CONF_EXTERNAL_LIGHT_MODE,
     CONF_EXTERNAL_LIGHT_TURN_OFF,
+    CONF_HEATING_INTERVAL,
     CONF_HINTS,
     CONF_HISTORY_HINT,
+    CONF_IDLE_INTERVAL,
     CONF_INTERVAL,
     CONF_INTERVAL_OFF,
     CONF_LIGHT,
@@ -177,6 +179,8 @@ def meter_sections(v: dict[str, Any]) -> dict[str, vol.Schema]:
                 _opt(CONF_CONDITION, v): _entity(),
                 req(CONF_CONDITION_HEATING_DAY): BooleanSelector(),
                 req(CONF_INTERVAL_OFF): _number(5, 1440, 5, "min"),
+                req(CONF_HEATING_INTERVAL): _number(5, 1440, 5, "min"),
+                req(CONF_IDLE_INTERVAL): _number(5, 1440, 5, "min"),
             }
         ),
         SECTION_CHECKS: vol.Schema(

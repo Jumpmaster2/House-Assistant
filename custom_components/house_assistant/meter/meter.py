@@ -28,7 +28,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from ..const import CONF_LANGUAGE, EVENT_LOGBOOK, EVENT_VACATION_ALERT, SIGNAL_VACATION
-from ..core.links import heating_day
+from ..core.links import SIGNAL_HEATING, heating_day, is_heat_meter, room_heating, rooms_on
 from ..core.notify import async_notify
 from ..core.store import module_store
 from .const import (
@@ -53,8 +53,10 @@ from .const import (
     CONF_EXTERNAL_LIGHT_LEAD_TIME,
     CONF_EXTERNAL_LIGHT_MODE,
     CONF_EXTERNAL_LIGHT_TURN_OFF,
+    CONF_HEATING_INTERVAL,
     CONF_HINTS,
     CONF_HISTORY_HINT,
+    CONF_IDLE_INTERVAL,
     CONF_INTERVAL,
     CONF_INTERVAL_OFF,
     CONF_LIGHT,
@@ -79,6 +81,7 @@ from .const import (
     DOMAIN,
     EVENT_READING,
     EXTERNAL_LIGHT_PERMANENT,
+    HEATING_READ_GAP_MINUTES,
     HISTORY_KEEP,
     IMAGE_NAME,
     LOGGER,
@@ -220,10 +223,21 @@ class Meter:
     def media_content_id(self) -> str:
         return f"media-source://media_source/local/{MEDIA_FOLDER}/{self.id}/{IMAGE_NAME}"
 
+    def uses_room_heating(self) -> bool:
+        """Heat meters, and meters chosen for the heating day, are read while a room heats
+        (the heat of the phase is only known from the readings around it)."""
+        return bool(self.opt(CONF_CONDITION_HEATING_DAY)) or is_heat_meter(self.hass, self.id)
+
     def interval_minutes(self) -> float:
         """Interval now: the second interval applies while the condition entity is off or
         (if chosen) on a day without heating, a failed reading is tried again sooner. An
         unknown heating day counts as a heating day, like an unknown entity."""
+        heating = room_heating(self.hass) if self.uses_room_heating() else None
+        if heating is not None:  # without the heating module the settings below apply
+            key = CONF_HEATING_INTERVAL if heating else CONF_IDLE_INTERVAL
+            return rd.effective_interval(
+                float(self.opt(key)), self.state.status, self.state.failures
+            )
         condition = self.opt(CONF_CONDITION)
         if (condition and (st := self.hass.states.get(condition)) and st.state == "off") or (
             self.opt(CONF_CONDITION_HEATING_DAY) and heating_day(self.hass) is False
@@ -836,6 +850,8 @@ class MeterManager:
         }
         self._store: Store[dict[str, Any]] = module_store(self.hass, self.entry, MODULE_METER)
         self._unsub: Callable[[], None] | None = None
+        self._heating_seen: bool | None = None  # a circuit is on (None: no heating module)
+        self._shown_interval: dict[str, float] = {}  # interval the sensors last showed
         media = self.hass.config.media_dirs.get("local") or self.hass.config.path("media")
         self.media_root = Path(media) / MEDIA_FOLDER
 
@@ -855,6 +871,9 @@ class MeterManager:
         self._sync_vacation()
         self.module.async_on_stop(
             async_dispatcher_connect(self.hass, SIGNAL_VACATION, self._sync_vacation)
+        )
+        self.module.async_on_stop(
+            async_dispatcher_connect(self.hass, SIGNAL_HEATING, self._heating_changed)
         )
 
     async def async_unload(self) -> None:
@@ -887,12 +906,39 @@ class MeterManager:
             self.async_save()
 
     @callback
+    def _heating_changed(self) -> None:
+        """A room started or stopped heating: the heat meters are read then, if their
+        last reading is a few minutes old (the phase is closed by a changed value). A
+        meter not read yet waits for its schedule. The next reading shown is updated on
+        every change of the heating (its interval may depend on it)."""
+        for meter in self.meters.values():
+            meter.notify()
+        heating = rooms_on(self.hass)
+        if heating == self._heating_seen:
+            return
+        self._heating_seen = heating
+        now = dt_util.utcnow()
+        gap = timedelta(minutes=HEATING_READ_GAP_MINUTES)
+        for meter in self.meters.values():
+            if not (meter.uses_room_heating() and meter.state.automatic) or meter.busy:
+                continue
+            last = meter.state.last_check
+            if last is not None and now - last >= gap:
+                self.start_reading(meter)
+
+    @callback
     def async_save(self) -> None:
         self._store.async_delay_save(self._data, 1)
 
     @callback
     def _async_tick(self, now: datetime) -> None:
         for meter in self.meters.values():
+            # the interval may change without a signal (the heating becomes reachable
+            # only once the integration is loaded): the next reading shown follows it
+            interval = meter.interval_minutes()
+            if self._shown_interval.get(meter.id) != interval:
+                self._shown_interval[meter.id] = interval
+                meter.notify()
             if meter.is_due(dt_util.utcnow()):
                 self.start_reading(meter)
 

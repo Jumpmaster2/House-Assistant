@@ -43,6 +43,7 @@ from .const import (
     CONF_CHECK_INTERVAL,
     CONF_CHECK_MAX_INTERVAL,
     CONF_DRAFT_GROUPS,
+    CONF_HEAT_METER,
     CONF_LIMITS,
     CONF_OUTDOOR_TEMP,
     CONF_PROMPTS,
@@ -308,6 +309,45 @@ def _area_values(data: Mapping[str, Any]) -> dict[str, Any]:
     return values
 
 
+def room_energy_payload(coordinator: Any) -> dict[str, Any] | None:
+    """Heat per room from the heat meter for the panel; None without a heat meter."""
+    if coordinator is None or not coordinator.opt(CONF_HEAT_METER):
+        return None
+    model = coordinator.room_energy
+    outdoor = coordinator.outdoor_temp
+    rooms = []
+    for area in coordinator.areas.values():
+        if not area.has_circuit:
+            continue
+        counter = model.peek(area.area_id)
+        floor = model.areas.get(area.area_id)
+        power = None
+        if floor is not None:
+            delta = (area.effective_target or area.target) - outdoor if outdoor is not None else 0.0
+            power = round(model.power_kw(area.area_id, delta) or 0.0, 2)
+        rooms.append(
+            {
+                "id": area.area_id,
+                "title": area.name,
+                "floor_area": floor,
+                "today": round(counter.day_kwh, 2),
+                "month": round(counter.month_kwh, 2),
+                "total": round(counter.total, 2),
+                "power": power,
+                "confidence": round(model.confidence(area.area_id), 2),
+            }
+        )
+    unassigned = model.unassigned
+    return {
+        "rooms": rooms,
+        "unassigned": {
+            "today": round(unassigned.day_kwh, 2),
+            "month": round(unassigned.month_kwh, 2),
+            "total": round(unassigned.total, 2),
+        },
+    }
+
+
 def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
     registry = er.async_get(hass)
     coordinator = running_coordinator(entry)
@@ -357,6 +397,7 @@ def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
         "area_specs": {key: _spec(sel) for key, sel in area_fields().items()},
         "area_defaults": dict(AREA_DEFAULTS),
         "theta": round(coordinator.theta, 2) if coordinator else None,
+        "room_energy": room_energy_payload(coordinator),
         "learned_specs": learned_specs,
         "limit_params": [
             {

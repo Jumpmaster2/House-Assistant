@@ -75,6 +75,14 @@ Optional. Mit einem Wärmezähler sieht die KI die tatsächlich verbrauchte Wär
 * **Panel:** Karte **Wärme** mit heute, gestern, diesem Monat und dem Zeitpunkt des letzten Zählerwerts. Ein Tag zählt vom letzten Zählerwert vor Mitternacht bis zum letzten vor der nächsten Mitternacht, „gestern“ fehlt nach einem ausgelassenen Tag.
 * Sinkt der Zählerstand (Zählertausch, keine bestätigte Korrektur) oder wird ein anderer Zähler gewählt, beginnt die Zählung neu.
 
+### Wärme je Raum
+
+Mit einer Wohnfläche je Raum (Feld **Wohnfläche**, m², 1 bis 200) verteilt das Modul jeden Zählerwert auf die Räume. Eine Heizphase ist die Zeit zwischen zwei geänderten Zählerwerten. Jeder Raum, der darin geheizt hat, bekommt einen Anteil: Laufzeit mal Wohnfläche mal Heizbedarf (Sollwert minus Außentemperatur) mal eine Leistung je m² und K, die das Modul aus den Phasen lernt. Die Anteile ergeben zusammen immer den Zählerwert. Was kein Raum geheizt hat (Warmwasser, Leitungen), steht unter **Nicht zugeordnet**. Räume ohne Wohnfläche nehmen nicht teil.
+
+* **Sensoren:** je Raum **Wärmeverbrauch** (kWh gesamt, für das Energie-Dashboard), **Wärmeverbrauch heute** und **Heizleistung geschätzt** (kW bei Sollwert und Außentemperatur von jetzt; Attribute `confidence`, `kwh_since_last_reading_estimate`, `minutes_heated_today`). Im Haus **Nicht zugeordnet**. Die Summen ändern sich nur mit den Ablesungen und fallen nie.
+* **Sicherheit:** `confidence` steigt mit den Heizphasen des Raums. Phasen, in denen nur dieser Raum heizte, lernen am schnellsten. Der Zähler liefert nur ganze kWh; kurze Phasen werden mit der nächsten zusammengelegt. Am Anfang sind die Anteile grob.
+* **Ablesung:** Solange ein Raum heizt, wird der Wärmezähler alle 15 Minuten gelesen, sonst nur einmal am Tag (Optionen des Zählers „Intervall, solange ein Raum heizt“ und „Intervall sonst“). Das Ein- und Ausschalten der Heizung (der erste Heizkreis an, der letzte aus) fordert eine Ablesung an, mindestens 5 Minuten nach der letzten. Nach dem Ende bleibt das kurze Intervall noch höchstens 30 Minuten, damit die letzte Wärme der Phase ihr zugeordnet wird; ohne laufenden Heizkreis wird danach nichts mehr verbraucht. Das gilt für Wärmezähler und Zähler mit der Bedingung „Heiztag“.
+
 ## Lüftungsempfehlung
 
 Je Raum mit Temperatursensor (auch ohne Heizkreis) aus absoluter Feuchte innen und außen (oder eines Referenzraums):
@@ -173,6 +181,7 @@ Im Panel unter **Heizung > Räume** (oder im Raum-Dialog unter der Integration).
 | Heizungsart | Fußbodenheizung (Standard), Heizkörper oder Andere; die KI beurteilt Trägheit und gelernte Werte danach. Die Regelung selbst lernt das Verhalten jedes Raums ohnehin. |
 | Startwerte Fensterverzögerung, Erholungszeit, Totzeit, puffer | 5 min, 30 min, 30 min, 0,7 K; nur beim Anlegen |
 | Feuchte-Schwelle | 60 % |
+| Wohnfläche | optional, 1 bis 200 m²; für die Verteilung des Wärmezählers auf die Räume (siehe Wärmezähler) |
 | Referenz-Temperatur und -Feuchte | optional, statt außen (Raum ohne eigenes Fenster) |
 | Lüftungs-Sperr-Entität | optional |
 | Luftzug aus anderen Räumen | optional: bis zu 4 Kombinationen von Fensterkontakten anderer Räume, die zusammen offen sein müssen |
@@ -190,6 +199,7 @@ Gerät „Heizung“:
 * Binärsensor **Heiztag** (mit Quelle, Begründung, Konfidenz, Phase, Zeitpunkt der Entscheidung `decided_at` und nächstem Nachtlauf `next_decision`)
 * Sensoren **Entscheidungsphase**, **Letzte KI-Prüfung** (mit Zusammenfassung und letztem Fehler), **Nächste KI-Prüfung**, **Letzte und nächste KI-Lüftungsprüfung**, **KI-Kosten im Monat**
 * Sensor **Wärme heute** (nur mit Wärmezähler, kWh; Attribute `yesterday`, `month`, `last_month`, `meter_reading_at`)
+* je Raum mit Wohnfläche und Wärmezähler: **Wärmeverbrauch**, **Wärmeverbrauch heute**, **Heizleistung geschätzt**; im Haus **Nicht zugeordnet**
 * Schalter **KI aktiv**
 * Auswahl **Heiztag manuell** (Automatik, Heute heizen, Heute nicht heizen)
 
@@ -245,6 +255,7 @@ Ohne API-Key verlässt nichts das Haus. Mit Key gehen an Anthropic: die Raumname
 * Alle Temperaturen in den Einstellungen der Heizung werden in °C eingegeben (Sensoren und Thermostate dürfen °F nutzen).
 * Nur Schaltaktoren (an/aus) je Heizkreis, keine stetigen Ventile.
 * Querlüften und Luftzug sind eine Näherung aus Wand und Reihenfolge der Fenster, ohne Innentüren. Falsche Kombinationen schaltest du im Raum ab; Kombinationen von Hand bleiben möglich.
+* Die Verteilung des Wärmezählers auf die Räume ist gelernt, nicht gemessen. Ein Raum ohne Wohnfläche bekommt keinen Anteil; seine Wärme geht auf die übrigen Räume derselben Phase, bzw. auf „Nicht zugeordnet“, wenn sonst niemand geheizt hat.
 
 ## Beispiel für eine Automation
 

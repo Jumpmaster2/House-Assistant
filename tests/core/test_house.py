@@ -275,7 +275,9 @@ async def test_house_panel_edits_rooms_and_windows(hass: HomeAssistant, hass_ws_
     assert [r["id"] for r in result["rooms"]] == [LIVING, STORAGE]
     living = result["rooms"][0]
     assert living["windows"] == [WINDOW, DOOR] and living["climate"] == "climate.living_room"
-    assert {"area", "temperature_sensor", "cooling_entity"} <= set(result["fields"]["room"])
+    assert {"area", "floor_area", "temperature_sensor", "cooling_entity"} <= set(
+        result["fields"]["room"]
+    )
     assert {"room", "size", "cover", "window_sensors"} <= set(result["fields"]["window"])
     assert "heater_switch" not in result["fields"]["room"]  # in the heating section
 
@@ -287,7 +289,11 @@ async def test_house_panel_edits_rooms_and_windows(hass: HomeAssistant, hass_ws_
             "subentry_type": "room",
             "subentry_id": LIVING,
             "title": "Lounge",
-            "data": {"temperature_sensor": "sensor.living_temperature", "humidity_sensor": ""},
+            "data": {
+                "temperature_sensor": "sensor.living_temperature",
+                "humidity_sensor": "",
+                "floor_area": 18.5,
+            },
         }
     )
     msg = await client.receive_json()
@@ -296,11 +302,28 @@ async def test_house_panel_edits_rooms_and_windows(hass: HomeAssistant, hass_ws_
     assert entry.subentries[LIVING].title == "Lounge"
     assert data["heater_switch"] == "input_boolean.circuit"
     assert data["default_target"] == 21.0
+    assert data["floor_area"] == 18.5
+
+    # a floor area outside 1 to 200 m² is refused, the room keeps its area
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "house_assistant/house/save",
+            "subentry_type": "room",
+            "subentry_id": LIVING,
+            "title": "Lounge",
+            "data": {"temperature_sensor": "sensor.living_temperature", "floor_area": 500},
+        }
+    )
+    msg = await client.receive_json()
+    assert not msg["success"]
+    assert msg["error"]["message"] == "invalid_value:floor_area"
+    assert entry.subentries[LIVING].data["floor_area"] == 18.5
 
     # a contact of another window is refused, a new window is added
     await client.send_json(
         {
-            "id": 3,
+            "id": 4,
             "type": "house_assistant/house/save",
             "subentry_type": "window",
             "title": "Copy",
@@ -312,7 +335,7 @@ async def test_house_panel_edits_rooms_and_windows(hass: HomeAssistant, hass_ws_
     assert msg["error"]["message"] == "contact_in_use:window_sensors"
     await client.send_json(
         {
-            "id": 4,
+            "id": 5,
             "type": "house_assistant/house/save",
             "subentry_type": "window",
             "title": "Storage window",
@@ -330,7 +353,7 @@ async def test_house_panel_edits_rooms_and_windows(hass: HomeAssistant, hass_ws_
     )
     await client.send_json(
         {
-            "id": 5,
+            "id": 6,
             "type": "house_assistant/house/save",
             "subentry_type": "window",
             "subentry_id": DOOR,
@@ -350,7 +373,7 @@ async def test_house_panel_edits_rooms_and_windows(hass: HomeAssistant, hass_ws_
 
     # the windows of a deleted room stay, without a room
     await client.send_json(
-        {"id": 6, "type": "house_assistant/house/delete", "subentry_id": STORAGE}
+        {"id": 7, "type": "house_assistant/house/delete", "subentry_id": STORAGE}
     )
     msg = await client.receive_json()
     assert msg["success"], msg

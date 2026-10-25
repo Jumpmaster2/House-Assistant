@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.0.0b7 (2026-10-25)
+
+### Fixed
+
+- After a start of Home Assistant the sensor *Next reading* of the heat meter still showed the old interval: the heating is reachable for the meters only once the integration is loaded. The meters now update the sensor within 5 minutes when the interval changes.
+
+## 1.0.0b6 (2026-10-25)
+
+### Fixed
+
+- The sensor *Next reading* of the heat meter showed the interval from before the start of the heating module (e.g. 30 minutes) instead of the one in effect (15 minutes while a room heats, once a day otherwise). It now follows every change of the heating.
+
+## 1.0.0b5 (2026-10-25)
+
+### Added
+
+- Heat per room: with a floor area per room (field *Floor area*, 1 to 200 m²), every reading of the heat meter is split over the rooms that heated in the phase since the last reading. The split is learned from run time, floor area and heating demand (target minus outdoor temperature); the shares always add up to the reading, what no room heated is *Not assigned*. New sensors per room (*Heat consumption*, *Heat consumption today*, *Estimated heat output*) and for the house (*Not assigned*); the heating panel shows a table per room.
+- Heat meter read more often while a room heats: every 15 minutes, otherwise once a day (meter options *Interval while a room heats* and *Interval otherwise*). Switching the heating on and off (the first circuit on, the last one off) asks for a reading, at least 5 minutes after the last one; after the end the short interval lasts 30 more minutes for the last heat of the phase.
+
+### Changed
+
+- Heat meters and meters with the condition *Heating day* use the readings above instead of the intervals *Interval* and *Interval while the condition is off*. Without the heating module the old intervals apply.
+- The house panel shows the floor area of the rooms.
+
+### Fixed
+
+- Rooms added or changed in the settings dialog of the heating (a room of the integration) lost their Home Assistant area: it was not saved when the room was added, and every change of the room cleared it. The house panel was not affected.
+
 ## 1.0.0b4 (2026-10-25)
 
 ### Changed

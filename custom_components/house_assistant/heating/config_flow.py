@@ -34,7 +34,7 @@ from homeassistant.helpers.selector import (
 )
 
 from ..const import OPT_CORE
-from ..core.house import CONF_AREA, CONF_COOLING_ENTITY
+from ..core.house import CONF_AREA, CONF_COOLING_ENTITY, CONF_FLOOR_AREA
 from ..core.schema import without
 from ..runtime import enabled_modules, module_options, shared_options
 from .ai_client import AiAuthError, AiError, ClaudeClient
@@ -848,6 +848,7 @@ def area_schema(
     fields: dict[Any, Any] = {
         vol.Required(CONF_AREA_NAME, default=v.get(CONF_AREA_NAME, "")): TextSelector(),
         _opt_entity(CONF_AREA, v): AreaSelector(),
+        _opt_entity(CONF_FLOOR_AREA, v): _number(1, 200, 0.5, "m²"),
         vol.Required(SECTION_SENSORS): section(
             vol.Schema(
                 {
@@ -961,7 +962,11 @@ def _fields_of(schema: vol.Schema) -> list[str]:
 
 
 def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
-    flat: dict[str, Any] = {CONF_AREA_NAME: str(user_input.get(CONF_AREA_NAME, "")).strip()}
+    flat: dict[str, Any] = {
+        CONF_AREA_NAME: str(user_input.get(CONF_AREA_NAME, "")).strip(),
+        CONF_AREA: user_input.get(CONF_AREA),
+        CONF_FLOOR_AREA: user_input.get(CONF_FLOOR_AREA),
+    }
     for key in (
         SECTION_SENSORS,
         SECTION_HEATING,
