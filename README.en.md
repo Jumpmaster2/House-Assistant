@@ -19,7 +19,7 @@ Every module can be switched on and off on its own. No function of the former in
 * **Tilted:** window handles and tilt contacts count for the heating with 25 % of the opening area, for the covers as before.
 * **Heating day:** the heating day of the heating is the heat need of the covers (warmth of the sun welcome) and the condition of the meters (read less often when not heating).
 * **Room values:** the covers take temperature, thermostat target and air conditioner of the room of their window.
-* **Heat meter:** the heating reads a meter of the meters module with the real time of the reading; a confirmed correction is no meter change.
+* **Heat meter:** the heating reads a meter of the meters module with the real time of the reading; a confirmed correction is no meter change. With a floor area per room it splits the consumption over the rooms (see docs/heating.en.md).
 * **Vacation for the whole house** (see below).
 * **Settings of the house:** outdoor values, weather, language, notifications and working days apply to every module.
 * **One panel** with sections for house, heating, covers and meters.

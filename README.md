@@ -19,7 +19,7 @@ Jedes Modul lässt sich einzeln ein- und ausschalten. Keine Funktion der bisheri
 * **Gekippt:** Fenstergriffe und Kipp-Kontakte zählen für die Heizung mit 25 % der Öffnungsfläche, für die Rollos wie bisher.
 * **Heiztag:** Der Heiztag der Heizung ist der Heizbedarf der Rollos (Sonnenwärme erwünscht) und die Bedingung der Zähler (seltener ablesen, wenn nicht geheizt wird).
 * **Raumwerte:** Die Rollos nehmen Temperatur, Thermostat-Sollwert und Klimaanlage des Raums ihres Fensters.
-* **Wärmezähler:** Die Heizung liest einen Zähler des Moduls Zähler mit dem echten Zeitpunkt der Ablesung; eine bestätigte Korrektur ist kein Zählertausch.
+* **Wärmezähler:** Die Heizung liest einen Zähler des Moduls Zähler mit dem echten Zeitpunkt der Ablesung; eine bestätigte Korrektur ist kein Zählertausch. Mit einer Wohnfläche je Raum verteilt sie den Verbrauch auf die Räume (siehe docs/heating.md).
 * **Urlaub für das ganze Haus** (siehe unten).
 * **Einstellungen des Hauses:** Außenwerte, Wetter, Sprache, Benachrichtigungen und Arbeitstage gelten für alle Module.
 * **Ein Panel** mit Bereichen für Haus, Heizung, Rollos und Zähler.

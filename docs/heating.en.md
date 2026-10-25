@@ -75,6 +75,14 @@ Optional. With a heat meter the AI sees the heat actually used instead of only t
 * **Panel:** card **Heat** with today, yesterday, this month and the time of the last meter value. A day counts from the last meter value before midnight to the last one before the next midnight; "yesterday" is missing after a skipped day.
 * If the reading goes down (meter change, not a confirmed correction) or another meter is chosen, counting starts anew.
 
+### Heat per room
+
+With a floor area per room (field **Floor area**, m², 1 to 200) the module splits every meter reading over the rooms. A heating phase is the time between two changed readings. Every room that heated in it takes a share: run time times floor area times heating demand (target minus outdoor temperature) times a power per m² and K that the module learns from the phases. The shares always add up to the reading. What no room heated (hot water, pipes) is counted as **Not assigned**. Rooms without floor area take no part.
+
+* **Sensors:** per room **Heat consumption** (total kWh, for the energy dashboard), **Heat consumption today** and **Estimated heat output** (kW at the target and the outdoor temperature of now; attributes `confidence`, `kwh_since_last_reading_estimate`, `minutes_heated_today`). For the house **Not assigned**. The totals only change with the readings and never fall.
+* **Confidence:** `confidence` grows with the heating phases of the room. Phases in which this room alone heated teach fastest. The meter only reports whole kWh; short phases are merged with the next one. At the start the shares are rough.
+* **Readings:** while a room heats, the heat meter is read every 15 minutes, otherwise once a day (options of the meter "Interval while a room heats" and "Interval otherwise"). The start and the end of a heating phase ask for a reading, at least 5 minutes after the last one. After the end the short interval lasts at most 2 hours, until the value changes. This applies to heat meters and to meters with the condition "Heating day".
+
 ## Ventilation advice
 
 Per room with a temperature sensor (also without a heating circuit) from the absolute humidity inside and outside (or of a reference room):
@@ -173,6 +181,7 @@ In the panel under **Heating > Rooms** (or in the room dialog of the integration
 | Heating type | underfloor heating (default), radiators or other; the AI judges inertia and learned values by it. The control itself learns the behaviour of every room anyway. |
 | Starting values window delay, recovery time, dead time, puffer | 5 min, 30 min, 30 min, 0.7 K; only when created |
 | Humidity threshold | 60 % |
+| Floor area | optional, 1 to 200 m²; splits the heat meter over the rooms (see Heat per room) |
 | Reference temperature and humidity | optional, instead of outside (room without an own window) |
 | Ventilation blocking entity | optional |
 | Draft from other rooms | optional: up to 4 combinations of window contacts of other rooms that have to be open together |
@@ -190,6 +199,7 @@ Device "Heating":
 * Binary sensor **Heating day** (with source, reason, confidence, phase, time of the decision `decided_at` and next nightly run `next_decision`)
 * Sensors **Decision phase**, **Last AI review** (with summary and last error), **Next AI review**, **Last and next AI ventilation check**, **AI costs this month**
 * Sensor **Heat today** (only with a heat meter, kWh; attributes `yesterday`, `month`, `last_month`, `meter_reading_at`)
+* per room with floor area and heat meter: **Heat consumption**, **Heat consumption today**, **Estimated heat output**; for the house **Not assigned**
 * Switch **AI enabled**
 * Select **Heating day manual** (automatic, heat today, do not heat today)
 
@@ -245,6 +255,7 @@ Without an API key nothing leaves the house. With a key the following goes to An
 * Every temperature in the settings of the heating is entered in °C (sensors and thermostats may use °F).
 * Only switching actuators (on/off) per heating circuit, no continuous valves.
 * Cross ventilation and draft are an approximation from wall and order of the windows, without inner doors. Switch off wrong combinations in the room; combinations by hand stay possible.
+* The split of the heat meter over the rooms is learned, not measured. A room without floor area takes no share; its heat goes to the other rooms of the phase, or to **Not assigned** when nobody else heated.
 
 ## Example automation
 
