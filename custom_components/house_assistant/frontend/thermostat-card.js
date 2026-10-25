@@ -52,6 +52,13 @@ const UI = {
 };
 
 const ui = (lang) => UI[(lang || "en").split("-")[0]] || UI.en;
+
+// the sensor of the room behind a value of the thermostat (attribute of House Assistant),
+// else the thermostat itself
+const sensorOf = (st, attribute, fallback) => st?.attributes?.[attribute] || fallback;
+
+const moreInfo = (el, entityId) =>
+  el.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
 const docLang = () => document.documentElement.lang || navigator.language;
 
 // Dial geometry (viewBox -160 -160 320 320): 270° from bottom left to bottom right.
@@ -186,6 +193,7 @@ class AiHeatingThermostatCard extends HTMLElement {
         .big.none .int { font-size: clamp(28px, 16cqw, 48px); }
         .secondary { display: flex; align-items: center; justify-content: center; flex-wrap: nowrap; gap: 0 0.6em; font-size: clamp(10px, 6cqw, 16px); font-weight: 500; line-height: 1.4; white-space: nowrap; max-width: 100%; }
         .secondary span { display: inline-flex; align-items: center; gap: 0.2em; }
+        .secondary [data-entity] { pointer-events: auto; cursor: pointer; }
         .secondary ha-icon { --mdc-icon-size: 1.2em; }
         .warning { padding: 16px; color: var(--error-color); }
       </style>
@@ -224,6 +232,11 @@ class AiHeatingThermostatCard extends HTMLElement {
       big: root.querySelector(".big"),
       secondary: root.querySelector(".secondary"),
     };
+    // a value below the big number opens the history of its sensor
+    this._el.secondary.addEventListener("click", (ev) => {
+      const target = ev.composedPath().find((node) => node.dataset?.entity);
+      if (target) moreInfo(this, target.dataset.entity);
+    });
     root.querySelectorAll("[data-more]").forEach((el) =>
       el.addEventListener("click", () =>
         this.dispatchEvent(
@@ -358,11 +371,13 @@ class AiHeatingThermostatCard extends HTMLElement {
       const second = primaryCurrent ? (off ? null : target) : current;
       if (second != null) {
         const icon = primaryCurrent ? "mdi:thermostat" : "mdi:thermometer";
-        parts.push(`<span><ha-icon icon="${icon}"></ha-icon>${esc(this._number(second, this._digits(st)))} ${esc(this._unit())}</span>`);
+        const sensor = primaryCurrent ? this._config.entity : sensorOf(st, "temperature_sensor", this._config.entity);
+        parts.push(`<span data-entity="${esc(sensor)}"><ha-icon icon="${icon}"></ha-icon>${esc(this._number(second, this._digits(st)))} ${esc(this._unit())}</span>`);
       }
       const humidity = st.attributes.current_humidity;
       if (this._config.show_humidity !== false && humidity != null) {
-        parts.push(`<span><ha-icon icon="mdi:water-percent"></ha-icon>${esc(this._number(humidity, 0))} %</span>`);
+        const sensor = sensorOf(st, "humidity_sensor", this._config.entity);
+        parts.push(`<span data-entity="${esc(sensor)}"><ha-icon icon="mdi:water-percent"></ha-icon>${esc(this._number(humidity, 0))} %</span>`);
       }
     }
     const html = parts.join("");
@@ -640,11 +655,11 @@ class AiHeatingThermostatCompactCard extends HTMLElement {
     if (!this._config || !this._hass) return;
     if (!this.shadowRoot) {
       this.attachShadow({ mode: "open" });
-      this.shadowRoot.addEventListener("click", () =>
-        this.dispatchEvent(
-          new CustomEvent("hass-more-info", { detail: { entityId: this._config.entity }, bubbles: true, composed: true })
-        )
-      );
+      // the temperature and the humidity open the history of their sensor, the rest the thermostat
+      this.shadowRoot.addEventListener("click", (ev) => {
+        const target = ev.composedPath().find((node) => node.dataset?.entity);
+        moreInfo(this, target ? target.dataset.entity : this._config.entity);
+      });
     }
     const st = this._hass.states[this._config.entity];
     const t = ui(this._hass.locale?.language || this._hass.language);
@@ -662,11 +677,11 @@ class AiHeatingThermostatCompactCard extends HTMLElement {
       const hum = this._config.show_humidity !== false ? a.current_humidity : null;
       const target = st.state === "off" || unavailable ? null : a.temperature;
       const vals = [
-        `<span class="temp">${temp == null || unavailable ? "–" : `${esc(this._number(temp, 1))}°`}</span>`,
+        `<span class="temp" data-entity="${esc(sensorOf(st, "temperature_sensor", this._config.entity))}">${temp == null || unavailable ? "–" : `${esc(this._number(temp, 1))}°`}</span>`,
       ];
       if (hum != null && !unavailable) {
         vals.push(
-          `<span class="sep"></span><span class="hum"><ha-icon icon="mdi:water-percent"></ha-icon>${esc(this._number(hum, 0))} %</span>`
+          `<span class="sep"></span><span class="hum" data-entity="${esc(sensorOf(st, "humidity_sensor", this._config.entity))}"><ha-icon icon="mdi:water-percent"></ha-icon>${esc(this._number(hum, 0))} %</span>`
         );
       }
       const line = [
