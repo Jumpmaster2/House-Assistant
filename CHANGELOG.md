@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b7 (2026-10-25)
+
+### Fixed
+
+- After a start of Home Assistant the sensor *Next reading* of the heat meter still showed the old interval: the heating is reachable for the meters only once the integration is loaded. The meters now update the sensor within 5 minutes when the interval changes.
+
 ## 1.0.0b6 (2026-10-25)
 
 ### Fixed
