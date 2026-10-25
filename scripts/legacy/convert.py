@@ -360,7 +360,10 @@ def build_plan(
             own = data.get("room_entity")
             if own and (
                 thermostat_room.get(str(own)) == room
-                or (own == room_conf.get("temperature_sensor") and not room_conf.get("heater_switch"))
+                or (
+                    own == room_conf.get("temperature_sensor")
+                    and not room_conf.get("heater_switch")
+                )
             ):
                 del data["room_entity"]
         else:
