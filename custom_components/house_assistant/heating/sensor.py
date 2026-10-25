@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -379,7 +379,15 @@ class RoomHeatSensor(AreaEntity, SensorEntity):
 
     @property
     def last_reset(self) -> datetime | None:
-        return dt_util.start_of_local_day() if self._kind == "today" else None
+        """Start of the day the value of today belongs to (it rolls with the tick, so the
+        reset and the value of zero arrive together)."""
+        if self._kind != "today":
+            return None
+        day = self.coordinator.room_energy.peek(self.area_id).day
+        try:
+            return dt_util.start_of_local_day(date.fromisoformat(day))
+        except ValueError:
+            return dt_util.start_of_local_day()
 
     @property
     def native_value(self) -> float | None:

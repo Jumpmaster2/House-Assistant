@@ -1349,6 +1349,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 changed = self.meter.update(kwh, min(reading.ts, ts), reading.corrected)
             if changed:  # a new value closes the heating phase: split it over the rooms
                 self.room_energy.reading(kwh, today.isoformat(), first.strftime("%Y-%m"))
+                # saved soon: totals lost in a crash would fall after the restart, which
+                # the statistics take for a reset of the meter (counted twice)
+                self._save()
             for name in ("check", "day", "today", "month"):  # periods start with the first reading
                 if name not in self.meter.baselines:
                     self.meter.rebase(name)

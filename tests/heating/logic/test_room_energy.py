@@ -199,3 +199,44 @@ def test_day_and_month_counters_roll() -> None:
     assert counter.month_kwh == pytest.approx(2.0)
     model.roll("2026-12-01", "2026-12")
     assert counter.month_kwh == 0.0 and counter.total == pytest.approx(2.0)
+
+
+def test_totals_never_fall() -> None:
+    """Random phases with resets of the meter, restarts from the store and rooms that
+    lose or get their floor area: no total ever falls, and every kWh read in a closed
+    phase lands in exactly one counter."""
+    rng = random.Random(7)
+    rooms = list(TRUE_C)
+    model = RoomEnergyModel()
+    model.set_areas(AREAS)
+    meter, assigned = 500.0, 0.0
+    model.reading(meter, DAY, MONTH)
+    before = {room: 0.0 for room in [*rooms, "unassigned"]}
+    for step in range(400):
+        event = rng.random()
+        if event < 0.03:
+            meter = rng.uniform(0.0, 10.0)  # reset or new meter
+            model.reading(meter, DAY, MONTH)
+        elif event < 0.06:
+            model = RoomEnergyModel.from_dict(model.as_dict())  # HA restart
+            model.set_areas(AREAS)
+        elif event < 0.08:
+            model.set_areas({r: a for r, a in AREAS.items() if r != rooms[step % 3]})
+        elif event < 0.10:
+            model.set_areas(AREAS)
+        else:
+            for room in rng.sample(rooms, rng.randint(0, 3)):
+                model.heating(room, rng.uniform(0.05, 1.0), rng.uniform(-5.0, 20.0), DAY, MONTH)
+            step_kwh = float(rng.randint(0, 3))
+            start = model.start
+            meter += step_kwh
+            model.reading(meter, DAY, MONTH)
+            if start is not None and model.start == meter and meter > start:
+                assigned += meter - start  # the phase was closed
+        now = {room: model.peek(room).total for room in rooms}
+        now["unassigned"] = model.unassigned.total
+        for key, value in now.items():
+            assert value >= before[key] - 1e-9, (step, key)
+        before = now
+        assert sum(now.values()) == pytest.approx(assigned)
+        assert all(0.0 <= c <= 0.05 for c in model.coefficients.values())

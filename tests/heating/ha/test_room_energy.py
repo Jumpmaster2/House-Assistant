@@ -4,7 +4,7 @@ coordinator and the store."""
 from __future__ import annotations
 
 from datetime import timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -107,3 +107,31 @@ async def test_phases_are_saved(hass: HomeAssistant, base_states, freezer):
     assert saved["areas"] == {ROOM: 20.0}
     assert saved["runs"][ROOM]["hours"] > 0
     assert saved["start"] == pytest.approx(1000.0)
+
+
+async def test_totals_survive_a_reload(hass: HomeAssistant, base_states, freezer):
+    """A closed phase is saved soon, and a reload of the integration keeps the totals:
+    the sensor of the total does not fall (the statistics would take it for a reset)."""
+    entry, coordinator = await _setup(hass, [{**AREA_DATA, "floor_area": 20.0}, VENT_ONLY_DATA])
+    await _tick(hass, freezer, coordinator)
+    hass.states.async_set(CIRCUIT, "on")
+    for _ in range(4):
+        await _tick(hass, freezer, coordinator)
+    hass.states.async_set(METER, "1002", {"unit_of_measurement": "kWh"})
+    with patch.object(coordinator, "_save", wraps=coordinator._save) as save:
+        await _tick(hass, freezer, coordinator)
+        save.assert_called()  # not only every tenth tick
+    sensor = _entity(hass, f"{ROOM}_heat_consumption")
+    assert float(hass.states.get(sensor).state) == pytest.approx(2.0)
+    today = _entity(hass, f"{ROOM}_heat_consumption_today")
+    assert hass.states.get(today).attributes["state_class"] == "total"
+    assert hass.states.get(sensor).attributes["state_class"] == "total_increasing"
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    coordinator = heating(entry)
+    coordinator._control_area = AsyncMock()
+    assert coordinator.room_energy.counter(ROOM).total == pytest.approx(2.0)
+    await _tick(hass, freezer, coordinator)
+    assert float(hass.states.get(sensor).state) == pytest.approx(2.0)
+    assert float(hass.states.get(today).state) == pytest.approx(2.0)
