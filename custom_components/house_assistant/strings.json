@@ -923,6 +923,18 @@
                 "puffer": "Heating day rule: how far above the target a room must be at the nightly run to manage a day without heating (e.g. 0.7 K). Learned afterwards."
               }
             },
+            "airing": {
+              "name": "Airing",
+              "description": "Brief airing and the wait after it. Can be changed at any time, also for existing rooms.",
+              "data": {
+                "short_airing_min": "Brief airing from",
+                "short_recovery_percent": "Wait after brief airing"
+              },
+              "data_description": {
+                "short_airing_min": "Airing at least this long but shorter than the window delay counts as brief airing: heating then waits. 0 = every airing counts. From the window delay on, the normal pause applies.",
+                "short_recovery_percent": "Share of the learned recovery time that heating waits after a brief airing (50 % = half the wait). Fixed, not learned. 0 = no wait."
+              }
+            },
             "ventilation": {
               "name": "Ventilation",
               "data": {

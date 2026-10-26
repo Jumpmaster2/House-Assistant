@@ -475,6 +475,7 @@ const AREA_GROUPS = [
   ["sensors", ["temperature_sensor", "humidity_sensor"], false],
   ["heating", ["heater_switch", "default_target", "min_target", "max_target", "min_on_time", "min_off_time", "heating_type"], false],
   ["start_values", ["window_delay", "recovery_time", "dead_time", "puffer"], true],
+  ["airing", ["short_airing_min", "short_recovery_percent"], true],
   ["learned_values", ["window_delay", "recovery_time", "dead_time", "puffer"], false],
   ["ventilation", ["ventilation_rh_threshold", "reference_temperature", "reference_humidity", "ventilation_block_entity"], true],
   ["draft", ["draft_group_1", "draft_group_2", "draft_group_3", "draft_group_4"], true],

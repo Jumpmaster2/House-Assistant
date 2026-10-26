@@ -578,6 +578,7 @@ async def test_old_store_applies_unlearned_start_values(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
     area = heating(entry).areas[sub.subentry_id]
+    assert (area.params.short_airing_min, area.params.short_recovery_percent) == (1.0, 50.0)
     assert area.learner.dead_time.value == 30 * 60  # configured, nothing learned
     assert area.learner.recovery.value == 5400  # learned once: kept
     assert area.start == {
@@ -1337,3 +1338,61 @@ async def test_prompt_blocks_reach_the_ai(
     system = mock.call_args.args[0]
     assert "Kaminofen" in system
     assert "Learn from recent errors" not in system
+
+
+async def _tick(hass: HomeAssistant, freezer: FrozenDateTimeFactory, seconds: int) -> None:
+    """One controller tick after ``seconds``: the window state is seen at its ticks, so an
+    airing lasts from the tick that sees it open to the tick that sees it closed."""
+    freezer.tick(timedelta(seconds=seconds))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+
+async def test_short_airing_waits_a_fixed_time_and_is_logged(
+    hass: HomeAssistant, base_states, freezer: FrozenDateTimeFactory
+) -> None:
+    """Window open 154 s (below the 5 min delay): the temperature falls only after closing
+    and the room is not warmed up by itself. Heating waits 50 % of the recovery time
+    (30 min learned start value -> 15 min), whatever the temperature does."""
+    freezer.move_to(IN_SEASON)
+    hass.states.async_set("sensor.living_room_temperature", "21.5")
+    await _setup(hass, make_entry())
+    events = async_capture_events(hass, EVENT_LOGBOOK)
+    await _advance(hass, freezer, 1)
+    hass.states.async_set("binary_sensor.living_room_window", "on")
+    await _tick(hass, freezer, 60)  # seen open
+    assert hass.states.get("sensor.living_room_status").state != "window_open"  # no pause yet
+    hass.states.async_set("binary_sensor.living_room_window", "off")
+    hass.states.async_set("sensor.living_room_temperature", "20.0")
+    await _tick(hass, freezer, 154)  # seen closed: open 154 s
+    assert hass.states.get("sensor.living_room_status").state == "recovery"
+    assert hass.states.get("input_boolean.heating_circuit_1").state == "off"
+
+    # the room stays cold and heating would be due: the short wait holds all the same
+    await _advance(hass, freezer, 10)
+    assert hass.states.get("sensor.living_room_status").state == "recovery"
+    assert hass.states.get("input_boolean.heating_circuit_1").state == "off"
+
+    await _advance(hass, freezer, 6)
+    assert hass.states.get("input_boolean.heating_circuit_1").state == "on"
+    messages = [e.data["message"] for e in events]
+    assert any(m.startswith("Aired briefly: waiting until ") for m in messages)
+    assert "Wait after brief airing finished." in messages
+    assert not any(m.startswith("Window closed: recovery until") for m in messages)
+
+
+async def test_airing_below_the_minimum_is_not_logged(
+    hass: HomeAssistant, base_states, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(IN_SEASON)
+    hass.states.async_set("sensor.living_room_temperature", "21.5")
+    await _setup(hass, make_entry())
+    events = async_capture_events(hass, EVENT_LOGBOOK)
+    await _advance(hass, freezer, 1)
+    hass.states.async_set("binary_sensor.living_room_window", "on")
+    await _tick(hass, freezer, 30)  # seen open
+    hass.states.async_set("binary_sensor.living_room_window", "off")
+    hass.states.async_set("sensor.living_room_temperature", "20.0")
+    await _tick(hass, freezer, 30)  # seen closed: open 30 s, below the 1 min minimum
+    assert hass.states.get("sensor.living_room_status").state != "recovery"
+    assert not any("Aired briefly" in e.data["message"] for e in events)

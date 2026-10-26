@@ -16,6 +16,7 @@ Jedes Modul lässt sich einzeln ein- und ausschalten. Keine Funktion der bisheri
 
 * **Ein Haus:** Räume (mit Home-Assistant-Bereich und Sensoren) und Fenster (mit Raum, Größe, Kontakten, Wand und optional einem Rollo) gibt es nur einmal. Ein Kontakt und ein Rollo gehören zu genau einem Fenster.
 * **Querlüften automatisch:** Aus der Lage der Fenster am Haus erkennt die Heizung Querlüften und Luftzug durch Räume, auch über Eck; jede Kombination lässt sich einzeln abschalten.
+* **Kurzlüften:** Wer ein Fenster kürzer als die Fensterverzögerung, aber mindestens eine Minute offen hat, lüftet kurz; danach wartet die Heizung die halbe gelernte Erholungszeit (beides je Raum jederzeit einstellbar im Abschnitt *Lüften*). Das Logbuch zeigt es. Details: [docs/heating.md](docs/heating.md)
 * **Gekippt:** Fenstergriffe und Kipp-Kontakte zählen für die Heizung mit 25 % der Öffnungsfläche, für die Rollos wie bisher.
 * **Heiztag:** Der Heiztag der Heizung ist der Heizbedarf der Rollos (Sonnenwärme erwünscht) und die Bedingung der Zähler (seltener ablesen, wenn nicht geheizt wird).
 * **Raumwerte:** Die Rollos nehmen Temperatur, Thermostat-Sollwert und Klimaanlage des Raums ihres Fensters.

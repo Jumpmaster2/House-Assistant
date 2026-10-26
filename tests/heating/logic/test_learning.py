@@ -450,3 +450,26 @@ def test_learner_roundtrip_keeps_airings_and_model() -> None:
     assert copy.airings == learner.airings
     assert copy.recovery_model.theta == learner.recovery_model.theta
     assert copy.track_airing == learner.track_airing
+
+
+def test_short_wait_does_not_change_the_learned_recovery() -> None:
+    """A fixed short wait after brief airing (50 % of the learned recovery) is what the
+    controller holds; the learner measures the real recovery and must not learn the wait."""
+    learner = AreaLearner.create(1800, 1800)
+    # 3 min airing, 1 K drop, wait 15 min (50 % of 30 min), expected recovery 30 min
+    learner.on_window_closed(
+        0, temp_before=21.0, open_seconds=180, wait_s=900, temp=20.0, expected_s=1800
+    )
+    _feed(learner, 0, 60, lambda m: 20.0 + m * 0.025, valve=False, excluded=True)
+    assert learner.recovery.value == pytest.approx(1980)  # recovered after 36 min, not 15
+    assert learner.recovery.count == 1
+
+    # the room warms up by itself until the short wait ends, then heating comes on:
+    # a censored value of the short wait (x 1.25) is below the estimate and learns nothing
+    before = (learner.recovery.value, learner.recovery.count)
+    learner.on_window_closed(
+        10_000, temp_before=21.0, open_seconds=180, wait_s=900, temp=20.0, expected_s=1800
+    )
+    _feed(learner, 10_000, 16, lambda m: 20.0 + m * 0.025, valve=False, excluded=True)
+    _feed(learner, 10_000 + 16 * 60, 1, lambda m: 20.4, valve=True)
+    assert (learner.recovery.value, learner.recovery.count) == before

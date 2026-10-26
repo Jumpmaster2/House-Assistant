@@ -16,6 +16,7 @@ Every module can be switched on and off on its own. No function of the former in
 
 * **One house:** rooms (with Home Assistant area and sensors) and windows (with room, size, contacts, wall and optionally a cover) exist only once. A contact and a cover belong to one window only.
 * **Automatic cross ventilation:** from the arrangement of the windows on the house the heating detects cross ventilation and draft through rooms, also round the corner; every combination can be switched off on its own.
+* **Brief airing:** a window open for at least one minute but shorter than the window delay counts as brief airing; afterwards the heating waits half the learned recovery time (both configurable per room at any time in the section *Airing*). The logbook shows it. Details: [docs/heating.en.md](docs/heating.en.md)
 * **Tilted:** window handles and tilt contacts count for the heating with 25 % of the opening area, for the covers as before.
 * **Heating day:** the heating day of the heating is the heat need of the covers (warmth of the sun welcome) and the condition of the meters (read less often when not heating).
 * **Room values:** the covers take temperature, thermostat target and air conditioner of the room of their window.
