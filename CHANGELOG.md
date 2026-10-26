@@ -5,7 +5,7 @@
 ### Added
 
 - Brief airing appears in the logbook: "Aired briefly: waiting until ..." when a window was open for at least the minimum and shorter than the window delay, and "Wait after brief airing finished." when the wait is over. Airings that are too short or a wait of 0 are not logged.
-- Two start values per room, next to the window delay: *Brief airing from* (default 1 minute, 0 to 60, step 0.5; 0 = every airing counts) and *Wait after brief airing* (default 50 %, 0 to 100, step 5; 0 = no wait). They are set when the room is created, like the window delay, and the AI does not adjust them.
+- Two settings per room in the new section *Airing* of the room (dialog and panel), changeable at any time also for existing rooms: *Brief airing from* (default 1 minute, 0 to 60, step 0.5; 0 = every airing counts) and *Wait after brief airing* (default 50 %, 0 to 100, step 5; 0 = no wait). They are not start values and the AI does not adjust them; rooms without them get the defaults.
 
 ### Changed
 
