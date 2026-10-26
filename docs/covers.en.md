@@ -208,7 +208,7 @@ name: Living room           # optional
 icon: mdi:blinds            # optional
 ```
 
-**Window tile** (`custom:house-assistant-window-tile`, 6 × 1): window and cover together: the name at the top, below on the left the window (open, tilted, closed) and on the right the cover with its opening. Without a window contact only the cover.
+**Window tile** (`custom:house-assistant-window-tile`, 6 × 1): window and cover together: the name at the top, below on the left the window (open, tilted, closed) and on the right the cover with its opening. Without a window contact only the cover. A tap on the window opens the window contact (without a contact the status of the window), a tap on the cover opens the cover, the rest of the tile the cover as well.
 
 ```yaml
 type: custom:house-assistant-window-tile
