@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b12 (2026-10-26)
+
+### Fixed
+
+- The window tile (`house-assistant-window-tile`) opened the cover wherever it was tapped. A tap on the window now opens the window contact (or the status of the window when no contact is set), a tap on the cover opens the cover, as the thermostat cards do for temperature and humidity. The rest of the tile still opens the cover. The parts have a little more room to hit on a touch screen.
+
 ## 1.0.0b11 (2026-10-26)
 
 ### Fixed

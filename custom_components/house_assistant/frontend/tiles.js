@@ -17,6 +17,9 @@
 //   contact: binary_sensor.wohnzimmerfenster
 //   tilt: binary_sensor.wohnzimmerfenster_gekippt   # optional, on = tilted
 //
+// Tapping the window part opens the contact (or the status of the window), tapping the
+// cover part the cover, the rest of the tile the cover.
+//
 // Both take the colors color_cover, color_closed, color_open and color_tilted:
 // a name of the theme (purple, orange, ...) or any CSS color.
 
@@ -58,7 +61,7 @@ class TileBase extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     this._sig = "";
-    this.shadowRoot.addEventListener("click", () => this._moreInfo());
+    this.shadowRoot.addEventListener("click", (ev) => this._moreInfo(ev));
   }
 
   setConfig(config) {
@@ -108,8 +111,10 @@ class TileBase extends HTMLElement {
       .join("");
   }
 
-  _moreInfo() {
-    const entityId = this._moreInfoId();
+  // the part that was tapped (data-entity), else the entity of the tile
+  _moreInfo(ev) {
+    const part = ev?.composedPath().find((el) => el.dataset?.entity);
+    const entityId = part?.dataset.entity || this._moreInfoId();
     if (!entityId) return;
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
   }
@@ -287,6 +292,15 @@ class ShutterAssistantWindowTile extends TileBase {
     return this._coverId();
   }
 
+  // the entity behind the window part: the contact, else the status of the window
+  _windowEntity() {
+    return this._config.contact || this._win?.entities?.status;
+  }
+
+  _dataEntity(id) {
+    return id ? ` data-entity="${esc(id)}"` : "";
+  }
+
   _windowState() {
     if (this._config.contact) return this._contact(this._config.contact, this._config.tilt);
     // only a cover: no window part
@@ -318,11 +332,11 @@ class ShutterAssistantWindowTile extends TileBase {
     const win =
       state === undefined
         ? ""
-        : `<span class="part win ${state || "na"}"><span class="icon">${contactIcon}</span><span>${esc(this._windowText(state))}</span></span>`;
+        : `<span class="part win ${state || "na"}"${this._dataEntity(this._windowEntity())}><span class="icon">${contactIcon}</span><span>${esc(this._windowText(state))}</span></span>`;
     this._paint(`<div class="tile ${cover.cls}"><div class="slats" style="height:${cover.closed}%"></div>
       <div class="in">
         <div class="name">${esc(name)}</div>
-        <div class="bottom">${win}<span class="part cover"><span class="icon">${this._icon(coverId, this._config.icon)}</span><span>${esc(cover.text)}</span></span></div>
+        <div class="bottom">${win}<span class="part cover"${this._dataEntity(coverId)}><span class="icon">${this._icon(coverId, this._config.icon)}</span><span>${esc(cover.text)}</span></span></div>
       </div></div>`);
   }
 }
@@ -347,6 +361,8 @@ ha-card { height:100%; min-height:56px; overflow:hidden; cursor:pointer; positio
 .name { font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; color:var(--primary-text-color); }
 .part { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:500; padding:1px 8px 1px 4px; border-radius:10px; white-space:nowrap; color:var(--primary-text-color); background:var(--secondary-background-color, rgba(127,127,127,.15)); }
 .part .icon { --mdc-icon-size:16px; }
+.part[data-entity] { position:relative; }
+.part[data-entity]::before { content:""; position:absolute; inset:-6px -3px; }
 .part.cover { margin-left:auto; }
 .win { color:var(--secondary-text-color); --c:var(--color-closed); }
 .win.open { --c:var(--color-open); color:var(--c); background:color-mix(in srgb, var(--c) 20%, transparent); }

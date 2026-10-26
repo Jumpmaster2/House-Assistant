@@ -208,7 +208,7 @@ name: Wohnzimmer           # optional
 icon: mdi:blinds           # optional
 ```
 
-**Fensterkachel** (`custom:house-assistant-window-tile`, 6 × 1): Fenster und Rollo zusammen: oben der Name, darunter links das Fenster (offen, gekippt, zu) und rechts der Rollo mit Öffnungsgrad. Ohne Fensterkontakt nur der Rollo.
+**Fensterkachel** (`custom:house-assistant-window-tile`, 6 × 1): Fenster und Rollo zusammen: oben der Name, darunter links das Fenster (offen, gekippt, zu) und rechts der Rollo mit Öffnungsgrad. Ohne Fensterkontakt nur der Rollo. Antippen des Fensters öffnet den Fensterkontakt (ohne Kontakt den Status des Fensters), Antippen des Rollos den Rollo, der Rest der Kachel ebenfalls den Rollo.
 
 ```yaml
 type: custom:house-assistant-window-tile
