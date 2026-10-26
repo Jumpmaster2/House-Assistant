@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b11 (2026-10-26)
+
+### Fixed
+
+- Saving settings that restarts a module no longer fills the logbook with "Unavailable" entries: the states are removed and written again without an entry in between. The entities keep their ids and registry entries; unloading the integration still leaves them unavailable.
+
 ## 1.0.0b10 (2026-10-26)
 
 ### Added

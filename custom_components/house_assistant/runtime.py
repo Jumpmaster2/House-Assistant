@@ -153,10 +153,14 @@ class Module:
         task.add_done_callback(tasks.discard)
         return task
 
-    async def async_stop(self, switched_off: bool = False) -> None:
-        """Stop the module. Its entities stay registered (same ids after a restart); when
-        the module is switched off they also leave the state machine instead of showing
-        as unavailable."""
+    async def async_stop(self, switched_off: bool = False, quiet: bool = False) -> None:
+        """Stop the module. Its entities stay registered (same ids after a restart).
+
+        Their states leave the state machine when the module is switched off, and also
+        on a quiet restart (settings changed): Home Assistant would otherwise write
+        "unavailable" and the old state back, which fills the logbook with pairs of
+        entries. Unloading the entry keeps the states as unavailable.
+        """
         self.switched_off = switched_off
         for task in list(self._tasks):
             task.cancel()
@@ -166,7 +170,7 @@ class Module:
             self._unsubs.pop()()
         for entity in self._entities:
             if entity.hass is not None and entity.platform is not None:
-                await entity.async_remove(force_remove=switched_off)
+                await entity.async_remove(force_remove=switched_off or quiet)
         self._entities.clear()
         await self.async_unload()
 
@@ -214,11 +218,11 @@ class HouseRuntime:
         for platform, add_entities in self._adders.items():
             self._add(house, platform, add_entities)
 
-    async def _stop_house(self) -> None:
+    async def _stop_house(self, quiet: bool = False) -> None:
         house, self.house = self.house, None
         if house is not None:
             self._signatures.pop(house.key, None)
-            await house.async_stop()
+            await house.async_stop(quiet=quiet)
 
     @callback
     def platform_ready(
@@ -236,7 +240,7 @@ class HouseRuntime:
             house = self.house
             if house is not None and house.signature() != self._signatures.get(house.key):
                 LOGGER.debug("Restarting the house")
-                await self._stop_house()
+                await self._stop_house(quiet=True)
                 try:
                     await self._start_house()
                 except Exception:
@@ -250,7 +254,7 @@ class HouseRuntime:
                     await self._start_logged(key)
                 elif module.signature() != self._signatures.get(key):
                     LOGGER.debug("Restarting the module %s", key)
-                    await self._stop(key)
+                    await self._stop(key, quiet=True)
                     await self._start_logged(key)
 
     async def _start_logged(self, key: str) -> None:
@@ -272,10 +276,10 @@ class HouseRuntime:
         for platform, add_entities in self._adders.items():
             self._add(module, platform, add_entities)
 
-    async def _stop(self, key: str, switched_off: bool = False) -> None:
+    async def _stop(self, key: str, switched_off: bool = False, quiet: bool = False) -> None:
         module = self.modules.pop(key)
         self._signatures.pop(key, None)
-        await module.async_stop(switched_off)
+        await module.async_stop(switched_off, quiet=quiet)
 
     @staticmethod
     def _add(
