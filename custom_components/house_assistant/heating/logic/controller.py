@@ -9,7 +9,6 @@ from typing import Any
 FROST_HYSTERESIS = 0.5  # K above the frost limit before frost protection ends
 RECOVERED_MARGIN = 0.1  # K below the temperature before airing counts as recovered
 FORCE_ON_BELOW = 1.0  # K below target: heat regardless of predictions
-SHORT_AIRING_S = 120.0  # shorter openings are ignored after closing
 PEAK_PASSED_K = 0.15  # K below the highest temperature since switch-off: overshoot has arrived
 # The overshoot expected at switch-off is forgotten after this at the latest. It ends
 # earlier once the temperature falls again; the peak comes several dead times after
@@ -49,6 +48,8 @@ class ControlParams:
     window_delay_min: float = 5.0
     recovery_bias_min: float = 0.0
     puffer: float = 0.7
+    short_airing_min: float = 1.0  # shorter airings are ignored; 0 = every airing counts
+    short_recovery_percent: float = 50.0  # share of the recovery time held after short airing
 
     def as_dict(self) -> dict[str, float]:
         return asdict(self)
@@ -177,15 +178,17 @@ def _update_window(
 ) -> bool:
     """Track window state. Returns True while recovering after airing.
 
-    Airing shorter than the window delay but at least ``SHORT_AIRING_S`` starts a
-    short recovery, scaled by the share of the window delay the window was open.
+    Airing shorter than the window delay but at least ``short_airing_min`` starts a
+    short recovery: a fixed wait of the learned recovery time times
+    ``short_recovery_percent``. It ends only when the time has passed, not when the
+    temperature is back.
     """
     if data.window_open:
         if rt.window_open_since is None:
             rt.window_open_since = data.now
             if rt.recovery_until is None or rt.temp_before_open is None:
-                # Opened again while still recovering: the room has to get back to
-                # the temperature before the first airing, not to the lowered one.
+                # Opened again while still recovering: the room has to get back to the
+                # temperature before the first airing, not to the lowered one.
                 rt.temp_before_open = data.temp
             rt.last_window_change = data.now
             rt.events.append("window_opened")
@@ -197,22 +200,30 @@ def _update_window(
     elif rt.window_open_since is not None:
         rt.events.append("window_closed")
         rt.last_window_change = data.now
-        recovery = max(0.0, learned.recovery_s + params.recovery_bias_min * 60)
         open_s = data.now - rt.window_open_since
         if rt.window_paused:
+            recovery = max(0.0, learned.recovery_s + params.recovery_bias_min * 60)
             rt.recovery_until = data.now + recovery
             rt.short_recovery = False
             rt.events.append("recovery_start")
-        elif open_s >= SHORT_AIRING_S and params.window_delay_min > 0:
-            share = min(1.0, open_s / (params.window_delay_min * 60))
-            rt.recovery_until = data.now + recovery * share
-            rt.short_recovery = True
-            rt.events.append("short_recovery_start")
+        elif open_s >= params.short_airing_min * 60 and params.window_delay_min > 0:
+            wait = max(0.0, learned.recovery_s) * params.short_recovery_percent / 100
+            if wait > 0:
+                rt.recovery_until = data.now + wait
+                rt.short_recovery = True
+                rt.events.append("short_recovery_start")
         rt.window_open_since = None
         rt.window_paused = False
 
     if rt.recovery_until is None:
         return False
+    if rt.short_recovery:
+        if data.now >= rt.recovery_until:
+            rt.recovery_until = None
+            rt.short_recovery = False
+            rt.events.append("short_recovery_end")
+            return False
+        return True
     recovered = (
         data.temp is not None
         and rt.temp_before_open is not None
@@ -220,8 +231,7 @@ def _update_window(
     )
     if recovered or data.now >= rt.recovery_until:
         rt.recovery_until = None
-        rt.events.append("short_recovery_end" if rt.short_recovery else "recovery_end")
-        rt.short_recovery = False
+        rt.events.append("recovery_end")
         return False
     return True
 

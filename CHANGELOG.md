@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0b10 (2026-10-26)
+
+### Added
+
+- Brief airing appears in the logbook: "Aired briefly: waiting until ..." when a window was open for at least the minimum and shorter than the window delay, and "Wait after brief airing finished." when the wait is over. Airings that are too short or a wait of 0 are not logged.
+- Two start values per room, next to the window delay: *Brief airing from* (default 1 minute, 0 to 60, step 0.5; 0 = every airing counts) and *Wait after brief airing* (default 50 %, 0 to 100, step 5; 0 = no wait). They are set when the room is created, like the window delay, and the AI does not adjust them.
+
+### Changed
+
+- After brief airing the heating waits a fixed time: the learned recovery time times *Wait after brief airing*. Before, the wait was scaled by how long the window was open, and it ended early as soon as the temperature from before the airing was back. Now it ends only when the time has passed. The normal recovery after a pause (window open for at least the window delay) is unchanged.
+- The learning of the recovery time is not affected by the fixed wait: the room is still measured until it is back at its temperature.
+
 ## 1.0.0b9 (2026-10-25)
 
 ### Changed

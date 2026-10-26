@@ -163,25 +163,112 @@ def test_open_window_blocks_switch_on_before_delay() -> None:
 def test_short_airing_starts_short_recovery() -> None:
     rt = AreaRuntime()
     step(_input(now=0, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
-    # 3 of 5 minutes window delay -> 60 % of the 30 min recovery = 18 min
+    # 3 min open (window delay 5 min): 50 % of the learned 30 min recovery = 15 min, fixed
     d = step(_input(now=180, temp=20.0, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
     assert "short_recovery_start" in rt.events and rt.short_recovery
-    assert rt.recovery_until == 180 + 0.6 * 1800
+    assert rt.recovery_until == 180 + 0.5 * 1800
     assert not d.want_on and d.status == AreaStatus.RECOVERY
     # running circuits are not interrupted by a short recovery
     d = step(_input(now=240, temp=20.0, switch_on=True), PARAMS, SETTINGS, LEARNED, rt)
     assert d.want_on
-    d = step(_input(now=180 + 1081, temp=20.0), PARAMS, SETTINGS, LEARNED, rt)
+    d = step(_input(now=180 + 900 - 1, temp=20.0), PARAMS, SETTINGS, LEARNED, rt)
+    assert d.status == AreaStatus.RECOVERY and "short_recovery_end" not in rt.events
+    d = step(_input(now=180 + 900, temp=20.0), PARAMS, SETTINGS, LEARNED, rt)
     assert d.want_on and d.status == AreaStatus.HEATING
     assert "short_recovery_end" in rt.events and not rt.short_recovery
 
 
-def test_very_short_airing_is_ignored() -> None:
+def test_short_recovery_is_not_ended_by_the_temperature() -> None:
     rt = AreaRuntime()
     step(_input(now=0, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
-    d = step(_input(now=90, temp=20.0, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
-    assert rt.recovery_until is None
+    step(_input(now=180, temp=20.9, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
+    # back at the temperature before airing: the short wait still holds
+    step(_input(now=300, temp=21.0), PARAMS, SETTINGS, LEARNED, rt)
+    assert rt.recovery_until == 180 + 900 and rt.short_recovery
+    assert "short_recovery_end" not in rt.events and "recovery_end" not in rt.events
+    # 20.3 is a cold room with the circuit still held: it waits, as before
+    d = step(_input(now=400, temp=20.3), PARAMS, SETTINGS, LEARNED, rt)
+    assert d.status == AreaStatus.RECOVERY and not d.want_on
+
+
+def test_short_recovery_does_not_switch_on_a_cold_room() -> None:
+    rt = AreaRuntime()
+    step(_input(now=0, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    step(_input(now=180, temp=20.0, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
+    # 20.0 is below the switch-on threshold: the circuit still waits
+    d = step(_input(now=400, temp=20.0), PARAMS, SETTINGS, LEARNED, rt)
+    assert not d.want_on and d.status == AreaStatus.RECOVERY
+
+
+def test_airing_below_the_minimum_is_ignored() -> None:
+    rt = AreaRuntime()
+    step(_input(now=0, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    d = step(_input(now=59, temp=20.0, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
+    assert rt.recovery_until is None and not rt.short_recovery
+    assert "short_recovery_start" not in rt.events
     assert d.want_on and d.status == AreaStatus.HEATING
+
+
+def test_airing_at_the_minimum_counts() -> None:
+    rt = AreaRuntime()
+    step(_input(now=0, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    step(_input(now=60, temp=20.0, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
+    assert rt.recovery_until == 60 + 900 and rt.short_recovery
+
+
+def test_airing_at_the_window_delay_is_a_pause_not_a_short_airing() -> None:
+    rt = AreaRuntime()
+    step(_input(now=0, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    step(_input(now=299, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    assert not rt.window_paused  # 299 s is still below the window delay
+    step(_input(now=300, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    assert rt.window_paused
+    d = step(_input(now=400, temp=20.0, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
+    assert "short_recovery_start" not in rt.events
+    assert "recovery_start" in rt.events and not rt.short_recovery
+    assert d.status == AreaStatus.RECOVERY
+
+
+def test_zero_minimum_counts_every_airing() -> None:
+    rt = AreaRuntime()
+    params = ControlParams(short_airing_min=0.0)
+    step(_input(now=0, temp=21.0, window_open=True), params, SETTINGS, LEARNED, rt)
+    step(_input(now=10, temp=20.0, window_open=False), params, SETTINGS, LEARNED, rt)
+    assert rt.recovery_until == 10 + 900 and rt.short_recovery
+
+
+def test_zero_percent_means_no_wait_and_no_events() -> None:
+    rt = AreaRuntime()
+    params = ControlParams(short_recovery_percent=0.0)
+    step(_input(now=0, temp=21.0, window_open=True), params, SETTINGS, LEARNED, rt)
+    d = step(_input(now=180, temp=20.0, window_open=False), params, SETTINGS, LEARNED, rt)
+    assert rt.recovery_until is None and not rt.short_recovery
+    assert not {"short_recovery_start", "short_recovery_end", "recovery_start"} & set(rt.events)
+    assert d.want_on and d.status == AreaStatus.HEATING
+
+
+def test_short_wait_follows_the_learned_recovery_not_the_airing_length() -> None:
+    rt = AreaRuntime()
+    params = ControlParams(short_recovery_percent=50.0)
+    short = LearnedValues(recovery_s=600)
+    step(_input(now=0, temp=21.0, window_open=True), params, SETTINGS, short, rt)
+    step(_input(now=60, temp=20.5, window_open=False), params, SETTINGS, short, rt)  # 1 min
+    assert rt.recovery_until == 60 + 300
+    rt = AreaRuntime()
+    step(_input(now=0, temp=21.0, window_open=True), params, SETTINGS, short, rt)
+    step(_input(now=240, temp=20.5, window_open=False), params, SETTINGS, short, rt)  # 4 min
+    assert rt.recovery_until == 240 + 300  # not scaled by the share of the window delay
+
+
+def test_short_recovery_window_reopened_then_closed_again() -> None:
+    rt = AreaRuntime()
+    step(_input(now=0, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    step(_input(now=180, temp=20.5, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
+    d = step(_input(now=300, temp=20.5, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    assert d.status == AreaStatus.WINDOW_OPEN and rt.temp_before_open == 21.0
+    step(_input(now=400, temp=20.5, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
+    assert rt.recovery_until == 400 + 900 and rt.short_recovery
+    assert rt.temp_before_open == 21.0  # the reference of the first airing is kept
 
 
 def test_frost_overrides_short_airing() -> None:

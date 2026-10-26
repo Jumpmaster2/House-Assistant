@@ -127,6 +127,7 @@ async def test_subentry_flow_adds_area(hass: HomeAssistant, base_states) -> None
             "min_off_time": 10,
         },
         "start_values": {"window_delay": 5, "recovery_time": 30, "dead_time": 30, "puffer": 0.7},
+        "airing": {},
         "ventilation": {"ventilation_rh_threshold": 60},
         "draft": {},
     }
@@ -261,6 +262,7 @@ async def test_reconfigure_target_of_area_without_circuit(hass: HomeAssistant, b
             "min_off_time": 10,
         },
         "learned_values": {"window_delay": 5, "puffer": 0.7},
+        "airing": {},
         "ventilation": {"ventilation_rh_threshold": 65},
         "draft": {"draft_group_1": ["binary_sensor.living_room_window", "binary_sensor.x"]},
     }
@@ -310,6 +312,7 @@ async def test_existing_area_edits_learned_values(hass: HomeAssistant, base_stat
             "min_off_time": 10,
         },
         "learned_values": {**defaults, "dead_time": 45, "puffer": 0.5},
+        "airing": {},
         "ventilation": {"ventilation_rh_threshold": 60},
         "draft": {},
     }
@@ -382,6 +385,7 @@ async def test_switch_of_another_area_is_rejected(hass: HomeAssistant, base_stat
             "min_off_time": 10,
         },
         "start_values": {"window_delay": 5, "recovery_time": 30, "dead_time": 30, "puffer": 0.7},
+        "airing": {},
         "ventilation": {"ventilation_rh_threshold": 60},
         "draft": {},
     }
@@ -435,6 +439,7 @@ async def test_subentry_flow_keeps_the_area(hass: HomeAssistant, base_states) ->
             "min_off_time": 10,
         },
         "start_values": {"window_delay": 5, "recovery_time": 30, "dead_time": 30, "puffer": 0.7},
+        "airing": {},
         "ventilation": {"ventilation_rh_threshold": 60},
         "draft": {},
     }
@@ -551,3 +556,89 @@ def test_entity_fields_offer_matching_entities_but_accept_others() -> None:
     assert window["window_sensors"](["input_boolean.window"]) == ["input_boolean.window"]
     block = by_name["ventilation_block_entity"]
     assert block("sensor.anything") == "sensor.anything"  # existing values stay valid
+
+
+async def test_airing_values_are_room_settings_not_start_values(
+    hass: HomeAssistant, base_states
+) -> None:
+    """The brief airing values sit in their own section, changeable for existing rooms: a new
+    room takes the values of the form (or the standard values 1 min and 50 % when left out),
+    and changing the room later stores the new values."""
+    from custom_components.house_assistant.heating.config_flow import START_KEYS
+    from custom_components.house_assistant.heating.logic.ai_schema import PARAMS
+
+    assert "short_airing_min" not in START_KEYS and "short_recovery_percent" not in START_KEYS
+    assert "short_airing_min" not in PARAMS and "short_recovery_percent" not in PARAMS
+
+    base = {
+        "name": "Living room",
+        "sensors": {
+            "temperature_sensor": "sensor.living_room_temperature",
+            "humidity_sensor": "sensor.living_room_humidity",
+        },
+        "heating": {
+            "heater_switch": "input_boolean.heating_circuit_1",
+            "default_target": 21.0,
+            "min_target": 16.0,
+            "max_target": 24.0,
+            "min_on_time": 10,
+            "min_off_time": 10,
+        },
+        "start_values": {"window_delay": 5, "recovery_time": 30, "dead_time": 30, "puffer": 0.7},
+        "airing": {},
+        "ventilation": {"ventilation_rh_threshold": 60},
+        "draft": {},
+    }
+    entry = make_entry(areas=[])
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_ROOM), context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {**base, "airing": {"short_airing_min": 2.5, "short_recovery_percent": 30}},
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    room = next(iter(entry.subentries.values()))
+    assert (room.data["short_airing_min"], room.data["short_recovery_percent"]) == (2.5, 30)
+
+    # an existing room: the section is changed without touching the start values
+    result = await entry.start_subentry_reconfigure_flow(hass, room.subentry_id)
+    learned = result["data_schema"].schema["learned_values"].schema.schema
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            **{k: v for k, v in base.items() if k != "start_values"},
+            "airing": {"short_airing_min": 3.0, "short_recovery_percent": 20},
+            "learned_values": {str(k): k.default() for k in learned},
+        },
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert result["reason"] == "reconfigure_successful"
+    room = entry.subentries[room.subentry_id]
+    assert (room.data["short_airing_min"], room.data["short_recovery_percent"]) == (3.0, 20)
+    assert room.data["window_delay"] == 5
+    # the reload of the heating takes the values over into the parameters of the room
+    area = heating(entry).areas[room.subentry_id]
+    assert (area.params.short_airing_min, area.params.short_recovery_percent) == (3.0, 20.0)
+
+    # a new room without values in the section: the standard values (own entry, the heater
+    # circuit of the first room is in use)
+    other = make_entry(areas=[])
+    other.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(other.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    result = await hass.config_entries.subentries.async_init(
+        (other.entry_id, SUBENTRY_ROOM), context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {**base, "airing": {}}
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    standard = next(iter(other.subentries.values())).data
+    assert (standard["short_airing_min"], standard["short_recovery_percent"]) == (1, 50)

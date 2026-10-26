@@ -100,6 +100,8 @@ from .const import (
     CONF_SEASON_START,
     CONF_SHARED_AGREEMENT,
     CONF_SHARED_DAYS,
+    CONF_SHORT_AIRING,
+    CONF_SHORT_RECOVERY,
     CONF_SWITCH,
     CONF_TEMP_SENSOR,
     CONF_THETA_DOWN,
@@ -705,6 +707,10 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             window_delay_min=start["window_delay_min"],
             puffer=start["puffer"],
         )
+        # the brief airing values come from the room's configuration at every start: a
+        # change of the room (dialog or panel) takes effect with the reload, as min_on_time does
+        params.short_airing_min = float(cfg.get(CONF_SHORT_AIRING, 1))
+        params.short_recovery_percent = float(cfg.get(CONF_SHORT_RECOVERY, 50))
         settings = AreaSettings(
             min_on_s=float(cfg.get(CONF_MIN_ON, 10)) * 60,
             min_off_s=float(cfg.get(CONF_MIN_OFF, 10)) * 60,
@@ -1690,6 +1696,11 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 self._log("recovery_start", area, until=until.strftime("%H:%M"))
             elif event == "recovery_end":
                 self._log("recovery_end", area)
+            elif event == "short_recovery_start" and area.runtime.recovery_until:
+                until = dt_util.as_local(dt_util.utc_from_timestamp(area.runtime.recovery_until))
+                self._log("short_recovery_start", area, until=until.strftime("%H:%M"))
+            elif event == "short_recovery_end":
+                self._log("short_recovery_end", area)
             elif event == "emergency":
                 # The rule fires on the expected temperature; for the day's evaluation only
                 # a room that is really that cold counts as observed need.
@@ -2867,7 +2878,10 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 area.learner = AreaLearner.create(start["dead_time"], start["recovery"])
             if include_parameters:
                 area.params = ControlParams(
-                    window_delay_min=start["window_delay_min"], puffer=start["puffer"]
+                    window_delay_min=start["window_delay_min"],
+                    puffer=start["puffer"],
+                    short_airing_min=float(area.cfg.get(CONF_SHORT_AIRING, 1)),
+                    short_recovery_percent=float(area.cfg.get(CONF_SHORT_RECOVERY, 50)),
                 )
             area.start = start  # the configuration is in effect again
             area.humidity_profile = HumidityProfile()

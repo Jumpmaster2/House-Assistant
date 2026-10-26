@@ -53,6 +53,18 @@ async def test_config_payload(hass: HomeAssistant, base_states, hass_ws_client) 
     assert "return_entity" not in cfg["option_specs"]
     assert cfg["option_specs"]["vacation_temperature"]["selector"] == "number"
     assert cfg["area_specs"]["temperature_sensor"]["domain"] == ["sensor"]
+    # brief airing: next to the window delay, with the standard values
+    short = cfg["area_specs"]["short_airing_min"]
+    assert (short["selector"], short["min"], short["max"], short["step"]) == ("number", 0, 60, 0.5)
+    percent = cfg["area_specs"]["short_recovery_percent"]
+    assert (percent["selector"], percent["min"], percent["max"], percent["step"]) == (
+        "number",
+        0,
+        100,
+        5,
+    )
+    assert cfg["area_defaults"]["short_airing_min"] == 1
+    assert cfg["area_defaults"]["short_recovery_percent"] == 50
     assert isinstance(cfg["house"], dict)
 
 
@@ -279,6 +291,56 @@ async def test_area_change_reloads(hass: HomeAssistant, base_states, hass_ws_cli
     assert heating(entry).areas[sub_id].name == "Lounge"
     msg = await _send(client, type=f"{DOMAIN}/heating/config")
     assert msg["result"]["areas"][0]["entities"]["climate"].startswith("climate.")
+
+
+async def test_airing_values_change_an_existing_room(
+    hass: HomeAssistant, base_states, hass_ws_client
+) -> None:
+    """The brief airing values of a room that exists already are changed in the panel and
+    take effect with the reload; the start values stay as they were."""
+    entry = await _setup(hass, areas=[AREA_DATA])
+    client = await hass_ws_client(hass)
+    sub_id = next(iter(entry.subentries))
+    assert (
+        heating(entry).areas[sub_id].params.short_airing_min,
+        heating(entry).areas[sub_id].params.short_recovery_percent,
+    ) == (1.0, 50.0)  # the room has no such values: the standard ones
+
+    msg = await _send(
+        client,
+        type=f"{DOMAIN}/heating/save_area",
+        subentry_id=sub_id,
+        title="Living room",
+        data={
+            **entry.subentries[sub_id].data,
+            "short_airing_min": 3.0,
+            "short_recovery_percent": 20,
+            "window_delay": 7,  # a start value: kept as it was
+        },
+    )
+    assert msg["success"], msg
+    await hass.async_block_till_done(wait_background_tasks=True)
+    area = heating(entry).areas[sub_id]
+    assert (area.params.short_airing_min, area.params.short_recovery_percent) == (3.0, 20.0)
+    data = entry.subentries[sub_id].data
+    assert (data["short_airing_min"], data["short_recovery_percent"]) == (3.0, 20)
+    assert data["window_delay"] == 5
+
+    # out of range: refused, nothing changed
+    msg = await _send(
+        client,
+        type=f"{DOMAIN}/heating/save_area",
+        subentry_id=sub_id,
+        title="Living room",
+        data={**entry.subentries[sub_id].data, "short_recovery_percent": 150},
+    )
+    assert msg["error"]["message"] == "invalid_value:short_recovery_percent"
+
+    msg = await _send(client, type=f"{DOMAIN}/heating/config")
+    assert msg["success"], msg
+    assert msg["result"]["area_defaults"]["short_airing_min"] == 1
+    assert msg["result"]["area_defaults"]["short_recovery_percent"] == 50
+    assert "short_airing_min" in msg["result"]["area_specs"]
 
 
 async def test_learned_values(hass: HomeAssistant, base_states, hass_ws_client) -> None:

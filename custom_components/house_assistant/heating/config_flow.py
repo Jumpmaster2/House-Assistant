@@ -96,6 +96,8 @@ from .const import (
     CONF_SEASON_START,
     CONF_SHARED_AGREEMENT,
     CONF_SHARED_DAYS,
+    CONF_SHORT_AIRING,
+    CONF_SHORT_RECOVERY,
     CONF_SWITCH,
     CONF_TEMP_SENSOR,
     CONF_THETA_DOWN,
@@ -131,6 +133,7 @@ from .const import (
     MODEL_PRICE_SUGGESTIONS,
     MODULE_HEATING,
     MODULE_SHUTTER,
+    SECTION_AIRING,
     SECTION_DRAFT,
     SECTION_HEATING,
     SECTION_LEARNED,
@@ -870,6 +873,16 @@ def area_schema(
                     {"collapsed": False},
                 ),
                 **(_start_section(v) if learned is None else _learned_section(learned, ranges)),
+                # always changeable, also for rooms that exist already
+                vol.Required(SECTION_AIRING): section(
+                    vol.Schema(
+                        {
+                            req(CONF_SHORT_AIRING): _number(0, 60, 0.5, "min"),
+                            req(CONF_SHORT_RECOVERY): _number(0, 100, 5, "%"),
+                        }
+                    ),
+                    {"collapsed": True},
+                ),
                 vol.Required(SECTION_VENTILATION): section(
                     vol.Schema(
                         {
@@ -955,6 +968,7 @@ def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
         SECTION_SENSORS,
         SECTION_HEATING,
         SECTION_START,
+        SECTION_AIRING,
         SECTION_VENTILATION,
         SECTION_DRAFT,
         SECTION_SUN,

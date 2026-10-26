@@ -119,6 +119,8 @@ CONF_MAX_TARGET = "max_target"
 CONF_MIN_ON = "min_on_time"
 CONF_MIN_OFF = "min_off_time"
 CONF_WINDOW_DELAY = "window_delay"
+CONF_SHORT_AIRING = "short_airing_min"
+CONF_SHORT_RECOVERY = "short_recovery_percent"
 CONF_RECOVERY = "recovery_time"
 CONF_DEAD_TIME = "dead_time"
 CONF_PUFFER = "puffer"
@@ -132,6 +134,7 @@ SECTION_SENSORS = "sensors"
 SECTION_VENTILATION = "ventilation"
 SECTION_DRAFT = "draft"
 SECTION_START = "start_values"
+SECTION_AIRING = "airing"
 SECTION_LEARNED = "learned_values"
 # room: the air conditioner, a default of the windows for the covers
 SECTION_SUN = "sun_protection"
@@ -220,6 +223,8 @@ AREA_DEFAULTS: Final[dict[str, object]] = {
     CONF_MIN_OFF: 10,
     CONF_HEATING_TYPE: "underfloor",
     CONF_WINDOW_DELAY: 5,
+    CONF_SHORT_AIRING: 1,
+    CONF_SHORT_RECOVERY: 50,
     CONF_RECOVERY: 30,
     CONF_DEAD_TIME: 30,
     CONF_PUFFER: 0.7,

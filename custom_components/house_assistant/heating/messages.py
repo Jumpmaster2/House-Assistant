@@ -32,6 +32,14 @@ _TEXTS: dict[str, dict[str, str]] = {
         "en": "Window closed: recovery until {until}.",
     },
     "recovery_end": {"de": "Erholung beendet.", "en": "Recovery finished."},
+    "short_recovery_start": {
+        "de": "Kurz gelüftet: Wartezeit bis {until}.",
+        "en": "Aired briefly: waiting until {until}.",
+    },
+    "short_recovery_end": {
+        "de": "Wartezeit nach kurzem Lüften beendet.",
+        "en": "Wait after brief airing finished.",
+    },
     "emergency": {
         "de": "Notfallregel: {temp} °C, voraussichtlich {predicted} °C nach der Vorlaufzeit (Grenze {limit} °C), seit langem darunter; heizt trotz Nicht-Heiztag.",
         "en": "Emergency rule: {temp} °C, expected {predicted} °C after the lead time (limit {limit} °C), long below it; heating despite no heating day.",

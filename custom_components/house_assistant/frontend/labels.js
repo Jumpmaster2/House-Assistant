@@ -1387,6 +1387,20 @@ export const LABELS = {
        ]
       }
      },
+     "airing": {
+      "name": "Lüften",
+      "description": "Kurzes Lüften und die Wartezeit danach. Jederzeit änderbar, auch bei bestehenden Räumen.",
+      "fields": {
+       "short_airing_min": [
+        "Kurz lüften ab",
+        "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause."
+       ],
+       "short_recovery_percent": [
+        "Wartezeit nach kurzem Lüften",
+        "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
+       ]
+      }
+     },
      "ventilation": {
       "name": "Lüftung",
       "description": "",
@@ -4093,6 +4107,20 @@ export const LABELS = {
        ]
       }
      },
+     "airing": {
+      "name": "Airing",
+      "description": "Brief airing and the wait after it. Can be changed at any time, also for existing rooms.",
+      "fields": {
+       "short_airing_min": [
+        "Brief airing from",
+        "Airing at least this long but shorter than the window delay counts as brief airing: heating then waits. 0 = every airing counts. From the window delay on, the normal pause applies."
+       ],
+       "short_recovery_percent": [
+        "Wait after brief airing",
+        "Share of the learned recovery time that heating waits after a brief airing (50 % = half the wait). Fixed, not learned. 0 = no wait."
+       ]
+      }
+     },
      "ventilation": {
       "name": "Ventilation",
       "description": "",
@@ -5481,6 +5509,14 @@ export const HOUSE = {
      "Reserve über Sollwert (Startwert)",
      "Heiztag-Regel: wie weit ein Raum beim Nachtlauf über dem Sollwert liegen muss, um einen Tag ohne Heizen zu überstehen (z. B. 0,7 K). Wird danach gelernt."
     ],
+    "short_airing_min": [
+     "Kurz lüften ab",
+     "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause."
+    ],
+    "short_recovery_percent": [
+     "Wartezeit nach kurzem Lüften",
+     "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
+    ],
     "ventilation_rh_threshold": [
      "Feuchte-Schwelle",
      "Startwert der relativen Feuchte, ab der Lüften empfohlen wird (z. B. 65 % für Bäder); die KI-Lüftungsprüfung passt ihn an den Raum an."
@@ -5741,6 +5777,14 @@ export const HOUSE = {
     "puffer": [
      "Margin above target (start value)",
      "Heating day rule: how far above the target a room must be at the nightly run to manage a day without heating (e.g. 0.7 K). Learned afterwards."
+    ],
+    "short_airing_min": [
+     "Brief airing from",
+     "Airing at least this long but shorter than the window delay counts as brief airing: heating then waits. 0 = every airing counts. From the window delay on, the normal pause applies."
+    ],
+    "short_recovery_percent": [
+     "Wait after brief airing",
+     "Share of the learned recovery time that heating waits after a brief airing (50 % = half the wait). Fixed, not learned. 0 = no wait."
     ],
     "ventilation_rh_threshold": [
      "Humidity threshold",
@@ -6260,6 +6304,14 @@ export const HEATING = {
     "Reserve über Sollwert (Startwert)",
     "Heiztag-Regel: wie weit ein Raum beim Nachtlauf über dem Sollwert liegen muss, um einen Tag ohne Heizen zu überstehen (z. B. 0,7 K). Wird danach gelernt."
    ],
+   "short_airing_min": [
+    "Kurz lüften ab",
+    "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause."
+   ],
+   "short_recovery_percent": [
+    "Wartezeit nach kurzem Lüften",
+    "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
+   ],
    "ventilation_rh_threshold": [
     "Feuchte-Schwelle",
     "Startwert der relativen Feuchte, ab der Lüften empfohlen wird (z. B. 65 % für Bäder); die KI-Lüftungsprüfung passt ihn an den Raum an."
@@ -6327,6 +6379,10 @@ export const HEATING = {
    "start_values": [
     "Startwerte (werden gelernt)",
     "Nur beim Anlegen des Raums. Danach werden die gelernten Werte bearbeitet."
+   ],
+   "airing": [
+    "Lüften",
+    "Kurzes Lüften und die Wartezeit danach. Jederzeit änderbar, auch bei bestehenden Räumen."
    ],
    "ventilation": [
     "Lüftung",
@@ -6774,6 +6830,14 @@ export const HEATING = {
     "Margin above target (start value)",
     "Heating day rule: how far above the target a room must be at the nightly run to manage a day without heating (e.g. 0.7 K). Learned afterwards."
    ],
+   "short_airing_min": [
+    "Brief airing from",
+    "Airing at least this long but shorter than the window delay counts as brief airing: heating then waits. 0 = every airing counts. From the window delay on, the normal pause applies."
+   ],
+   "short_recovery_percent": [
+    "Wait after brief airing",
+    "Share of the learned recovery time that heating waits after a brief airing (50 % = half the wait). Fixed, not learned. 0 = no wait."
+   ],
    "ventilation_rh_threshold": [
     "Humidity threshold",
     "Start value of the relative humidity from which ventilating is recommended (e.g. 65 % for bathrooms); the AI ventilation check adjusts it to the room."
@@ -6841,6 +6905,10 @@ export const HEATING = {
    "start_values": [
     "Start values (learned later)",
     "Only when the room is created. Afterwards the learned values are edited."
+   ],
+   "airing": [
+    "Airing",
+    "Brief airing and the wait after it. Can be changed at any time, also for existing rooms."
    ],
    "ventilation": [
     "Ventilation",
