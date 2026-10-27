@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0b13 (2026-10-27)
+
+### Changed
+
+- On vacation the compact thermostat card (`house-assistant-thermostat-compact-card`) shows "Vacation mode" with the vacation temperature under the current temperature and humidity, instead of the stored target of the room (which stays unchanged and applies again after the vacation). While preheating for the return the card shows the normal target again.
+- The thermostat has the new attribute `vacation_active` (vacation temperature in force, not while preheating).
+
 ## 1.0.0b12 (2026-10-26)
 
 ### Fixed

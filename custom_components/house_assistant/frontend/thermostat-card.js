@@ -30,7 +30,8 @@ const UI = {
     temperatureEntity: "Temperatursensor (statt Thermostat)",
     humidityEntity: "Feuchtesensor (statt Thermostat)",
     compactName: "House Assistant Thermostat kompakt",
-    compactDescription: "Thermostat ohne Bogen: Temperatur, Luftfeuchte, Sollwert und Status.",
+    compactDescription: "Thermostat ohne Bogen: Temperatur, Luftfeuchte, Sollwert und Status. Im Urlaub steht dort der Urlaubsmodus mit seiner Temperatur.",
+    vacationMode: "Urlaubsmodus",
   },
   en: {
     name: "House Assistant thermostat",
@@ -47,7 +48,8 @@ const UI = {
     temperatureEntity: "Temperature sensor (instead of the thermostat)",
     humidityEntity: "Humidity sensor (instead of the thermostat)",
     compactName: "House Assistant thermostat compact",
-    compactDescription: "Thermostat without the dial: temperature, humidity, target and state.",
+    compactDescription: "Thermostat without the dial: temperature, humidity, target and state. On vacation it shows the vacation mode with its temperature.",
+    vacationMode: "Vacation mode",
   },
 };
 
@@ -675,7 +677,8 @@ class AiHeatingThermostatCompactCard extends HTMLElement {
       const status = unavailable ? t.unavailable : AiHeatingThermostatCard.prototype._actionText.call(this, st);
       const temp = a.current_temperature;
       const hum = this._config.show_humidity !== false ? a.current_humidity : null;
-      const target = st.state === "off" || unavailable ? null : a.temperature;
+      const vacation = a.vacation_active === true && a.effective_target != null;
+      const target = st.state === "off" || unavailable ? null : vacation ? a.effective_target : a.temperature;
       const vals = [
         `<span class="temp" data-entity="${esc(sensorOf(st, "temperature_sensor", this._config.entity))}">${temp == null || unavailable ? "–" : `${esc(this._number(temp, 1))}°`}</span>`,
       ];
@@ -685,7 +688,9 @@ class AiHeatingThermostatCompactCard extends HTMLElement {
         );
       }
       const line = [
-        target != null ? `<span class="target"><ha-icon icon="mdi:thermostat"></ha-icon>${esc(this._number(target, 1))} ${esc(unit)}</span>` : "",
+        target != null
+          ? `<span class="target"><ha-icon icon="${vacation ? "mdi:bag-suitcase-outline" : "mdi:thermostat"}"></ha-icon>${vacation ? `${esc(t.vacationMode)} ` : ""}${esc(this._number(target, 1))} ${esc(unit)}</span>`
+          : "",
         `<span class="status">${esc(status)}</span>`,
       ]
         .filter(Boolean)
