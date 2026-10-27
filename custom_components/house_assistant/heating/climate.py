@@ -109,6 +109,8 @@ class AreaClimate(AreaEntity, ClimateEntity):
             # the windows of the combination behind a draft or a cross ventilation
             "draft_windows": area.draft_windows or None,
             "effective_target": area.effective_target,
+            # vacation temperature in force (not while preheating for the return)
+            "vacation_active": bool(area.vacation and not area.preheat),
             "heating_day": self.coordinator.heating_day,
             "predicted_temperature": _tenth(decision.predicted_temp) if decision else None,
             "expected_peak": _tenth(decision.expected_peak) if decision else None,

@@ -522,6 +522,7 @@ async def test_vacation_return_in_past_is_ignored_and_preheat_before_return(
     await _advance(hass, freezer, 1)
     # return date long past: vacation temperature applies, no preheating
     assert hass.states.get("climate.living_room").attributes["effective_target"] == 18.0
+    assert hass.states.get("climate.living_room").attributes["vacation_active"] is True
     # 19 °C is above 18 °C + puffer, so no heating is needed at all
     assert hass.states.get("sensor.living_room_status").state in ("vacation", "no_heating_day")
 
@@ -529,6 +530,7 @@ async def test_vacation_return_in_past_is_ignored_and_preheat_before_return(
     set_return("2026-11-16 12:00:00")
     await _advance(hass, freezer, 1)
     assert hass.states.get("climate.living_room").attributes["effective_target"] == 21.0
+    assert hass.states.get("climate.living_room").attributes["vacation_active"] is False
     assert hass.states.get("sensor.living_room_status").state == "preheat"
 
 
