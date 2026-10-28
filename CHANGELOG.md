@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0b14 (2026-10-28)
+
+### Fixed
+
+- Heat consumption per room: a short heating phase waits for the next meter reading, and its kWh were booked on the day of that reading. A room that last heated days earlier then showed consumption "today" (and the room that heated today took too much of the phase). The run time is now kept per day, and the share of each room is split over the days it ran, in proportion to its demand hours of each day. Earlier days (and months) only change the totals, not today's or this month's counter.
+
 ## 1.0.0b13 (2026-10-27)
 
 ### Changed
