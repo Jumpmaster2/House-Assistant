@@ -5,6 +5,9 @@ readings that changed. Every room that switched on in a phase takes a share of t
 kWh read, in proportion to ``c_i * x_i``, where ``x_i`` is its floor area times the
 run time times the heating demand (target minus outdoor temperature) of the phase.
 The shares add up to the reading; what no room heated is counted as not assigned.
+A phase can reach over several days (a short phase waits for the next one). The run
+time is kept per day, and each share is booked on the days the room ran, in proportion
+to its demand hours of that day, so the kWh of an earlier day do not land on today.
 
 ``c_i`` is the heat per m² and K at continuous operation (kW/(m²K)). It is learned
 from the phases by a least squares fit with forgetting, pulled towards the house-wide
@@ -16,7 +19,7 @@ it has some run time and the meter changed; shorter phases are merged with the n
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 FLOOR_AREA_BOUNDS = (1.0, 200.0)  # m², as offered in the form
@@ -48,10 +51,14 @@ class Counter:
         if self.month != month:
             self.month, self.month_kwh = month, 0.0
 
-    def add(self, kwh: float) -> None:
+    def add(self, kwh: float, day: str | None = None, month: str | None = None) -> None:
+        """Add kWh; ``day`` and ``month`` name the period they belong to (None: the current
+        one). An earlier period only changes the total."""
         self.total += kwh
-        self.day_kwh += kwh
-        self.month_kwh += kwh
+        if day is None or day == self.day:
+            self.day_kwh += kwh
+        if month is None or month == self.month:
+            self.month_kwh += kwh
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -83,15 +90,36 @@ class Run:
 
     hours: float = 0.0
     kh: float = 0.0  # run time times the heating demand (K h)
+    days: dict[str, float] = field(default_factory=dict)  # day -> K h of that day
 
-    def as_dict(self) -> dict[str, float]:
-        return {"hours": self.hours, "kh": self.kh}
+    def add(self, day: str, hours: float, kh: float) -> None:
+        self.hours += hours
+        if kh > 0:
+            self.kh += kh
+            self.days[day] = self.days.get(day, 0.0) + kh
+
+    def by_day(self, fallback: str) -> dict[str, float]:
+        """K h per day. What no day is known for (state saved by an older version)
+        counts for ``fallback``."""
+        days = dict(self.days)
+        rest = self.kh - sum(days.values())
+        if rest > EPS:
+            days[fallback] = days.get(fallback, 0.0) + rest
+        return days
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"hours": self.hours, "kh": self.kh, "days": dict(self.days)}
 
     @classmethod
     def from_dict(cls, data: Any) -> Run:
         if not isinstance(data, dict):
             return cls()
-        return cls(_float(data.get("hours")), _float(data.get("kh")))
+        days = data.get("days")
+        return cls(
+            _float(data.get("hours")),
+            _float(data.get("kh")),
+            {str(d): _float(v) for d, v in days.items()} if isinstance(days, dict) else {},
+        )
 
 
 def _float(value: Any) -> float:
@@ -153,10 +181,7 @@ class RoomEnergyModel:
         counter.day_hours += hours
         if self.start is None or room not in self.areas:
             return
-        run = self.runs.setdefault(room, Run())
-        run.hours += hours
-        if delta_t > 0:
-            run.kh += hours * delta_t
+        self.runs.setdefault(room, Run()).add(day, hours, hours * max(delta_t, 0.0))
 
     def reading(self, kwh: float, day: str, month: str) -> None:
         """A new meter value (it differs from the last one). Closes the open phase when
@@ -182,7 +207,7 @@ class RoomEnergyModel:
                 if room in self.areas and run.kh > 0
             }
             self._learn(x, kwh_phase)
-            self._split(x, kwh_phase)
+            self._split(x, kwh_phase, day)
         self.start, self.runs = kwh, {}
 
     # ------------------------------------------------------------ learning
@@ -228,14 +253,21 @@ class RoomEnergyModel:
                 c[i] = min(high, max(low, (target[i] - rest) / (row.get(i, 0.0) + ridge)))
         self.coefficients.update(c)
 
-    def _split(self, x: dict[str, float], y: float) -> None:
-        weights = {room: self.coefficient(room) * value for room, value in x.items()}
+    def _split(self, x: dict[str, float], y: float, today: str) -> None:
+        """Share ``y`` kWh over the rooms and, within a room, over the days it ran."""
+        weights: dict[tuple[str, str], float] = {}
+        for room in x:
+            c = self.coefficient(room) * self.areas[room]
+            for day, kh in self.runs[room].by_day(today).items():
+                weights[room, day] = c * kh
         total = sum(weights.values())
         if total <= 0:
             self.unassigned.add(y)
             return
-        for room, weight in weights.items():
-            self.counter(room).add(y * weight / total)
+        for (room, day), weight in weights.items():
+            counter = self.counter(room)
+            counter.roll(today, today[:7])  # a room without a counter starts on today
+            counter.add(y * weight / total, day, day[:7])
 
     # ------------------------------------------------------------ outputs
 

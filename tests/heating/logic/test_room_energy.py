@@ -240,3 +240,50 @@ def test_totals_never_fall() -> None:
         before = now
         assert sum(now.values()) == pytest.approx(assigned)
         assert all(0.0 <= c <= 0.05 for c in model.coefficients.values())
+
+
+def test_short_phase_of_an_earlier_day_is_booked_on_that_day() -> None:
+    """A short run waits for the next reading; its share must not land on today."""
+    model = RoomEnergyModel()
+    model.set_areas(AREAS)
+    model.coefficients = {"living": 0.002, "bedroom": 0.002}
+    model.reading(100.0, DAY, MONTH)
+    model.heating("living", 0.1, 15.0, DAY, MONTH)  # below the minimum run time
+    model.reading(101.0, DAY, MONTH)
+    today, month = "2026-11-18", "2026-11"
+    model.roll(today, month)
+    model.heating("bedroom", 1.0, 15.0, today, month)
+    model.reading(103.0, today, month)
+    living, bedroom = model.counter("living"), model.counter("bedroom")
+    assert living.total > 0
+    assert living.day_kwh == 0.0  # it ran on the 16th, not today
+    assert living.month_kwh == pytest.approx(living.total)
+    assert bedroom.day_kwh == pytest.approx(bedroom.total)
+    assert living.total + bedroom.total == pytest.approx(3.0)
+    # in proportion to c * area * K h: 0.002*20*1.5 against 0.002*15*15
+    assert living.total == pytest.approx(3.0 * 0.06 / 0.51)
+
+
+def test_run_of_an_earlier_month_only_changes_the_total() -> None:
+    model = RoomEnergyModel()
+    model.set_areas(AREAS)
+    model.reading(100.0, "2026-11-30", "2026-11")
+    model.heating("living", 0.1, 15.0, "2026-11-30", "2026-11")
+    model.reading(101.0, "2026-11-30", "2026-11")
+    model.heating("living", 1.0, 15.0, "2026-12-01", "2026-12")
+    model.reading(103.0, "2026-12-01", "2026-12")
+    counter = model.counter("living")
+    assert counter.total == pytest.approx(3.0)
+    assert counter.day_kwh == pytest.approx(3.0 * 15.0 / 16.5)
+    assert counter.month_kwh == counter.day_kwh
+
+
+def test_state_saved_without_days_counts_for_the_closing_day() -> None:
+    model = RoomEnergyModel()
+    model.set_areas(AREAS)
+    model.reading(100.0, DAY, MONTH)
+    data = model.as_dict()
+    data["runs"] = {"living": {"hours": 1.0, "kh": 15.0}}  # format before the days
+    restored = RoomEnergyModel.from_dict(data)
+    restored.reading(102.0, DAY, MONTH)
+    assert restored.counter("living").day_kwh == pytest.approx(2.0)
