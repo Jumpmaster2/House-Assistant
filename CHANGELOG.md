@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0b16 (2026-10-29)
+
+### Added
+- Regression coverage for service authorization, finite numbers, AI limits and airing duration order.
+
+### Changed
+- Share administrator authorization across heating, manual meter corrections and vacation services; automations and scripts without a user remain allowed.
+- Use the same finite number selectors and AI parameter limit validation in dialogs and the panel: new limits stay within the fixed parameter range, unchanged legacy limits outside it remain valid until edited, and step 0 freezes a parameter.
+
+### Fixed
+- Reject nonfinite manual and AI meter readings, AI adjustments, confidence and JSON constants.
+- Validate airing duration order in dialogs, the panel and AI changes; repair only unusable stored limits and contradictory durations idempotently at startup, preserving usable legacy limits.
+
 ## 1.0.0b15 (2026-10-29)
 
 ### Added

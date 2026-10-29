@@ -107,6 +107,7 @@ from .logic.image import needs_processing, process, thumbnail
 from .logic.leak import CASE_AMOUNT, leak_cases
 from .logic.prompt import context_notes, effective_instructions
 from .logic.units import TYPE_HEAT, amount_unit, rate_unit
+from .validation import reading_value
 
 if TYPE_CHECKING:
     from . import MeterModule
@@ -793,6 +794,7 @@ class Meter:
 
     def set_reading(self, value: float) -> None:
         """Set the meter reading by hand (e.g. after a wrong reading)."""
+        value = reading_value(value)
         now = dt_util.utcnow()
         self.state.value = round(float(value), 6)
         self.state.value_time = now

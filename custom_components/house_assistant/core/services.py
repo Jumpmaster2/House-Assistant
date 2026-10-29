@@ -12,6 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN
 from ..runtime import HouseRuntime
+from .auth import require_admin
 from .vacation import HouseModule
 
 SERVICE_SET_VACATION = "set_vacation"
@@ -45,10 +46,10 @@ def _aware(value: datetime | None) -> datetime | None:
 
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
-    @callback
-    def set_vacation(call: ServiceCall) -> None:
+    async def set_vacation(call: ServiceCall) -> None:
         """Plan the vacation: departure and return; ``clear`` first ends it and removes
         both. Only a return: vacation from now on until then."""
+        await require_admin(hass, call)
         house = _house(hass)
         data = call.data
         if data[ATTR_CLEAR]:

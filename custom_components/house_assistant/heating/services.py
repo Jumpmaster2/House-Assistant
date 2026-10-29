@@ -11,10 +11,11 @@ from homeassistant.core import (
     SupportsResponse,
     callback,
 )
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError, Unauthorized
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 
+from ..core.auth import require_admin
 from ..core.entry import running_module
 from .const import DOMAIN, MODULE_HEATING
 from .coordinator import HeatingCoordinator
@@ -75,16 +76,6 @@ def _area_ids(
     return result
 
 
-async def _require_admin(hass: HomeAssistant, call: ServiceCall) -> None:
-    """Changing and paid services are for administrators, like the panel. Calls
-    without a user (automations, scripts) are allowed."""
-    if not (user_id := call.context.user_id):
-        return
-    user = await hass.auth.async_get_user(user_id)
-    if user is None or not user.is_admin:
-        raise Unauthorized(context=call.context)
-
-
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
     """Register all services."""
@@ -96,7 +87,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         )
 
     async def import_parameters(call: ServiceCall) -> ServiceResponse:
-        await _require_admin(hass, call)
+        await require_admin(hass, call)
         coordinator = _coordinator(hass)
         try:
             imported = coordinator.import_parameters(
@@ -112,28 +103,28 @@ def async_setup_services(hass: HomeAssistant) -> None:
         return {"imported": imported}
 
     async def reset_learned(call: ServiceCall) -> None:
-        await _require_admin(hass, call)
+        await require_admin(hass, call)
         coordinator = _coordinator(hass)
         area_ids = _area_ids(hass, coordinator, call.data[ATTR_ENTITY_ID]) or []
         coordinator.reset_learned(area_ids, call.data[ATTR_INCLUDE_PARAMETERS])
         await coordinator.async_request_refresh()
 
     async def run_ai_check(call: ServiceCall) -> None:
-        await _require_admin(hass, call)  # the check costs money
+        await require_admin(hass, call)  # the check costs money
         coordinator = _coordinator(hass)
         if not coordinator.ai_enabled:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="ai_disabled")
         await coordinator.async_run_ai_check("manual")
 
     async def run_ai_ventilation_check(call: ServiceCall) -> None:
-        await _require_admin(hass, call)  # the check costs money
+        await require_admin(hass, call)  # the check costs money
         coordinator = _coordinator(hass)
         if not coordinator.vent_ai_active:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="ai_disabled")
         await coordinator.async_run_vent_check("manual")
 
     async def decide_heating_day(call: ServiceCall) -> None:
-        await _require_admin(hass, call)  # changes the day and may ask the paid AI
+        await require_admin(hass, call)  # changes the day and may ask the paid AI
         await _coordinator(hass).async_decide_heating_day("manual", call.data[ATTR_USE_AI])
 
     hass.services.async_register(

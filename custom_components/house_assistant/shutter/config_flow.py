@@ -20,8 +20,6 @@ from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
-    NumberSelectorConfig,
-    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -39,6 +37,7 @@ from ..core.house import (
     rooms,
     window_errors,
 )
+from ..core.schema import number
 from ..runtime import module_options
 from .const import (
     ACTIVE_STATES_DEFAULT,
@@ -194,10 +193,7 @@ MORNING_STEPS = {
 
 
 def _number(minimum: float, maximum: float, step: float, unit: str | None = None) -> NumberSelector:
-    config = NumberSelectorConfig(min=minimum, max=maximum, step=step, mode=NumberSelectorMode.BOX)
-    if unit:
-        config["unit_of_measurement"] = unit
-    return NumberSelector(config)
+    return number(minimum, maximum, step, unit)
 
 
 def _entity(domains: list[str] | None = None, multiple: bool = False) -> EntitySelector:

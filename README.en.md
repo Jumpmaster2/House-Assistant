@@ -155,3 +155,5 @@ The texts of the panel (`frontend/labels.js`) and of the cards (`frontend/card-l
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+Meter corrections (`set_meter_reading`) and vacation planning (`set_vacation`) require administrator rights. Automations and scripts without a user remain allowed. Meter readings must be finite and nonnegative. Dialogs and the panel enforce the same AI limits and minimum ≤ maximum airing duration; only unusable stored limits are repaired at startup; usable legacy limits outside the fixed parameter range remain valid. Step 0 freezes a parameter.

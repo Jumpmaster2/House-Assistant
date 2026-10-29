@@ -20,12 +20,27 @@ from homeassistant.helpers.selector import (
     Selector,
 )
 
+from .logic.numbers import finite_float
 
-def number(minimum: float, maximum: float, step: float, unit: str | None = None) -> NumberSelector:
+
+class FiniteNumberSelector(NumberSelector):
+    """A serializable HA number selector that also rejects nonfinite input."""
+
+    def __call__(self, value: Any) -> float:
+        try:
+            value = finite_float(value)
+        except (TypeError, ValueError, OverflowError) as err:
+            raise vol.Invalid("number must be finite") from err
+        return super().__call__(value)
+
+
+def number(
+    minimum: float, maximum: float, step: float | str, unit: str | None = None
+) -> NumberSelector:
     config = NumberSelectorConfig(min=minimum, max=maximum, step=step, mode=NumberSelectorMode.BOX)
     if unit:
         config["unit_of_measurement"] = unit
-    return NumberSelector(config)
+    return FiniteNumberSelector(config)
 
 
 def entity(domains: list[str] | None = None, multiple: bool = False) -> EntitySelector:

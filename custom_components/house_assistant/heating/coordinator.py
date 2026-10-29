@@ -159,7 +159,7 @@ from .logic.ai_schema import (
     VENT_CHECK_SCHEMA,
     VENT_PARAMS,
     AnswerError,
-    default_limits,
+    normalize_limits,
     validate_check,
     validate_nightly,
 )
@@ -474,13 +474,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
 
     @property
     def limits(self) -> dict[str, dict[str, float]]:
-        limits = default_limits()
-        for key, value in (self.opt(CONF_LIMITS) or {}).items():
-            if key in limits and isinstance(value, dict):
-                limits[key].update(
-                    {k: float(v) for k, v in value.items() if k in ("min", "max", "step")}
-                )
-        return limits
+        return normalize_limits(self.opt(CONF_LIMITS))
 
     @property
     def ai_configured(self) -> bool:
@@ -832,6 +826,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                         old=f"{old:g}",
                         new=f"{new:g}",
                     )
+            if area.vent_params.airing_min_minutes > area.vent_params.airing_max_minutes:
+                area.vent_params.airing_min_minutes = area.vent_params.airing_max_minutes
+                LOGGER.debug("Clamped stored airing minimum to maximum for %s", area.area_id)
         # also the configured start value, as long as nothing was learned
         old = self.theta
         new = clamp(old, limits["theta"]["min"], limits["theta"]["max"])

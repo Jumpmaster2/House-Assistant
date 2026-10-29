@@ -21,8 +21,6 @@ from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
-    NumberSelectorConfig,
-    NumberSelectorMode,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -34,6 +32,7 @@ from homeassistant.helpers.selector import (
 
 from ..const import OPT_CORE, SHARED_KEYS
 from ..core.house import CONF_AREA, CONF_FLOOR_AREA
+from ..core.schema import number
 from ..runtime import enabled_modules, module_options, shared_options
 from .ai_client import AiAuthError, AiError, ClaudeClient
 
@@ -142,7 +141,7 @@ from .const import (
     SOUTHERN_SEASON,
     SUBENTRY_ROOM,
 )
-from .logic.ai_schema import ALL_PARAMS, default_limits
+from .logic.ai_schema import ALL_PARAMS, default_limits, normalize_limits, validate_limit
 from .logic.draft import draft_groups
 from .logic.physics import parse_day_month
 from .logic.ventilation import BLOCK_DOMAINS
@@ -153,10 +152,7 @@ PRICE_KEYS = (CONF_PRICE_INPUT, CONF_PRICE_OUTPUT, CONF_PRICE_CACHE_WRITE, CONF_
 def _number(
     minimum: float, maximum: float, step: float | str, unit: str | None = None
 ) -> NumberSelector:
-    config = NumberSelectorConfig(min=minimum, max=maximum, step=step, mode=NumberSelectorMode.BOX)
-    if unit:
-        config["unit_of_measurement"] = unit
-    return NumberSelector(config)
+    return number(minimum, maximum, step, unit)
 
 
 def _entity(
@@ -346,10 +342,7 @@ def ai_schema(v: dict[str, Any]) -> vol.Schema:
 
 
 def _limits_schema(v: dict[str, Any]) -> vol.Schema:
-    limits = default_limits()
-    for key, value in (v.get(CONF_LIMITS) or {}).items():
-        if key in limits:
-            limits[key].update(value)
+    limits = normalize_limits(v.get(CONF_LIMITS))
     fields: dict[Any, Any] = {}
     for key, spec in ALL_PARAMS.items():
         width = max(abs(spec.min), abs(spec.max)) * 2 + 10
@@ -357,13 +350,19 @@ def _limits_schema(v: dict[str, Any]) -> vol.Schema:
             vol.Schema(
                 {
                     vol.Required("min", default=limits[key]["min"]): _number(
-                        -width, width, 0.01, spec.unit or None
+                        min(-width, limits[key]["min"]),
+                        max(width, limits[key]["min"]),
+                        0.01,
+                        spec.unit or None,
                     ),
                     vol.Required("max", default=limits[key]["max"]): _number(
-                        -width, width, 0.01, spec.unit or None
+                        min(-width, limits[key]["max"]),
+                        max(width, limits[key]["max"]),
+                        0.01,
+                        spec.unit or None,
                     ),
                     vol.Required("step", default=limits[key]["step"]): _number(
-                        0, width, 0.01, spec.unit or None
+                        0, max(width, limits[key]["step"]), 0.01, spec.unit or None
                     ),
                 }
             ),
@@ -452,19 +451,17 @@ def _validate_general(
     return errors
 
 
-def _validate_limits(user_input: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
+def _validate_limits(
+    user_input: dict[str, Any], current: dict[str, Any] | None = None
+) -> tuple[dict[str, Any], dict[str, str]]:
     limits: dict[str, Any] = {}
     errors: dict[str, str] = {}
+    stored = normalize_limits(current)
     for key in ALL_PARAMS:
-        value = user_input.get(key) or {}
-        low, high, step = (
-            float(value.get("min", 0)),
-            float(value.get("max", 0)),
-            float(value.get("step", 0)),
-        )
-        if low > high:
-            errors[key] = "min_above_max"
-        limits[key] = {"min": low, "max": high, "step": step}
+        try:
+            limits[key] = validate_limit(key, user_input.get(key) or {}, stored[key])
+        except ValueError as err:
+            errors[key] = str(err)
     return limits, errors
 
 
@@ -748,7 +745,9 @@ class HeatingOptionsSteps:
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            if float(user_input[CONF_VENT_CHECK_MAX_INTERVAL]) < float(
+            if float(user_input[CONF_VENT_MIN_MINUTES]) > float(user_input[CONF_VENT_MAX_MINUTES]):
+                errors[CONF_VENT_MIN_MINUTES] = "airing_min_above_max"
+            elif float(user_input[CONF_VENT_CHECK_MAX_INTERVAL]) < float(
                 user_input[CONF_VENT_CHECK_INTERVAL]
             ):
                 errors[CONF_VENT_CHECK_MAX_INTERVAL] = "max_below_base"
@@ -776,7 +775,7 @@ class HeatingOptionsSteps:
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            limits, errors = _validate_limits(user_input)
+            limits, errors = _validate_limits(user_input, self._heating_values.get(CONF_LIMITS))
             if not errors:
                 return self._heating_save({CONF_LIMITS: limits})
         return self._heating_form("heating_ai_limits", _limits_schema(self._heating_values), errors)
@@ -982,7 +981,7 @@ def validate_area(data: dict[str, Any], others: Sequence[ConfigSubentry] = ()) -
         # two areas switching one circuit would work against each other
         errors.setdefault("base", "switch_in_use")
     low, high = float(data.get(CONF_MIN_TARGET, 16)), float(data.get(CONF_MAX_TARGET, 24))
-    if low >= high:
+    if low > high:
         errors.setdefault("base", "min_above_max")
     elif not low <= float(data.get(CONF_DEFAULT_TARGET, 21)) <= high:
         errors.setdefault("base", "target_out_of_range")

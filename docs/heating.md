@@ -164,7 +164,7 @@ Reihenfolge im Optionsmenü (*Einstellungen > Heizung*): Allgemein, Urlaub, Notf
 * **Notfallregel:** an, 1 K unter Sollwert (voraussichtlich nach der Vorlaufzeit, mindestens die Einschalthysterese), 45 min, Fenster 30 min unverändert.
 * **Lüftung:** Mindestvorteil absolute Feuchte 0,8 g/m³, außen höchstens 4 K wärmer, Mindest-Kühlvorteil 1 K, Kühlen in der Heizperiode erst ab 1 K über Sollwert, optional Kühlen erst ab einer festen Raumtemperatur (z. B. 23,5 °C, ganzjährig, Standard aus), Nacht 20:00 bis 08:00 Uhr (Uhrzeiten, minutengenau). Alle Schwellen sind Startwerte für die KI-Lüftungsprüfung (an, Grundintervall 6 h, Höchstintervall 72 h).
 * **KI:** Modell, Effort (Standard niedrig), Nachtlauf, Prüfintervall 4 h, Maximalintervall 48 h, Budget, Preise in USD je Million Tokens (Anthropic rechnet in US-Dollar ab; es wird nicht umgerechnet) (Eingabe, Ausgabe, Cache schreiben, Cache lesen; vorbelegt mit dem Listenpreis des Modells), maximale Ausgabe-Tokens.
-* **KI-Grenzen:** Minimum, Maximum, größte Änderung je Prüfung für jeden Parameter.
+* **KI-Grenzen:** Minimum, Maximum, größte Änderung je Prüfung für jeden Parameter. Neue Eingaben müssen innerhalb des festen Parameterbereichs liegen; der Schritt darf von 0 bis zur Spanne dieses Bereichs reichen. Schritt 0 friert den Parameter ein. Bestehende brauchbare Grenzen außerhalb des festen Bereichs bleiben gültig und können unverändert gespeichert werden; erst beim Ändern gelten die festen Grenzen. Beim Start werden nur unbrauchbare Grenzen repariert, nicht bestehende Bereiche verengt.
 * **Heiztag-Entscheidung:** gelerntes `theta` (änderbar), Bewertungsschwellen, Lernschritte, Bedingungen der Phasenwechsel.
 
 Den API-Key änderst du im Panel unter **Heizung > KI** oder über **Neu konfigurieren**.

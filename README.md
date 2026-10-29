@@ -155,3 +155,5 @@ Die Texte des Panels (`frontend/labels.js`) und der Karten (`frontend/card-label
 ## Lizenz
 
 MIT, siehe [LICENSE](LICENSE).
+
+Zählerkorrektur (`set_meter_reading`) und Urlaubsplanung (`set_vacation`) erfordern Administratorrechte. Automationen und Skripte ohne Benutzer bleiben erlaubt. Zählerstände müssen endlich und nichtnegativ sein. Dialog und Panel prüfen KI-Grenzen identisch sowie minimale ≤ maximale Lüftungsdauer; nur unbrauchbare gespeicherte Grenzen werden beim Start korrigiert; brauchbare Altgrenzen außerhalb des festen Parameterbereichs bleiben gültig. Schritt 0 friert einen Parameter ein.

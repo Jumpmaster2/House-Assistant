@@ -208,7 +208,9 @@
       "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
       "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
       "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
-      "create_rooms_in_house": "Neue Räume im Haus anlegen."
+      "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+      "airing_min_above_max": "Die minimale Lüftungsdauer darf die maximale Dauer nicht überschreiten.",
+      "invalid_value": "Ungültiger Wert. Neue KI-Grenzen müssen im festen Bereich des Parameters liegen; der Schritt muss zwischen 0 und der Spanne liegen (0 = Parameter eingefroren)."
     }
   },
   "options": {
@@ -838,7 +840,9 @@
       "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
       "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
       "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
-      "create_rooms_in_house": "Neue Räume im Haus anlegen."
+      "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+      "airing_min_above_max": "Die minimale Lüftungsdauer darf die maximale Dauer nicht überschreiten.",
+      "invalid_value": "Ungültiger Wert. Neue KI-Grenzen müssen im festen Bereich des Parameters liegen; der Schritt muss zwischen 0 und der Spanne liegen (0 = Parameter eingefroren)."
     }
   },
   "config_subentries": {
@@ -938,7 +942,7 @@
         "name_required": "Bitte einen Namen angeben.",
         "name_in_use": "Ein anderer Raum heißt schon so. Bitte einen eindeutigen Namen wählen (Export und Import finden Räume über den Namen).",
         "switch_in_use": "Dieser Schalter steuert bereits einen anderen Raum. Jeder Heizkreis gehört zu genau einem Raum: wähle einen anderen Schalter oder entferne ihn zuerst aus dem anderen Raum.",
-        "min_above_max": "Der kleinste Sollwert muss kleiner sein als der größte. Bitte einen der beiden Werte ändern (beide in °C).",
+        "min_above_max": "Die kleinste Solltemperatur darf die größte nicht überschreiten.",
         "target_out_of_range": "Der Start-Sollwert muss zwischen dem kleinsten und dem größten Sollwert liegen. Bitte ihn oder die Grenzen anpassen.",
         "reference_incomplete": "Referenztemperatur und Referenzfeuchte gehen nur zusammen: beide Sensoren wählen oder keinen.",
         "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor.",
@@ -2096,6 +2100,9 @@
     },
     "return_in_past": {
       "message": "Die Rückkehr liegt in der Vergangenheit."
+    },
+    "invalid_reading": {
+      "message": "Der Zählerstand muss eine endliche, nichtnegative Zahl sein."
     }
   },
   "services": {
@@ -2111,7 +2118,7 @@
     },
     "set_meter_reading": {
       "name": "Zählerstand setzen",
-      "description": "Setzt den Zählerstand von Hand, z. B. nach einer Fehllesung. Die nächsten Ablesungen werden gegen diesen Wert geprüft.",
+      "description": "Setzt den Zählerstand von Hand, z. B. nach einer Fehllesung. Die nächsten Ablesungen werden gegen diesen Wert geprüft. Nur Administratoren; Aufrufe ohne Benutzer (Automationen, Skripte) sind erlaubt.",
       "fields": {
         "entity_id": {
           "name": "Entitäten",
@@ -2235,7 +2242,7 @@
     },
     "set_vacation": {
       "name": "Urlaub planen",
-      "description": "Setzt Abreise und Rückkehr des Urlaubs des Hauses. Zur Abreise schaltet sich der Urlaub ein, zur Rückkehr aus. Nur eine Rückkehr: Urlaub ab sofort.",
+      "description": "Setzt Abreise und Rückkehr des Urlaubs des Hauses. Zur Abreise schaltet sich der Urlaub ein, zur Rückkehr aus. Nur eine Rückkehr: Urlaub ab sofort. Nur Administratoren; Aufrufe ohne Benutzer (Automationen, Skripte) sind erlaubt.",
       "fields": {
         "departure": {
           "name": "Abreise",

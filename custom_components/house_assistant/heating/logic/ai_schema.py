@@ -7,9 +7,11 @@ maximum change per check.
 
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any
 
+from ...core.logic.numbers import finite_float
 from .heating_day import AiDecision
 from .physics import clamp
 
@@ -250,6 +252,48 @@ def default_limits() -> dict[str, dict[str, float]]:
     return {k: {"min": p.min, "max": p.max, "step": p.step} for k, p in ALL_PARAMS.items()}
 
 
+def validate_limit(
+    key: str, value: dict[str, Any], current: dict[str, Any] | None = None
+) -> dict[str, float]:
+    """Validate new limits strictly, preserving unchanged usable legacy limits."""
+    spec = ALL_PARAMS[key]
+    try:
+        low, high, step = (finite_float(value[k]) for k in ("min", "max", "step"))
+    except (KeyError, TypeError, ValueError, OverflowError) as err:
+        raise ValueError("invalid_value") from err
+    if low > high:
+        raise ValueError("min_above_max")
+    if step < 0:
+        raise ValueError("invalid_value")
+    if current is not None and value == current:
+        return dict(value)
+    if low < spec.min or high > spec.max or step > spec.max - spec.min:
+        raise ValueError("invalid_value")
+    return {"min": low, "max": high, "step": step}
+
+
+def normalize_limits(stored: Any) -> dict[str, dict[str, float]]:
+    """Repair unusable stored limits without narrowing any usable legacy ranges."""
+    limits = default_limits()
+    if not isinstance(stored, dict):
+        return limits
+    for key, spec in ALL_PARAMS.items():
+        value = stored.get(key)
+        if not isinstance(value, dict):
+            continue
+        new = limits[key]
+        for field in new:
+            with suppress(TypeError, ValueError, OverflowError):
+                raw = value.get(field, new[field])
+                converted = finite_float(raw)
+                new[field] = raw if isinstance(raw, int | float) else converted
+        if new["min"] > new["max"]:
+            new["max"] = new["min"]
+        if new["step"] < 0:
+            new["step"] = spec.step
+    return limits
+
+
 NIGHTLY_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -303,8 +347,8 @@ def _text(value: Any, limit: int = 500) -> str:
 
 def _confidence(value: Any) -> int:
     try:
-        return int(clamp(float(value), 0, 100))
-    except (TypeError, ValueError) as err:
+        return int(clamp(finite_float(value), 0, 100))
+    except (TypeError, ValueError, OverflowError) as err:
         raise AnswerError("confidence is not a number") from err
 
 
@@ -363,6 +407,7 @@ def validate_check(
     applied: list[Adjustment] = []
     rejected: list[str] = []
     seen: set[tuple[str, str]] = set()
+    runtime_limits = normalize_limits(limits)
     for item in data["adjustments"]:
         if not isinstance(item, dict):
             rejected.append("item is not an object")
@@ -380,19 +425,28 @@ def validate_check(
             rejected.append(f"duplicate {key} for {area}")
             continue
         try:
-            wanted = float(item.get("value"))
-        except (TypeError, ValueError):
+            wanted = finite_float(item.get("value"))
+        except (TypeError, ValueError, OverflowError):
             rejected.append(f"value of {key} is not a number")
             continue
-        limit = limits.get(key, {})
-        low = float(limit.get("min", spec.min))
-        high = float(limit.get("max", spec.max))
-        step = abs(float(limit.get("step", spec.step)))
+        low, high, step = (runtime_limits[key][k] for k in ("min", "max", "step"))
+        if step == 0:
+            continue
         old = float(current[area][key])
         new = clamp(wanted, low, high)
         new = clamp(new, old - step, old + step)
         # A value outside narrowed limits must not stay outside by the step limit.
         new = round(clamp(new, low, high), 3)
+        effective = {
+            **current[area],
+            **{a.parameter: a.new for a in applied if a.area == area},
+            key: new,
+        }
+        if effective.get("airing_min_minutes", 0) > effective.get(
+            "airing_max_minutes", float("inf")
+        ):
+            rejected.append(f"airing minimum exceeds maximum for {area}")
+            continue
         if abs(new - old) < 1e-6:
             continue
         seen.add((area, key))

@@ -208,7 +208,9 @@
       "outdoor_required": "Choose an outdoor temperature sensor or a weather entity.",
       "house_settings_only": "Change this setting only in House.",
       "room_basics_house_only": "Change room basics only in House.",
-      "create_rooms_in_house": "Create new rooms in House."
+      "create_rooms_in_house": "Create new rooms in House.",
+      "airing_min_above_max": "The minimum airing duration must not exceed the maximum duration.",
+      "invalid_value": "Invalid value. New AI limits must stay within the fixed parameter range; the step must be between 0 and its span (0 = parameter frozen)."
     }
   },
   "options": {
@@ -838,7 +840,9 @@
       "outdoor_required": "Choose an outdoor temperature sensor or a weather entity.",
       "house_settings_only": "Change this setting only in House.",
       "room_basics_house_only": "Change room basics only in House.",
-      "create_rooms_in_house": "Create new rooms in House."
+      "create_rooms_in_house": "Create new rooms in House.",
+      "airing_min_above_max": "The minimum airing duration must not exceed the maximum duration.",
+      "invalid_value": "Invalid value. New AI limits must stay within the fixed parameter range; the step must be between 0 and its span (0 = parameter frozen)."
     }
   },
   "config_subentries": {
@@ -938,7 +942,7 @@
         "name_required": "Please enter a name.",
         "name_in_use": "Another room already has this name. Please choose a unique name (export and import find rooms by name).",
         "switch_in_use": "This switch already controls another room. Each circuit can belong to one room only: choose another switch, or remove it from the other room first.",
-        "min_above_max": "The smallest target must be below the largest target. Please change one of the two values (both in °C).",
+        "min_above_max": "The smallest target must not exceed the largest target.",
         "target_out_of_range": "The start target must lie between the smallest and the largest target. Please adjust it or the limits.",
         "reference_incomplete": "Reference temperature and reference humidity only work together: choose both sensors or neither.",
         "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room.",
@@ -2096,6 +2100,9 @@
     },
     "return_in_past": {
       "message": "The return is in the past."
+    },
+    "invalid_reading": {
+      "message": "The meter reading must be a finite, nonnegative number."
     }
   },
   "services": {
@@ -2111,7 +2118,7 @@
     },
     "set_meter_reading": {
       "name": "Set meter reading",
-      "description": "Sets the meter reading by hand, e.g. after a wrong reading. The next readings are checked against this value.",
+      "description": "Sets the meter reading by hand, e.g. after a wrong reading. The next readings are checked against this value. Administrators only; calls without a user (automations, scripts) are allowed.",
       "fields": {
         "entity_id": {
           "name": "Entities",
@@ -2235,7 +2242,7 @@
     },
     "set_vacation": {
       "name": "Plan vacation",
-      "description": "Sets departure and return of the vacation of the house. At the departure the vacation switches on, at the return off. Only a return: vacation from now on.",
+      "description": "Sets departure and return of the vacation of the house. At the departure the vacation switches on, at the return off. Only a return: vacation from now on. Administrators only; calls without a user (automations, scripts) are allowed.",
       "fields": {
         "departure": {
           "name": "Departure",

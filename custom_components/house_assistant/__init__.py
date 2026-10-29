@@ -49,6 +49,15 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> bool:
     """Start the enabled modules, then the platforms they add their entities to."""
+    from .heating.validation import normalize_options
+
+    if "heating" in entry.options:
+        old = dict(entry.options["heating"])
+        normalized = normalize_options(old)
+        if normalized != old:
+            hass.config_entries.async_update_entry(
+                entry, options={**entry.options, "heating": normalized}
+            )
     _move_vacation_sources(hass, entry)
     runtime = HouseRuntime(hass, entry)
     await runtime.async_start()

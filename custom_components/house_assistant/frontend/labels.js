@@ -2284,7 +2284,9 @@ export const LABELS = {
     "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
     "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
     "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
-    "create_rooms_in_house": "Neue Räume im Haus anlegen."
+    "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+    "airing_min_above_max": "Die minimale Lüftungsdauer darf die maximale Dauer nicht überschreiten.",
+    "invalid_value": "Ungültiger Wert. Neue KI-Grenzen müssen im festen Bereich des Parameters liegen; der Schritt muss zwischen 0 und der Spanne liegen (0 = Parameter eingefroren)."
    },
    "options": {
     "latest_before_earliest": "Die späteste Zeit liegt vor der frühesten. Bitte die späteste Zeit nach hinten oder die früheste nach vorne verschieben.",
@@ -2304,13 +2306,15 @@ export const LABELS = {
     "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
     "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
     "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
-    "create_rooms_in_house": "Neue Räume im Haus anlegen."
+    "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+    "airing_min_above_max": "Die minimale Lüftungsdauer darf die maximale Dauer nicht überschreiten.",
+    "invalid_value": "Ungültiger Wert. Neue KI-Grenzen müssen im festen Bereich des Parameters liegen; der Schritt muss zwischen 0 und der Spanne liegen (0 = Parameter eingefroren)."
    },
    "room": {
     "name_required": "Bitte einen Namen angeben.",
     "name_in_use": "Ein anderer Raum heißt schon so. Bitte einen eindeutigen Namen wählen (Export und Import finden Räume über den Namen).",
     "switch_in_use": "Dieser Schalter steuert bereits einen anderen Raum. Jeder Heizkreis gehört zu genau einem Raum: wähle einen anderen Schalter oder entferne ihn zuerst aus dem anderen Raum.",
-    "min_above_max": "Der kleinste Sollwert muss kleiner sein als der größte. Bitte einen der beiden Werte ändern (beide in °C).",
+    "min_above_max": "Die kleinste Solltemperatur darf die größte nicht überschreiten.",
     "target_out_of_range": "Der Start-Sollwert muss zwischen dem kleinsten und dem größten Sollwert liegen. Bitte ihn oder die Grenzen anpassen.",
     "reference_incomplete": "Referenztemperatur und Referenzfeuchte gehen nur zusammen: beide Sensoren wählen oder keinen.",
     "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor.",
@@ -4791,7 +4795,9 @@ export const LABELS = {
     "outdoor_required": "Choose an outdoor temperature sensor or a weather entity.",
     "house_settings_only": "Change this setting only in House.",
     "room_basics_house_only": "Change room basics only in House.",
-    "create_rooms_in_house": "Create new rooms in House."
+    "create_rooms_in_house": "Create new rooms in House.",
+    "airing_min_above_max": "The minimum airing duration must not exceed the maximum duration.",
+    "invalid_value": "Invalid value. New AI limits must stay within the fixed parameter range; the step must be between 0 and its span (0 = parameter frozen)."
    },
    "options": {
     "latest_before_earliest": "The latest time is before the earliest one. Move the latest time later or the earliest earlier.",
@@ -4811,13 +4817,15 @@ export const LABELS = {
     "outdoor_required": "Choose an outdoor temperature sensor or a weather entity.",
     "house_settings_only": "Change this setting only in House.",
     "room_basics_house_only": "Change room basics only in House.",
-    "create_rooms_in_house": "Create new rooms in House."
+    "create_rooms_in_house": "Create new rooms in House.",
+    "airing_min_above_max": "The minimum airing duration must not exceed the maximum duration.",
+    "invalid_value": "Invalid value. New AI limits must stay within the fixed parameter range; the step must be between 0 and its span (0 = parameter frozen)."
    },
    "room": {
     "name_required": "Please enter a name.",
     "name_in_use": "Another room already has this name. Please choose a unique name (export and import find rooms by name).",
     "switch_in_use": "This switch already controls another room. Each circuit can belong to one room only: choose another switch, or remove it from the other room first.",
-    "min_above_max": "The smallest target must be below the largest target. Please change one of the two values (both in °C).",
+    "min_above_max": "The smallest target must not exceed the largest target.",
     "target_out_of_range": "The start target must lie between the smallest and the largest target. Please adjust it or the limits.",
     "reference_incomplete": "Reference temperature and reference humidity only work together: choose both sensors or neither.",
     "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room.",
@@ -5832,13 +5840,15 @@ export const HEATING = {
    "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
    "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
    "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
-   "create_rooms_in_house": "Neue Räume im Haus anlegen."
+   "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+   "airing_min_above_max": "Die minimale Lüftungsdauer darf die maximale Dauer nicht überschreiten.",
+   "invalid_value": "Ungültiger Wert. Neue KI-Grenzen müssen im festen Bereich des Parameters liegen; der Schritt muss zwischen 0 und der Spanne liegen (0 = Parameter eingefroren)."
   },
   "area_errors": {
    "name_required": "Bitte einen Namen angeben.",
    "name_in_use": "Ein anderer Raum heißt schon so. Bitte einen eindeutigen Namen wählen (Export und Import finden Räume über den Namen).",
    "switch_in_use": "Dieser Schalter steuert bereits einen anderen Raum. Jeder Heizkreis gehört zu genau einem Raum: wähle einen anderen Schalter oder entferne ihn zuerst aus dem anderen Raum.",
-   "min_above_max": "Der kleinste Sollwert muss kleiner sein als der größte. Bitte einen der beiden Werte ändern (beide in °C).",
+   "min_above_max": "Die kleinste Solltemperatur darf die größte nicht überschreiten.",
    "target_out_of_range": "Der Start-Sollwert muss zwischen dem kleinsten und dem größten Sollwert liegen. Bitte ihn oder die Grenzen anpassen.",
    "reference_incomplete": "Referenztemperatur und Referenzfeuchte gehen nur zusammen: beide Sensoren wählen oder keinen.",
    "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor.",
@@ -6326,13 +6336,15 @@ export const HEATING = {
    "outdoor_required": "Choose an outdoor temperature sensor or a weather entity.",
    "house_settings_only": "Change this setting only in House.",
    "room_basics_house_only": "Change room basics only in House.",
-   "create_rooms_in_house": "Create new rooms in House."
+   "create_rooms_in_house": "Create new rooms in House.",
+   "airing_min_above_max": "The minimum airing duration must not exceed the maximum duration.",
+   "invalid_value": "Invalid value. New AI limits must stay within the fixed parameter range; the step must be between 0 and its span (0 = parameter frozen)."
   },
   "area_errors": {
    "name_required": "Please enter a name.",
    "name_in_use": "Another room already has this name. Please choose a unique name (export and import find rooms by name).",
    "switch_in_use": "This switch already controls another room. Each circuit can belong to one room only: choose another switch, or remove it from the other room first.",
-   "min_above_max": "The smallest target must be below the largest target. Please change one of the two values (both in °C).",
+   "min_above_max": "The smallest target must not exceed the largest target.",
    "target_out_of_range": "The start target must lie between the smallest and the largest target. Please adjust it or the limits.",
    "reference_incomplete": "Reference temperature and reference humidity only work together: choose both sensors or neither.",
    "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room.",
@@ -7381,7 +7393,9 @@ export const SHUTTER = {
    "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
    "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
    "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
-   "create_rooms_in_house": "Neue Räume im Haus anlegen."
+   "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+   "airing_min_above_max": "Die minimale Lüftungsdauer darf die maximale Dauer nicht überschreiten.",
+   "invalid_value": "Ungültiger Wert. Neue KI-Grenzen müssen im festen Bereich des Parameters liegen; der Schritt muss zwischen 0 und der Spanne liegen (0 = Parameter eingefroren)."
   },
   "en": {
    "latest_before_earliest": "The latest time is before the earliest one. Move the latest time later or the earliest earlier.",
@@ -7401,7 +7415,9 @@ export const SHUTTER = {
    "outdoor_required": "Choose an outdoor temperature sensor or a weather entity.",
    "house_settings_only": "Change this setting only in House.",
    "room_basics_house_only": "Change room basics only in House.",
-   "create_rooms_in_house": "Create new rooms in House."
+   "create_rooms_in_house": "Create new rooms in House.",
+   "airing_min_above_max": "The minimum airing duration must not exceed the maximum duration.",
+   "invalid_value": "Invalid value. New AI limits must stay within the fixed parameter range; the step must be between 0 and its span (0 = parameter frozen)."
   }
  },
  "STATUS": {

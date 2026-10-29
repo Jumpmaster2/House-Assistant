@@ -52,6 +52,8 @@ from .const import (
     CONF_SEASON_START,
     CONF_VENT_CHECK_INTERVAL,
     CONF_VENT_CHECK_MAX_INTERVAL,
+    CONF_VENT_MAX_MINUTES,
+    CONF_VENT_MIN_MINUTES,
     CONF_WEATHER,
     DEFAULTS,
     DOMAIN,
@@ -60,7 +62,7 @@ from .const import (
     MODULE_HEATING,
     SUBENTRY_ROOM,
 )
-from .logic.ai_schema import ALL_PARAMS, VENT_PARAMS, default_limits
+from .logic.ai_schema import ALL_PARAMS, VENT_PARAMS, normalize_limits, validate_limit
 from .logic.draft import LEGACY_MODE, LEGACY_WINDOWS, draft_groups
 from .logic.physics import parse_day_month
 from .logic.prompts import PromptError, clean_prompts, prompt_defaults
@@ -183,24 +185,16 @@ class PanelError(Exception):
 
 
 def _limits(value: Any, current: Any) -> dict[str, dict[str, float]]:
-    limits = default_limits()
-    for key, item in (current or {}).items():
-        if key in limits and isinstance(item, dict):
-            limits[key].update(item)
+    limits = normalize_limits(current)
     if not isinstance(value, dict):
         raise PanelError("invalid_value", CONF_LIMITS)
     for key, item in value.items():
         if key not in ALL_PARAMS or not isinstance(item, dict):
             raise PanelError("invalid_value", CONF_LIMITS)
         try:
-            new = {k: float(item.get(k, limits[key][k])) for k in ("min", "max", "step")}
-        except (TypeError, ValueError) as err:
-            raise PanelError("invalid_value", key) from err
-        if new["min"] > new["max"]:
-            raise PanelError("min_above_max", key)
-        if new["step"] < 0:
-            raise PanelError("invalid_value", key)
-        limits[key] = new
+            limits[key] = validate_limit(key, {**limits[key], **item}, limits[key])
+        except ValueError as err:
+            raise PanelError(str(err), key) from err
     return limits
 
 
@@ -254,6 +248,8 @@ def apply_options(
         raise PanelError("max_below_base", CONF_CHECK_MAX_INTERVAL)
     if float(merged[CONF_VENT_CHECK_MAX_INTERVAL]) < float(merged[CONF_VENT_CHECK_INTERVAL]):
         raise PanelError("max_below_base", CONF_VENT_CHECK_MAX_INTERVAL)
+    if float(merged[CONF_VENT_MIN_MINUTES]) > float(merged[CONF_VENT_MAX_MINUTES]):
+        raise PanelError("airing_min_above_max", CONF_VENT_MIN_MINUTES)
     return options
 
 

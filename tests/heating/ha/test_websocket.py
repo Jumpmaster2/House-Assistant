@@ -452,3 +452,31 @@ async def test_save_prompt_blocks(hass: HomeAssistant, base_states, hass_ws_clie
         msg = await _send(client, type=f"{DOMAIN}/heating/save_options", options=options)
         assert not msg["success"], options
         assert msg["error"]["message"] == error
+
+
+async def test_panel_preserves_unchanged_legacy_limits(
+    hass: HomeAssistant, base_states, hass_ws_client
+):
+    from custom_components.house_assistant.heating.logic.ai_schema import default_limits
+
+    limits = default_limits()
+    limits["window_delay_min"] = {"min": 1, "max": 30, "step": 2}
+    limits["recovery_bias_min"] = {"min": -30, "max": 90, "step": 10}
+    entry = await _setup(hass, limits=limits)
+    client = await hass_ws_client(hass)
+    msg = await _send(client, type=f"{DOMAIN}/heating/config")
+    assert msg["result"]["options"]["limits"] == limits
+    msg = await _send(
+        client,
+        type=f"{DOMAIN}/heating/save_options",
+        options={"limits": {"window_delay_min": {"max": 31}}},
+    )
+    assert not msg["success"]
+    assert msg["error"]["message"] == "invalid_value:window_delay_min"
+    assert heating_options(entry)["limits"] == limits
+    changed = {**limits, "hysteresis_on": {"min": 0, "max": 0.6, "step": 0}}
+    msg = await _send(client, type=f"{DOMAIN}/heating/save_options", options={"limits": changed})
+    assert msg["success"], msg
+    assert msg["result"]["options"]["limits"] == changed
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert heating_options(entry)["limits"] == changed

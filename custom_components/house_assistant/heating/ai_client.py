@@ -14,6 +14,7 @@ import anthropic
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.httpx_client import get_async_client
 
+from ..core.logic.numbers import reject_constant
 from .const import FALLBACK_BETA, FALLBACK_MODELS, LOGGER
 
 REQUEST_TIMEOUT = 120.0  # s at least for one answer
@@ -149,8 +150,8 @@ class ClaudeClient:
         if not text:
             raise AiError("empty answer", usage)
         try:
-            data = json.loads(text)
-        except json.JSONDecodeError as err:
+            data = json.loads(text, parse_constant=reject_constant)
+        except ValueError as err:
             raise AiError("answer is not valid JSON", usage) from err
         LOGGER.debug("AI answer (%s): %s", self.model, data)
         return data, usage

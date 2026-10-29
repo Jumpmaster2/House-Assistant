@@ -597,3 +597,50 @@ async def test_airing_values_are_room_settings_not_start_values(
     await hass.async_block_till_done(wait_background_tasks=True)
     params = heating(other).areas[standard.subentry_id].params
     assert (params.short_airing_min, params.short_recovery_percent) == (1.0, 50.0)
+
+
+@pytest.mark.parametrize("low,high,valid", [(15, 5, False), (5, 5, True), (3, 20, True)])
+async def test_airing_duration_order(hass: HomeAssistant, base_states, low, high, valid):
+    from custom_components.house_assistant.heating.const import DEFAULTS
+
+    entry = make_entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    result = await open_options(hass, entry, "ventilation")
+    schema = result["data_schema"]
+    keys = {str(k) for k in schema.schema}
+    values = {k: DEFAULTS[k] for k in keys}
+    values.update(ventilation_airing_min_minutes=low, ventilation_airing_max_minutes=high)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], values)
+    if valid:
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+    else:
+        assert result["errors"] == {"ventilation_airing_min_minutes": "airing_min_above_max"}
+        assert (
+            heating_options(entry)["ventilation_airing_min_minutes"]
+            == DEFAULTS["ventilation_airing_min_minutes"]
+        )
+
+
+async def test_limits_preserve_unchanged_legacy_values(hass: HomeAssistant, base_states):
+    from custom_components.house_assistant.heating.logic.ai_schema import default_limits
+
+    limits = default_limits()
+    limits["window_delay_min"] = {"min": 1, "max": 30, "step": 2}
+    limits["recovery_bias_min"] = {"min": -30, "max": 90, "step": 10}
+    entry = make_entry(limits=limits)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert heating_options(entry)["limits"] == limits
+    result = await open_options(hass, entry, "ai_limits")
+    changed = {**limits, "window_delay_min": {"min": 1, "max": 31, "step": 2}}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], changed)
+    assert result["errors"] == {"window_delay_min": "invalid_value"}
+    assert heating_options(entry)["limits"] == limits
+    unchanged = {**limits, "hysteresis_on": {"min": 0, "max": 0.6, "step": 0}}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], unchanged)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert heating_options(entry)["limits"] == unchanged
