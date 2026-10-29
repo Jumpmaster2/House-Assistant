@@ -59,6 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> boo
                 entry, options={**entry.options, "heating": normalized}
             )
     _move_vacation_sources(hass, entry)
+    _move_window_room_sources(hass, entry)
     runtime = HouseRuntime(hass, entry)
     entry.runtime_data = runtime
     try:
@@ -112,6 +113,40 @@ def _move_vacation_sources(hass: HomeAssistant, entry: HouseConfigEntry) -> None
         options[OPT_CORE] = core
     if options != dict(entry.options):
         hass.config_entries.async_update_entry(entry, options=options)
+
+
+def _move_window_room_sources(hass: HomeAssistant, entry: HouseConfigEntry) -> None:
+    """Move legacy window sources to their room without replacing room values."""
+    from .core.house import rooms, windows
+
+    house_rooms = rooms(entry)
+    for window in windows(entry).values():
+        data = dict(window.data)
+        keys = [key for key in ("room_entity", "cooling_entity") if key in data]
+        if not keys:
+            continue
+        room = house_rooms.get(str(data.get("room") or ""))
+        room_data = dict(room.data) if room else {}
+        original = dict(room_data)
+        for key in keys:
+            value = data.pop(key)
+            destination = "temperature_sensor" if key == "room_entity" else key
+            eligible = key != "room_entity" or (
+                isinstance(value, str) and value.startswith("sensor.")
+            )
+            moved = bool(room and value and eligible and not room_data.get(destination))
+            if moved:
+                room_data[destination] = value
+            LOGGER.warning(
+                "Window %s: %s %s for room %s",
+                window.title,
+                key,
+                "moved" if moved else "discarded",
+                room.title if room else "(none)",
+            )
+        if room and room_data != original:
+            hass.config_entries.async_update_subentry(entry, room, data=room_data)
+        hass.config_entries.async_update_subentry(entry, window, data=data)
 
 
 def _sidebar(entry: HouseConfigEntry) -> bool:

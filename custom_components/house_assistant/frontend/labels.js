@@ -62,6 +62,10 @@ export const LABELS = {
      "wind_entity": [
       "Windsensor",
       "Optional. Gemeinsamer Windsensor für den Windschutz der Rollos; Einheit wie die Windgrenzen im Rollo-Modul."
+     ],
+     "rain_entity": [
+      "Regensensor",
+      "Ein Regensensor, der einschaltet, oder eine Regenmenge (z. B. mm/h)."
      ]
     },
     "sections": {}
@@ -327,6 +331,10 @@ export const LABELS = {
      "wind_entity": [
       "Windsensor",
       "Optional. Gemeinsamer Windsensor für den Windschutz der Rollos; Einheit wie die Windgrenzen im Rollo-Modul."
+     ],
+     "rain_entity": [
+      "Regensensor",
+      "Ein Regensensor, der einschaltet, oder eine Regenmenge (z. B. mm/h)."
      ]
     },
     "sections": {}
@@ -479,10 +487,6 @@ export const LABELS = {
       "Windschutz ab",
       "In der Einheit des Windsensors (z. B. km/h oder m/s)."
      ],
-     "rain_entity": [
-      "Regensensor",
-      "Ein Regensensor, der einschaltet, oder eine Regenmenge (z. B. mm/h)."
-     ],
      "rain_threshold": [
       "Regenschutz über",
       "Nur bei einem Zahlenwert: Regen zählt über diesem Wert."
@@ -621,6 +625,10 @@ export const LABELS = {
      "force_on_below": [
       "Immer heizen unter Sollwert um",
       "So weit unter dem Sollwert heizt der Kreis unabhängig von jeder Vorhersage und der erwarteten Sonne."
+     ],
+     "sensor_stale_hours": [
+      "Sensor unverändert melden nach",
+      "Meldet, wenn sich ein Raumtemperaturwert so viele Stunden nicht ändert (Sensor oder Funk hängt?). Die Regelung bleibt unverändert. Bei grober Auflösung in sehr stabilen Räumen den Wert erhöhen oder 0 setzen."
      ]
     },
     "sections": {}
@@ -1531,10 +1539,6 @@ export const LABELS = {
       "Haltezeit Temperatur",
       "So lange muss die Außentemperatur darüber liegen. Darunter endet die Bedingung sofort."
      ],
-     "room_entity": [
-      "Raumtemperatur",
-      "Optional: Thermostat (climate) oder Temperatursensor des Raums. Dann wird nur abgesenkt, wenn der Raum zu warm ist. Ohne Wert gilt die Bedingung als erfüllt (außer am Heiztag)."
-     ],
      "room_margin": [
       "Zu warm ab Sollwert plus",
       "Bei einem Thermostat: zu warm ab dessen Sollwert plus diesem Abstand."
@@ -1542,10 +1546,6 @@ export const LABELS = {
      "room_threshold": [
       "Zu warm ab",
       "Bei einem Temperatursensor (oder einem Thermostat ohne Sollwert): zu warm ab dieser Temperatur."
-     ],
-     "cooling_entity": [
-      "Klimaanlage",
-      "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage."
      ],
      "sun_hold": [
       "Haltezeit Sonne",
@@ -2609,6 +2609,10 @@ export const LABELS = {
      "wind_entity": [
       "Wind sensor",
       "Optional. Shared wind sensor for cover protection; use the same unit as the wind thresholds in the covers module."
+     ],
+     "rain_entity": [
+      "Rain sensor",
+      "A rain sensor that turns on, or an amount of rain (e.g. mm/h)."
      ]
     },
     "sections": {}
@@ -2874,6 +2878,10 @@ export const LABELS = {
      "wind_entity": [
       "Wind sensor",
       "Optional. Shared wind sensor for cover protection; use the same unit as the wind thresholds in the covers module."
+     ],
+     "rain_entity": [
+      "Rain sensor",
+      "A rain sensor that turns on, or an amount of rain (e.g. mm/h)."
      ]
     },
     "sections": {}
@@ -3026,10 +3034,6 @@ export const LABELS = {
       "Wind protection from",
       "In the unit of the wind sensor (e.g. km/h or m/s)."
      ],
-     "rain_entity": [
-      "Rain sensor",
-      "A rain sensor that turns on, or an amount of rain (e.g. mm/h)."
-     ],
      "rain_threshold": [
       "Rain protection above",
       "Only for a numeric rain sensor: rain counts above this value."
@@ -3168,6 +3172,10 @@ export const LABELS = {
      "force_on_below": [
       "Always heat below target by",
       "Below target by this much the circuit heats regardless of every prediction and the expected sun."
+     ],
+     "sensor_stale_hours": [
+      "Report unchanged sensor after",
+      "Warn when a room temperature value has not changed for this many hours (sensor or radio stuck?). Control is not affected. Increase the threshold or set it to 0 for coarse sensors in very stable rooms."
      ]
     },
     "sections": {}
@@ -4078,10 +4086,6 @@ export const LABELS = {
       "Temperature hold time",
       "The outdoor temperature must stay above the value this long. Below it the condition ends immediately."
      ],
-     "room_entity": [
-      "Room temperature",
-      "Optional: thermostat (climate) or temperature sensor of the room. Then the cover is only lowered when the room is too warm. Without a value the condition counts as met (except on a heating day)."
-     ],
      "room_margin": [
       "Too warm from setpoint plus",
       "With a thermostat: too warm from its setpoint plus this margin."
@@ -4089,10 +4093,6 @@ export const LABELS = {
      "room_threshold": [
       "Too warm from",
       "With a temperature sensor (or a thermostat without a setpoint): too warm from this temperature."
-     ],
-     "cooling_entity": [
-      "Air conditioner",
-      "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner."
      ],
      "sun_hold": [
       "Sun hold time",
@@ -5121,7 +5121,7 @@ export const HOUSE = {
     ],
     "cooling_entity": [
      "Klimaanlage",
-     "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
+     "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums."
     ]
    },
    "window": {
@@ -5202,6 +5202,10 @@ export const HOUSE = {
     "wind_entity": [
      "Windsensor",
      "Optional. Gemeinsamer Windsensor für den Windschutz der Rollos; Einheit wie die Windgrenzen im Rollo-Modul."
+    ],
+    "rain_entity": [
+     "Regensensor",
+     "Ein Regensensor, der einschaltet, oder eine Regenmenge (z. B. mm/h)."
     ],
     "modules": [
      "Module",
@@ -5313,7 +5317,7 @@ export const HOUSE = {
     ],
     "cooling_entity": [
      "Air conditioner",
-     "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
+     "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room."
     ]
    },
    "window": {
@@ -5394,6 +5398,10 @@ export const HOUSE = {
     "wind_entity": [
      "Wind sensor",
      "Optional. Shared wind sensor for cover protection; use the same unit as the wind thresholds in the covers module."
+    ],
+    "rain_entity": [
+     "Rain sensor",
+     "A rain sensor that turns on, or an amount of rain (e.g. mm/h)."
     ],
     "modules": [
      "Modules",
@@ -5484,7 +5492,7 @@ export const HOUSE = {
 export const HEATING = {
  "de": {
   "notes": {
-   "house_settings_note": "Außentemperatur und -feuchte, Wetter, Windsensor, Sprache, Benachrichtigungen, Werktage, Hausmaße und Urlaubsquellen werden nur im Haus eingestellt.",
+   "house_settings_note": "Außentemperatur und -feuchte, Wetter, Wind- und Regensensor, Sprache, Benachrichtigungen, Werktage, Hausmaße und Urlaubsquellen werden nur im Haus eingestellt.",
    "room_basics_note": "Name, Bereich, Wohnfläche, Sensoren und Klimaanlage werden ausschließlich im Haus geändert. Neue Räume im Haus anlegen.",
    "room": {
     "data": {
@@ -5501,7 +5509,7 @@ export const HEATING = {
      "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil.",
      "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
      "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung.",
-     "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
+     "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums."
     }
    }
   },
@@ -5577,6 +5585,10 @@ export const HEATING = {
    "force_on_below": [
     "Immer heizen unter Sollwert um",
     "So weit unter dem Sollwert heizt der Kreis unabhängig von jeder Vorhersage und der erwarteten Sonne."
+   ],
+   "sensor_stale_hours": [
+    "Sensor unverändert melden nach",
+    "Meldet, wenn sich ein Raumtemperaturwert so viele Stunden nicht ändert (Sensor oder Funk hängt?). Die Regelung bleibt unverändert. Bei grober Auflösung in sehr stabilen Räumen den Wert erhöhen oder 0 setzen."
    ],
    "ventilation_min_ah_advantage": [
     "Mindestvorteil absolute Feuchte",
@@ -5996,7 +6008,7 @@ export const HEATING = {
  },
  "en": {
   "notes": {
-   "house_settings_note": "Set outdoor temperature and humidity, weather, wind sensor, language, notifications, working days, house dimensions and vacation sources only in House.",
+   "house_settings_note": "Set outdoor temperature and humidity, weather, wind and rain sensors, language, notifications, working days, house dimensions and vacation sources only in House.",
    "room_basics_note": "Change name, area, floor area, sensors and air conditioner only in House. Create new rooms in House.",
    "room": {
     "data": {
@@ -6013,7 +6025,7 @@ export const HEATING = {
      "floor_area": "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split.",
      "temperature_sensor": "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers).",
      "humidity_sensor": "Relative humidity, needed for the ventilation recommendation.",
-     "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
+     "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room."
     }
    }
   },
@@ -6089,6 +6101,10 @@ export const HEATING = {
    "force_on_below": [
     "Always heat below target by",
     "Below target by this much the circuit heats regardless of every prediction and the expected sun."
+   ],
+   "sensor_stale_hours": [
+    "Report unchanged sensor after",
+    "Warn when a room temperature value has not changed for this many hours (sensor or radio stuck?). Control is not affected. Increase the threshold or set it to 0 for coarse sensors in very stable rooms."
    ],
    "ventilation_min_ah_advantage": [
     "Minimum drying advantage",
@@ -6510,7 +6526,7 @@ export const HEATING = {
 export const SHUTTER = {
  "notes": {
   "de": {
-   "house_settings_note": "Außentemperatur und -feuchte, Wetter, Windsensor, Sprache, Benachrichtigungen, Werktage, Hausmaße und Urlaubsquellen werden nur im Haus eingestellt.",
+   "house_settings_note": "Außentemperatur und -feuchte, Wetter, Wind- und Regensensor, Sprache, Benachrichtigungen, Werktage, Hausmaße und Urlaubsquellen werden nur im Haus eingestellt.",
    "room_basics_note": "Name, Bereich, Wohnfläche, Sensoren und Klimaanlage werden ausschließlich im Haus geändert. Neue Räume im Haus anlegen.",
    "room": {
     "data": {
@@ -6527,12 +6543,12 @@ export const SHUTTER = {
      "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil.",
      "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
      "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung.",
-     "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
+     "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums."
     }
    }
   },
   "en": {
-   "house_settings_note": "Set outdoor temperature and humidity, weather, wind sensor, language, notifications, working days, house dimensions and vacation sources only in House.",
+   "house_settings_note": "Set outdoor temperature and humidity, weather, wind and rain sensors, language, notifications, working days, house dimensions and vacation sources only in House.",
    "room_basics_note": "Change name, area, floor area, sensors and air conditioner only in House. Create new rooms in House.",
    "room": {
     "data": {
@@ -6549,7 +6565,7 @@ export const SHUTTER = {
      "floor_area": "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split.",
      "temperature_sensor": "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers).",
      "humidity_sensor": "Relative humidity, needed for the ventilation recommendation.",
-     "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
+     "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room."
     }
    }
   }
@@ -6603,10 +6619,6 @@ export const SHUTTER = {
    "command_interval": [
     "Abstand zwischen Fahrbefehlen",
     "Mehrere Rollos fahren nacheinander mit diesem Abstand (gegen Funkkollisionen). 0 = alle gleichzeitig."
-   ],
-   "cooling_entity": [
-    "Klimaanlage",
-    "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage."
    ],
    "cover": [
     "Rollo",
@@ -6824,10 +6836,6 @@ export const SHUTTER = {
     "Strahlungsschwelle",
     "Jeder Strahlungssensor der Gruppe muss diesen Wert erreichen."
    ],
-   "rain_entity": [
-    "Regensensor",
-    "Ein Regensensor, der einschaltet, oder eine Regenmenge (z. B. mm/h)."
-   ],
    "rain_position": [
     "Position bei Regen",
     "Leer = nicht betroffen. Z. B. 0 % für ein Dachfenster."
@@ -6839,10 +6847,6 @@ export const SHUTTER = {
    "room": [
     "Raum",
     "Optional. Die Heizung des Raums nutzt die Kontakte des Fensters; das Rollo nimmt Raumtemperatur und Klimaanlage des Raums."
-   ],
-   "room_entity": [
-    "Raumtemperatur",
-    "Optional: Thermostat (climate) oder Temperatursensor des Raums. Dann wird nur abgesenkt, wenn der Raum zu warm ist. Ohne Wert gilt die Bedingung als erfüllt (außer am Heiztag)."
    ],
    "room_margin": [
     "Zu warm ab Sollwert plus",
@@ -7013,10 +7017,6 @@ export const SHUTTER = {
    "command_interval": [
     "Spacing between cover commands",
     "Several covers move one after the other with this spacing (against radio collisions). 0 = all at once."
-   ],
-   "cooling_entity": [
-    "Air conditioner",
-    "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner."
    ],
    "cover": [
     "Cover",
@@ -7234,10 +7234,6 @@ export const SHUTTER = {
     "Radiation threshold",
     "Every radiation sensor of the group must reach this value."
    ],
-   "rain_entity": [
-    "Rain sensor",
-    "A rain sensor that turns on, or an amount of rain (e.g. mm/h)."
-   ],
    "rain_position": [
     "Position with rain",
     "Empty = not affected. E.g. 0 % for a roof window shutter."
@@ -7249,10 +7245,6 @@ export const SHUTTER = {
    "room": [
     "Room",
     "Optional. The heating of the room uses the contacts of the window; the cover takes room temperature and air conditioner of the room."
-   ],
-   "room_entity": [
-    "Room temperature",
-    "Optional: thermostat (climate) or temperature sensor of the room. Then the cover is only lowered when the room is too warm. Without a value the condition counts as met (except on a heating day)."
    ],
    "room_margin": [
     "Too warm from setpoint plus",

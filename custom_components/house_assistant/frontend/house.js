@@ -12,7 +12,7 @@ const WS = "house_assistant/house";
 const UI = {
   de: {
     tabs: { rooms: "Räume", windows: "Fenster", vacation: "Urlaub", general: "Allgemein" },
-    general: ["Allgemein", "Außenwerte, Wetter, Windsensor, Sprache, Benachrichtigungen, Arbeitstage und Hausmaße gelten für alle Module und werden nur hier eingestellt."],
+    general: ["Allgemein", "Außenwerte, Wetter, Wind- und Regensensor, Sprache, Benachrichtigungen, Arbeitstage und Hausmaße gelten für alle Module und werden nur hier eingestellt."],
     rooms: ["Räume", "Mit Temperatursensor bekommt ein Raum Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat. Die Rollos seiner Fenster nehmen Raumtemperatur und Klimaanlage des Raums."],
     windows: ["Fenster", "Jedes Fenster einmal: mit Raum und Größe für die Heizung, mit Rollo für den Sonnenschutz. Ein Kontakt gehört zu genau einem Fenster."],
     columns: { name: "Name", area: "Bereich", floor: "Fläche", temperature: "Temperatur", windows: "Fenster", heating: "Heizung", room: "Raum", size: "Größe", contacts: "Kontakte", cover: "Rollo" },
@@ -76,7 +76,7 @@ const UI = {
   },
   en: {
     tabs: { rooms: "Rooms", windows: "Windows", vacation: "Vacation", general: "General" },
-    general: ["General", "Outdoor values, weather, wind sensor, language, notifications, working days and house dimensions apply to every module and are configured only here."],
+    general: ["General", "Outdoor values, weather, wind and rain sensors, language, notifications, working days and house dimensions apply to every module and are configured only here."],
     rooms: ["Rooms", "With a temperature sensor a room gets heating and ventilation advice, with a heating circuit also a thermostat. The covers of its windows take room temperature and air conditioner of the room."],
     windows: ["Windows", "Every window once: with room and size for the heating, with a cover for the sun protection. A contact belongs to one window only."],
     columns: { name: "Name", area: "Area", floor: "Floor area", temperature: "Temperature", windows: "Windows", heating: "Heating", room: "Room", size: "Size", contacts: "Contacts", cover: "Cover" },
@@ -146,7 +146,7 @@ const TABS = [
   ["vacation", "mdi:airplane"],
   ["general", "mdi:cog-outline"],
 ];
-const SETTINGS = ["outdoor_temperature", "outdoor_humidity", "weather", "wind_entity", "language", "notify_services", "workday_entity", "weekend_days", "house_azimuth", "house_width", "house_depth", "draft_reach"];
+const SETTINGS = ["outdoor_temperature", "outdoor_humidity", "weather", "wind_entity", "rain_entity", "language", "notify_services", "workday_entity", "weekend_days", "house_azimuth", "house_width", "house_depth", "draft_reach"];
 
 // settings of the vacation of the house and the vacation options of heating and covers
 const VACATION = ["vacation_entities", "return_entity", "vacation_window_alert"];

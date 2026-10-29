@@ -47,7 +47,6 @@ from .const import (
     CONF_CATCH_UP_AFTER,
     CONF_CLOSED_POSITION,
     CONF_COMMAND_INTERVAL,
-    CONF_COOLING_ENTITY,
     CONF_COVER,
     CONF_DAY_CHANGE,
     CONF_EVENING_CLOSE,
@@ -101,7 +100,6 @@ from .const import (
     CONF_RAIN_ENTITY,
     CONF_RAIN_POSITION,
     CONF_RAIN_THRESHOLD,
-    CONF_ROOM_ENTITY,
     CONF_ROOM_MARGIN,
     CONF_ROOM_THRESHOLD,
     CONF_STARTUP_DELAY,
@@ -296,7 +294,6 @@ def _protection_schema(v: dict[str, Any], unit: str) -> vol.Schema:
     return vol.Schema(
         {
             _req(CONF_WIND_THRESHOLD, v): _number(0, 300, 0.5),
-            _opt(CONF_RAIN_ENTITY, v): _entity(["binary_sensor", "sensor", "input_boolean"]),
             _req(CONF_RAIN_THRESHOLD, v): _number(0, 100, 0.1),
             _req(CONF_FROST_THRESHOLD, v, temps): _temperature(unit, -15, 10),
             _req(CONF_PROTECTION_RELEASE, v): _number(0, 240, 1, "min"),
@@ -660,12 +657,10 @@ def window_sun_fields(
         {
             _wreq(CONF_TEMP_THRESHOLD, values, temps): _temperature(unit, -20, 45),
             _wreq(CONF_TEMP_HOLD, values): _number(0, 120, 1, "min"),
-            _opt(CONF_ROOM_ENTITY, values): _entity(["climate", "sensor"]),
             _wreq(CONF_ROOM_MARGIN, values, temps): _number(
                 0, 10 if unit == "°C" else 18, 0.5, interval_unit(unit)
             ),
             _wreq(CONF_ROOM_THRESHOLD, values, temps): _temperature(unit, 10, 40),
-            _opt(CONF_COOLING_ENTITY, values): _entity(["climate"]),
             _wreq(CONF_SUN_HOLD, values): _number(0, 120, 1, "min"),
             _wreq(CONF_SUN_POSITION, values): _number(0, 100, 1, "%"),
             _wreq(CONF_TOLERANCE, values): _number(0, 50, 1, "%"),
@@ -897,9 +892,6 @@ class WindowSubentryFlow(ConfigSubentryFlow):
 
     async def async_step_sun(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         if user_input is not None:
-            # cleared optional entities are missing in the input
-            for key in (CONF_ROOM_ENTITY, CONF_COOLING_ENTITY):
-                self._values.pop(key, None)
             self._values.update(user_input)
             if self._reconfigure:
                 return self._finish()

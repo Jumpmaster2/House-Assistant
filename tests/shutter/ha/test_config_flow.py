@@ -36,7 +36,10 @@ async def test_user_flow(hass: HomeAssistant, base_states) -> None:
     result = await start_setup(hass)
     # outdoor temperature, weather, language and notifications are the house's
     assert result["step_id"] == "house"
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], GENERAL)
+    assert "rain_entity" in {str(k) for k in result["data_schema"].schema}
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**GENERAL, "rain_entity": "binary_sensor.rain"}
+    )
     assert result["step_id"] == "shutter_summer"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], SUMMER)
     assert result["step_id"] == "shutter_evening"
@@ -53,6 +56,7 @@ async def test_user_flow(hass: HomeAssistant, base_states) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     entry = result["result"]
     assert entry.options["core"]["outdoor_temperature"] == OUTDOOR
+    assert entry.options["core"]["rain_entity"] == "binary_sensor.rain"
     assert "outdoor_temperature" not in entry.options["shutter"]
     assert entry.options["shutter"]["vacation_morning_start"] == "07:00:00"
     # groups and windows are added in the panel afterwards
@@ -366,6 +370,7 @@ async def test_options_protection_without_shared_settings(hass: HomeAssistant, b
     assert "outdoor_temperature" not in keys
     assert "language" not in keys
     assert "notify_services" not in keys
+    assert "rain_entity" not in keys
     values = {str(k): k.default() for k in result["data_schema"].schema if callable(k.default)}
     result = await hass.config_entries.options.async_configure(result["flow_id"], values)
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -406,11 +411,8 @@ async def test_window_reconfigure_clears_room_and_cooling(hass: HomeAssistant, b
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], {"next_step_id": "sun"}
     )
-    values = {
-        str(k): k.default()
-        for k in result["data_schema"].schema
-        if callable(k.default) and str(k) not in ("room_entity", "cooling_entity")
-    }
+    assert not {"room_entity", "cooling_entity"} & {str(k) for k in result["data_schema"].schema}
+    values = {str(k): k.default() for k in result["data_schema"].schema if callable(k.default)}
     result = await hass.config_entries.subentries.async_configure(result["flow_id"], values)
     assert result["type"] is FlowResultType.ABORT
     data = entry.subentries[WINDOW_ID].data

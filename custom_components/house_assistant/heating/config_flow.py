@@ -32,7 +32,7 @@ from homeassistant.helpers.selector import (
 
 from ..const import OPT_CORE, SHARED_KEYS
 from ..core.house import CONF_AREA, CONF_FLOOR_AREA
-from ..core.schema import number
+from ..core.schema import FiniteNumberSelector, number
 from ..runtime import enabled_modules, module_options, shared_options
 from .ai_client import AiAuthError, AiError, ClaudeClient
 
@@ -91,6 +91,7 @@ from .const import (
     CONF_RULE_DAYS,
     CONF_SEASON_END,
     CONF_SEASON_START,
+    CONF_SENSOR_STALE_HOURS,
     CONF_SHARED_AGREEMENT,
     CONF_SHARED_DAYS,
     CONF_SHORT_AIRING,
@@ -147,6 +148,16 @@ from .logic.physics import parse_day_month
 from .logic.ventilation import BLOCK_DOMAINS
 
 PRICE_KEYS = (CONF_PRICE_INPUT, CONF_PRICE_OUTPUT, CONF_PRICE_CACHE_WRITE, CONF_PRICE_CACHE_READ)
+
+
+class WholeHoursSelector(FiniteNumberSelector):
+    """Accept only whole hours for the stale sensor threshold."""
+
+    def __call__(self, value: Any) -> float:
+        result = super().__call__(value)
+        if not float(result).is_integer():
+            raise vol.Invalid("whole hours required")
+        return result
 
 
 def _number(
@@ -278,6 +289,9 @@ def rules_schema(v: dict[str, Any]) -> vol.Schema:
             _req(CONF_EMERGENCY_DELTA, v): _number(0.2, 5, 0.1, "K"),
             _req(CONF_EMERGENCY_DURATION, v): _number(5, 240, 5, "min"),
             _req(CONF_EMERGENCY_QUIET, v): _number(0, 240, 5, "min"),
+            _req(CONF_SENSOR_STALE_HOURS, v): WholeHoursSelector(
+                {"min": 0, "max": 72, "step": 1, "mode": "box", "unit_of_measurement": "h"}
+            ),
             _req(CONF_FORCE_ON_BELOW, v): _number(0.3, 3, 0.1, "K"),
         }
     )

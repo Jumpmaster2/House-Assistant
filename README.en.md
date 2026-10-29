@@ -10,7 +10,7 @@ Custom integration for Home Assistant that brings heating, covers and meter read
 
 Every module can be switched on and off on its own. No function of the former integrations is dropped; their users move with a script, without losing history or learned values ([docs/transfer.md](docs/transfer.md#english)).
 
-> Status: version 1.0.0b18 (beta). Please keep an eye on the logbook during the first weeks.
+> Status: version 1.0.0b19 (beta). Please keep an eye on the logbook during the first weeks.
 
 ## Working together
 
@@ -73,7 +73,7 @@ In the panel under **House**:
 | Option | Meaning |
 |---|---|
 | Outdoor temperature, outdoor humidity, weather | for heating and covers; without an outdoor sensor the current temperature of the weather entity applies |
-| Wind sensor | shared sensor for wind protection; wind thresholds remain in covers |
+| Wind and rain sensors | shared sensors for weather protection; thresholds remain in covers |
 | Language of messages | logbook, last reason, notifications of every module; automatic = the language of Home Assistant |
 | Notification services | `notify.*` only; messages of the covers and of the vacation |
 | Workday sensor, weekend days | morning opening of the covers |

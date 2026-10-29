@@ -10,7 +10,7 @@ Custom Integration für Home Assistant, die Heizung, Rollos und Zählerablesung 
 
 Jedes Modul lässt sich einzeln ein- und ausschalten. Keine Funktion der bisherigen Integrationen fällt weg; wer sie nutzt, zieht mit einem Skript um, ohne Verlauf und Lernwerte zu verlieren ([docs/transfer.md](docs/transfer.md)).
 
-> Status: Version 1.0.0b18 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
+> Status: Version 1.0.0b19 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
 
 ## Zusammenspiel
 
@@ -73,7 +73,7 @@ Im Panel unter **Haus**:
 | Option | Bedeutung |
 |---|---|
 | Außentemperatur, Außenfeuchte, Wetter | für Heizung und Rollos; ohne Außensensor gilt die aktuelle Temperatur der Wetter-Entität |
-| Windsensor | gemeinsamer Sensor für den Windschutz; Windgrenzen bleiben bei den Rollos |
+| Wind- und Regensensor | gemeinsame Sensoren für den Wetterschutz; Grenzen bleiben bei den Rollos |
 | Sprache der Meldungen | Logbuch, letzter Grund, Benachrichtigungen aller Module; Automatisch = die Sprache von Home Assistant |
 | Benachrichtigungsdienste | nur `notify.*`; Meldungen der Rollos und des Urlaubs |
 | Werktag-Sensor, Wochenendtage | Morgenöffnung der Rollos |

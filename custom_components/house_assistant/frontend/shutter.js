@@ -16,7 +16,7 @@ const UI = {
     title: "Rollos",
     tabs: { overview: "Übersicht", windows: "Fenster", groups: "Gruppen", general: "Allgemein", evening: "Abend & Urlaub" },
     cards: {
-      sensors: ["Sensoren & Meldungen", "Außenwerte, Wettervorhersage, Windsensor, Sprache und Benachrichtigungen werden im Haus eingestellt."],
+      sensors: ["Sensoren & Meldungen", "Außenwerte, Wettervorhersage, Wind- und Regensensor, Sprache und Benachrichtigungen werden im Haus eingestellt."],
       summer: ["Sommertag", "Sonnenschutz gibt es nur an Sommertagen."],
       override: ["Manuelle Übersteuerung", "Wann eine Bedienung von Hand (Taster, App, Sprachassistent) die Übersteuerung eines Fensters startet. Dauer und weitere Einstellungen stehen am Fenster."],
       startup: ["Neustart-Schutz", "Nach dem Start von Home Assistant eine Weile keine Fahrten."],
@@ -31,7 +31,7 @@ const UI = {
       w_vent: ["Lüften & Urlaub", "Lüftungsposition beim Öffnen des Fensters und Teilnahme an der Urlaubssimulation."],
       w_morning: ["Morgenöffnung", "Nie bei Übersteuerung, Öffnungssperre oder einem seit dem Abend von Hand verstellten Rollo. Im Urlaub öffnet die Simulation."],
       w_conditions: ["Zusatzbedingungen", "Öffnungssperre (z. B. Fernseher an), Schließ-Auslöser und Fenster-Ausnahme."],
-      w_protection: ["Wetterschutz & Tür", "Wetterschutz für dieses Fenster ein/aus, Positionen bei Wind und Regen, Spalt bei Frost und der Aussperrschutz einer Tür. Der Windsensor steht im Haus, der Regensensor unter Allgemein > Wetterschutz."],
+      w_protection: ["Wetterschutz & Tür", "Wetterschutz für dieses Fenster ein/aus, Positionen bei Wind und Regen, Spalt bei Frost und der Aussperrschutz einer Tür. Wind- und Regensensor stehen im Haus."],
       protection: ["Wetterschutz", "Wind und Regen fahren nur die Fenster mit eingeschaltetem Wetterschutz auf ihre Schutzposition, auch bei Übersteuerung, nicht bei ausgeschalteter Automatik. Frost lässt beim Schließen einen Spalt. Die Positionen stehen am Fenster."],
       g_basics: ["Gruppe", "Eine Himmelsrichtung. Die Schwellen stehen am Fenster."],
       g_sensors: ["Sonnensensoren", "Jeder Sensor der Gruppe muss die Schwelle des Fensters erreichen."],
@@ -173,7 +173,7 @@ const UI = {
     title: "Covers",
     tabs: { overview: "Overview", windows: "Windows", groups: "Groups", general: "General", evening: "Evening & vacation" },
     cards: {
-      sensors: ["Sensors & messages", "Outdoor values, weather forecast, wind sensor, language and notifications are configured in House."],
+      sensors: ["Sensors & messages", "Outdoor values, weather forecast, wind and rain sensors, language and notifications are configured in House."],
       summer: ["Summer day", "Sun protection only runs on summer days."],
       override: ["Manual override", "When a movement by hand (switch, app, voice assistant) starts the override of a window. Duration and further settings are set per window."],
       startup: ["Restart protection", "No movement for a while after Home Assistant started."],
@@ -188,7 +188,7 @@ const UI = {
       w_vent: ["Ventilation & vacation", "Ventilation position when the window opens and taking part in the vacation simulation."],
       w_morning: ["Morning opening", "Never with an active override, an opening block or a cover moved by hand since the evening. During vacation the simulation opens instead."],
       w_conditions: ["Additional conditions", "Opening block (e.g. TV on), close trigger and window exception."],
-      w_protection: ["Weather protection & door", "Weather protection for this window on/off, positions with wind and rain, a gap with frost and the lockout protection of a door. The wind sensor is in House, the rain sensor under General > Weather protection."],
+      w_protection: ["Weather protection & door", "Weather protection for this window on/off, positions with wind and rain, a gap with frost and the lockout protection of a door. The wind and rain sensors are in House."],
       protection: ["Weather protection", "Wind and rain move only the windows with the weather protection on to their protection position, also during an override, not with the automatic off. Frost keeps a gap when closing. The positions are set per window."],
       g_basics: ["Group", "A direction of the sun. Thresholds are set per window."],
       g_sensors: ["Sun sensors", "Every sensor of the group must reach the threshold of the window."],
@@ -342,7 +342,7 @@ const SETTINGS = {
     { id: "override", icon: "mdi:hand-back-right-outline", fields: ["override_trigger"] },
     { id: "summer", icon: "mdi:white-balance-sunny", fields: ["summer_threshold", "night_threshold", "heating_entity", "use_heating_day", "day_change_time", "forecast_type"] },
     { id: "startup", icon: "mdi:restart", fields: ["startup_delay", "catch_up_after"] },
-    { id: "protection", icon: "mdi:weather-windy", fields: ["wind_threshold", "rain_entity", "rain_threshold", "frost_threshold", "protection_release"] },
+    { id: "protection", icon: "mdi:weather-windy", fields: ["wind_threshold", "rain_threshold", "frost_threshold", "protection_release"] },
     { id: "advanced", icon: "mdi:cog-outline", fields: ["window_closed_delay", "command_interval", "verify_after"] },
   ],
   evening: [
@@ -378,9 +378,7 @@ const WINDOW_CARDS = [
       ...KINDS.filter(([, sensors]) => (group?.data?.[sensors] || []).length).map(([, , threshold]) => threshold),
       "temperature_threshold",
       "temperature_hold",
-      "room_entity",
-      ...(String(d.room_entity || "").startsWith("climate.") ? ["room_margin"] : d.room_entity ? ["room_threshold"] : []),
-      "cooling_entity",
+      "room_margin", "room_threshold",
       "sun_hold",
       "sun_position",
       "position_tolerance",
@@ -781,7 +779,7 @@ class HouseAssistantShutterView extends HTMLElement {
   _liveIds() {
     const cfg = this._cfg;
     const eff = this._eff();
-    const ids = [...Object.values(cfg.entities || {}), "sun.sun", eff.outdoor_temperature, eff.wind_entity, cfg.options.rain_entity, ...(eff.vacation_entities || [])];
+    const ids = [...Object.values(cfg.entities || {}), "sun.sun", eff.outdoor_temperature, eff.wind_entity, eff.rain_entity, ...(eff.vacation_entities || [])];
     for (const win of this._windows) {
       ids.push(...Object.values(win.entities || {}), win.data.cover, ...(win.data.window_sensors || []), ...(win.data.tilt_sensors || []));
     }
@@ -972,7 +970,7 @@ class HouseAssistantShutterView extends HTMLElement {
     for (const group of this._groups) check(group.title, KINDS.flatMap(([, sensors]) => group.data[sensors] || []));
     for (const win of this._windows) {
       const d = win.data;
-      check(win.title, [d.cover, ...(d.window_sensors || []), ...(d.tilt_sensors || []), d.room_entity, d.cooling_entity, d.open_block_entity, d.window_exception_entity, ...(d.close_trigger_entities || []), d.morning_enabled && d.morning_mode === "trigger" ? d.morning_trigger_entity : null]);
+      check(win.title, [d.cover, ...(d.window_sensors || []), ...(d.tilt_sensors || []), d.open_block_entity, d.window_exception_entity, ...(d.close_trigger_entities || []), d.morning_enabled && d.morning_mode === "trigger" ? d.morning_trigger_entity : null]);
       if (d.group && !this._group(d.group)) hints.push(["mdi:alert-outline", ui.missingGroup(win.title)]);
     }
     if (!o.weather && !o.outdoor_temperature) hints.push(["mdi:alert-outline", ui.noTemperature]);

@@ -26,6 +26,7 @@ from ..const import (
     CONF_NOTIFY,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMP,
+    CONF_RAIN_ENTITY,
     CONF_RETURN_ENTITY,
     CONF_VACATION_ENTITIES,
     CONF_VACATION_WINDOW_ALERT,
@@ -47,6 +48,7 @@ HOUSE_FORM = (
     CONF_OUTDOOR_HUMIDITY,
     CONF_WEATHER,
     CONF_WIND_ENTITY,
+    CONF_RAIN_ENTITY,
     CONF_LANGUAGE,
     CONF_NOTIFY,
     CONF_WORKDAY,
@@ -92,6 +94,7 @@ def house_schema(hass: HomeAssistant, v: dict[str, Any]) -> vol.Schema:
             optional(CONF_OUTDOOR_HUMIDITY, v): _sensor("humidity", ["%"]),
             optional(CONF_WEATHER, v): entity(["weather"]),
             optional(CONF_WIND_ENTITY, v): entity(["sensor"]),
+            optional(CONF_RAIN_ENTITY, v): entity(["binary_sensor", "sensor", "input_boolean"]),
             vol.Required(CONF_LANGUAGE, default=v.get(CONF_LANGUAGE, "auto")): SelectSelector(
                 SelectSelectorConfig(
                     options=LANGUAGES, translation_key="language", mode=SelectSelectorMode.LIST

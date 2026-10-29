@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0b19 (2026-10-29)
+
+### Added
+
+- A shared rain sensor can be configured under Settings > House for cover protection.
+- A repair notice warns when a room temperature sensor remains unchanged for the configured number of hours (12 by default, 0 disables the check); heating continues using its value.
+
+### Changed
+
+- Cover windows no longer have their own room temperature or air conditioner sources; they use the sources of their room. At startup, existing window values move into empty room fields; values are discarded if the room already has a value. Both cases are logged as warnings.
+- At startup, the rain sensor moves from covers to the house, like the wind sensor. Rain thresholds and positions remain in covers.
+- The `read_meter` service requires an administrator. Calls without a user remain allowed, and the meter reading button is unchanged.
+
 ## 1.0.0b18 (2026-10-29)
 
 ### Fixed

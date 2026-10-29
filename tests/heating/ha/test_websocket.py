@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
 from homeassistant.core import HomeAssistant
 
 from custom_components.house_assistant.heating.ai_client import AiAuthError
@@ -480,3 +481,30 @@ async def test_panel_preserves_unchanged_legacy_limits(
     assert msg["result"]["options"]["limits"] == changed
     await hass.async_block_till_done(wait_background_tasks=True)
     assert heating_options(entry)["limits"] == changed
+
+
+@pytest.mark.parametrize("value", [0, 12, 72])
+async def test_panel_saves_sensor_stale_hours(
+    hass: HomeAssistant, base_states, hass_ws_client, value
+):
+    entry = await _setup(hass)
+    client = await hass_ws_client(hass)
+    msg = await _send(
+        client, type=f"{DOMAIN}/heating/save_options", options={"sensor_stale_hours": value}
+    )
+    assert msg["success"], msg
+    assert heating_options(entry)["sensor_stale_hours"] == value
+
+
+@pytest.mark.parametrize("value", [-1, 73, 1.5, "NaN", "Infinity", "-Infinity"])
+async def test_panel_rejects_invalid_sensor_stale_hours(
+    hass: HomeAssistant, base_states, hass_ws_client, value
+):
+    entry = await _setup(hass)
+    client = await hass_ws_client(hass)
+    msg = await _send(
+        client, type=f"{DOMAIN}/heating/save_options", options={"sensor_stale_hours": value}
+    )
+    assert not msg["success"]
+    assert msg["error"]["message"] == "invalid_value:sensor_stale_hours"
+    assert heating_options(entry)["sensor_stale_hours"] == 12

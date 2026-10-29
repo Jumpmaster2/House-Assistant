@@ -26,7 +26,8 @@
           "house_width": "Length of the front",
           "house_depth": "Depth",
           "draft_reach": "Draft reach",
-          "wind_entity": "Wind sensor"
+          "wind_entity": "Wind sensor",
+          "rain_entity": "Rain sensor"
         },
         "data_description": {
           "outdoor_temperature": "For heating and covers (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used.",
@@ -40,7 +41,8 @@
           "house_width": "Also the back. With the depth the house appears in the sun compass, and the draft through rooms between two open windows is recognised.",
           "house_depth": "Length of the two side walls.",
           "draft_reach": "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m).",
-          "wind_entity": "Optional. Shared wind sensor for cover protection; use the same unit as the wind thresholds in the covers module."
+          "wind_entity": "Optional. Shared wind sensor for cover protection; use the same unit as the wind thresholds in the covers module.",
+          "rain_entity": "A rain sensor that turns on, or an amount of rain (e.g. mm/h)."
         }
       },
       "heating": {
@@ -130,7 +132,7 @@
       },
       "shutter_summer": {
         "title": "Summer day",
-        "description": "Shared settings, including the wind sensor, are changed only under House › Settings. Sun protection only runs on summer days.",
+        "description": "Shared settings, including the wind and rain sensors, are changed only under House › Settings. Sun protection only runs on summer days.",
         "data": {
           "summer_threshold": "Summer day from forecast high",
           "night_threshold": "Late summer day only with a night from",
@@ -252,7 +254,8 @@
           "house_width": "Length of the front",
           "house_depth": "Depth",
           "draft_reach": "Draft reach",
-          "wind_entity": "Wind sensor"
+          "wind_entity": "Wind sensor",
+          "rain_entity": "Rain sensor"
         },
         "data_description": {
           "outdoor_temperature": "For heating and covers (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used.",
@@ -266,7 +269,8 @@
           "house_width": "Also the back. With the depth the house appears in the sun compass, and the draft through rooms between two open windows is recognised.",
           "house_depth": "Length of the two side walls.",
           "draft_reach": "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m).",
-          "wind_entity": "Optional. Shared wind sensor for cover protection; use the same unit as the wind thresholds in the covers module."
+          "wind_entity": "Optional. Shared wind sensor for cover protection; use the same unit as the wind thresholds in the covers module.",
+          "rain_entity": "A rain sensor that turns on, or an amount of rain (e.g. mm/h)."
         }
       },
       "vacation": {
@@ -324,7 +328,7 @@
       },
       "shutter_summer": {
         "title": "Summer day",
-        "description": "Shared settings, including the wind sensor, are changed only under House › Settings. Sun protection only runs on summer days.",
+        "description": "Shared settings, including the wind and rain sensors, are changed only under House › Settings. Sun protection only runs on summer days.",
         "data": {
           "summer_threshold": "Summer day from forecast high",
           "night_threshold": "Late summer day only with a night from",
@@ -382,17 +386,15 @@
       },
       "shutter_protection": {
         "title": "Weather protection",
-        "description": "Shared settings, including the wind sensor, are changed only under House › Settings. Wind and rain move the covers of the windows that take part to their protection position, also during an override and with the automatic off. Frost keeps a gap when closing. Positions are set per window.",
+        "description": "Shared settings, including the wind and rain sensors, are changed only under House › Settings. Wind and rain move the covers of the windows that take part to their protection position, also during an override and with the automatic off. Frost keeps a gap when closing. Positions are set per window.",
         "data": {
           "wind_threshold": "Wind protection from",
-          "rain_entity": "Rain sensor",
           "rain_threshold": "Rain protection above",
           "frost_threshold": "Frost at or below",
           "protection_release": "Release after"
         },
         "data_description": {
           "wind_threshold": "In the unit of the wind sensor (e.g. km/h or m/s).",
-          "rain_entity": "A rain sensor that turns on, or an amount of rain (e.g. mm/h).",
           "rain_threshold": "Only for a numeric rain sensor: rain counts above this value.",
           "frost_threshold": "Outdoor temperature. Only windows with a frost position take part.",
           "protection_release": "A protection ends only after the value stayed on the safe side this long. An unavailable sensor never ends a protection."
@@ -439,7 +441,7 @@
       },
       "heating_general": {
         "title": "General",
-        "description": "Shared settings, including the wind sensor, are changed only under House › Settings. Sensors, heating period and frost protection.",
+        "description": "Shared settings, including the wind and rain sensors, are changed only under House › Settings. Sensors, heating period and frost protection.",
         "data": {
           "pv_power": "PV power sensor",
           "pv_forecast": "PV forecast sensor",
@@ -485,14 +487,16 @@
           "emergency_delta": "Emergency: below target by",
           "emergency_duration": "Emergency: duration",
           "emergency_window_quiet": "Emergency: no window change for",
-          "force_on_below": "Always heat below target by"
+          "force_on_below": "Always heat below target by",
+          "sensor_stale_hours": "Report unchanged sensor after"
         },
         "data_description": {
           "emergency_enabled": "On days without heating, a room may still heat if the temperature expected after the lead time is long and clearly below its target, without airing.",
           "emergency_delta": "How far below the target the temperature expected after the lead time has to be (at least the switch-on hysteresis).",
           "emergency_duration": "How long the expected temperature has to stay that low (e.g. 45 min).",
           "emergency_window_quiet": "Airing does not count: windows must not have changed for this time.",
-          "force_on_below": "Below target by this much the circuit heats regardless of every prediction and the expected sun."
+          "force_on_below": "Below target by this much the circuit heats regardless of every prediction and the expected sun.",
+          "sensor_stale_hours": "Warn when a room temperature value has not changed for this many hours (sensor or radio stuck?). Control is not affected. Increase the threshold or set it to 0 for coarse sensors in very stable rooms."
         }
       },
       "heating_ventilation": {
@@ -823,7 +827,7 @@
       },
       "house_settings_note": {
         "title": "Shared settings",
-        "description": "Set outdoor temperature and humidity, weather, wind sensor, language, notifications, working days, house dimensions and vacation sources only in House."
+        "description": "Set outdoor temperature and humidity, weather, wind and rain sensors, language, notifications, working days, house dimensions and vacation sources only in House."
       }
     },
     "error": {
@@ -986,7 +990,7 @@
             "floor_area": "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split.",
             "temperature_sensor": "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers).",
             "humidity_sensor": "Relative humidity, needed for the ventilation recommendation.",
-            "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
+            "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room."
           }
         }
       },
@@ -1104,10 +1108,8 @@
             "lux_threshold": "Brightness threshold",
             "temperature_threshold": "Outdoor temperature at least",
             "temperature_hold": "Temperature hold time",
-            "room_entity": "Room temperature",
             "room_margin": "Too warm from setpoint plus",
             "room_threshold": "Too warm from",
-            "cooling_entity": "Air conditioner",
             "sun_hold": "Sun hold time",
             "sun_position": "Sun protection position",
             "position_tolerance": "Tolerance for auto up",
@@ -1124,10 +1126,8 @@
             "lux_threshold": "Every brightness sensor of the group must reach this value.",
             "temperature_threshold": "Sun protection only from this outdoor temperature on.",
             "temperature_hold": "The outdoor temperature must stay above the value this long. Below it the condition ends immediately.",
-            "room_entity": "Optional: thermostat (climate) or temperature sensor of the room. Then the cover is only lowered when the room is too warm. Without a value the condition counts as met (except on a heating day).",
             "room_margin": "With a thermostat: too warm from its setpoint plus this margin.",
             "room_threshold": "With a temperature sensor (or a thermostat without a setpoint): too warm from this temperature.",
-            "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner.",
             "sun_hold": "Summer day, temperature, room and all sun sensors must be met this long. The condition ends immediately.",
             "sun_position": "Lowered once a day to this position. A cover already further closed is left alone.",
             "position_tolerance": "Auto up only opens covers standing at the sun protection position up to this much above it. Covers moved elsewhere by hand stay.",
@@ -2160,7 +2160,7 @@
   "services": {
     "read_meter": {
       "name": "Read meter",
-      "description": "Reads the meters of the given entities now (with majority vote and plausibility check).",
+      "description": "Reads the meters of the given entities now (with majority vote and plausibility check). Administrators only; calls without a user (automations, scripts) are allowed.",
       "fields": {
         "entity_id": {
           "name": "Entities",
@@ -2347,6 +2347,10 @@
     "corrupt_storage": {
       "title": "Corrupt stored data: {module}",
       "description": "Corrupt stored data in {module} was discarded and replaced with defaults. The raw data was backed up in a separate store ending in .corrupt before saving. Check the settings and log. This warning clears on the next clean load."
+    },
+    "sensor_stale": {
+      "title": "Temperature sensor of {area} unchanged",
+      "description": "Sensor {entity_id} has not changed its value for {hours} hours. Heating continues using this value. Check the battery, radio connection or sensor. This notice disappears when the value changes."
     }
   }
 }

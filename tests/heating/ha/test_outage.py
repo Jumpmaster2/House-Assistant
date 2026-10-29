@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from unittest.mock import patch
 
+import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import issue_registry as ir
@@ -151,3 +153,77 @@ async def test_issue_of_a_deleted_area_is_dropped(
     hass.config_entries.async_remove_subentry(entry, _area_id(entry))
     await hass.async_block_till_done(wait_background_tasks=True)
     assert _issue(hass, issue_id) is None
+
+
+async def test_unchanged_temperature_repair_clears(
+    hass: HomeAssistant, base_states, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(IN_SEASON)
+    entry = make_entry(sensor_stale_hours=1)
+    await _setup(hass, entry)
+    sensor = "sensor.living_room_temperature"
+    hass.states.async_set(sensor, "19.1", {"unit_of_measurement": "°C"})
+    issue_id = f"sensor_stale_{_area_id(entry)}"
+    await _advance(hass, freezer, 59)
+    assert _issue(hass, issue_id) is None
+    with patch.object(ir, "async_create_issue", wraps=ir.async_create_issue) as create_issue:
+        await _advance(hass, freezer, 2)
+        issue = _issue(hass, issue_id)
+        assert issue is not None and issue.translation_key == "sensor_stale"
+        assert issue.translation_placeholders == {
+            "entity_id": sensor,
+            "area": "Living room",
+            "hours": "1",
+        }
+        await _advance(hass, freezer, 2)
+        assert sum(call.args[2] == issue_id for call in create_issue.call_args_list) == 1
+        hass.states.async_set(sensor, "19.2", {"unit_of_measurement": "°C"})
+        await _advance(hass, freezer, 1)
+        assert _issue(hass, issue_id) is None
+
+
+async def test_stale_check_disabled(hass: HomeAssistant, base_states, freezer) -> None:
+    entry = make_entry(sensor_stale_hours=0)
+    await _setup(hass, entry)
+    await _advance(hass, freezer, 65)
+    assert _issue(hass, f"sensor_stale_{_area_id(entry)}") is None
+
+
+@pytest.mark.parametrize("state", ["unavailable", "unknown", "not a number", "100"])
+async def test_invalid_temperature_only_raises_unavailable(
+    hass: HomeAssistant, base_states, freezer, state: str
+) -> None:
+    entry = make_entry(sensor_stale_hours=1)
+    await _setup(hass, entry)
+    await _advance(hass, freezer, 61)
+    assert _issue(hass, f"sensor_stale_{_area_id(entry)}") is not None
+    hass.states.async_set("sensor.living_room_temperature", state, {"unit_of_measurement": "°C"})
+    await _advance(hass, freezer, 16)
+    assert _issue(hass, f"sensor_unavailable_{_area_id(entry)}") is not None
+    assert _issue(hass, f"sensor_stale_{_area_id(entry)}") is None
+
+
+async def test_no_circuit_has_no_stale_repair(hass: HomeAssistant, base_states, freezer) -> None:
+    entry = make_entry(sensor_stale_hours=1)
+    await _setup(hass, entry)
+    storage = next(s.subentry_id for s in entry.subentries.values() if s.title == "Storage room")
+    await _advance(hass, freezer, 65)
+    assert _issue(hass, f"sensor_stale_{storage}") is None
+    assert _issue(hass, f"sensor_stale_{_area_id(entry)}") is not None
+
+
+async def test_stale_repair_does_not_change_control(
+    hass: HomeAssistant, base_states, freezer
+) -> None:
+    entry = make_entry(sensor_stale_hours=1)
+    await _setup(hass, entry)
+    await _advance(hass, freezer, 59)
+    area = heating(entry).areas[_area_id(entry)]
+    switch = hass.states.get("input_boolean.heating_circuit_1").state
+    target = area.target
+    effective_target = area.effective_target
+    await _advance(hass, freezer, 2)
+    assert _issue(hass, f"sensor_stale_{_area_id(entry)}") is not None
+    assert hass.states.get("input_boolean.heating_circuit_1").state == switch
+    assert area.target == target
+    assert area.effective_target == effective_target

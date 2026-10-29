@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Final
 
+from ..const import CONF_RAIN_ENTITY as CONF_RAIN_ENTITY
 from ..const import CONF_WIND_ENTITY as CONF_WIND_ENTITY
 from ..const import (
     DOMAIN,
@@ -94,7 +95,6 @@ OVERRIDE_TRIGGERS: Final = [TRIGGER_MOVEMENT, TRIGGER_COMMAND]
 # keeps a gap when closing. Each ends only after the release time.
 
 CONF_WIND_THRESHOLD = "wind_threshold"
-CONF_RAIN_ENTITY = "rain_entity"
 CONF_RAIN_THRESHOLD = "rain_threshold"
 CONF_FROST_THRESHOLD = "frost_threshold"
 CONF_PROTECTION_RELEASE = "protection_release"
@@ -198,13 +198,9 @@ CONF_RADIATION_THRESHOLD = "radiation_threshold"
 CONF_TEMP_THRESHOLD = "temperature_threshold"
 CONF_TEMP_HOLD = "temperature_hold"
 CONF_SUN_HOLD = "sun_hold"
-# Room temperature: a thermostat (climate, too warm from setpoint + margin) or a
-# temperature sensor (too warm from the threshold).
-CONF_ROOM_ENTITY = "room_entity"
+# Room warmth thresholds for the room sensor and thermostat target.
 CONF_ROOM_MARGIN = "room_margin"
 CONF_ROOM_THRESHOLD = "room_threshold"
-# Air conditioner: while it cools, the room counts as too warm.
-CONF_COOLING_ENTITY = "cooling_entity"
 CONF_SUN_POSITION = "sun_position"
 CONF_TOLERANCE = "position_tolerance"
 CONF_AUTO_UP = "auto_up"

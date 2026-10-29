@@ -110,6 +110,7 @@ def make_entry(
     window: dict[str, Any] | None = None,
     group: dict[str, Any] | None = None,
     extra_windows: dict[str, dict[str, Any]] | None = None,
+    room: dict[str, Any] | None = None,
     **options: Any,
 ) -> MockConfigEntry:
     return MockConfigEntry(
@@ -136,11 +137,28 @@ def make_entry(
                 unique_id=None,
             ),
             ConfigSubentryData(
-                data={**WINDOW_DATA, **(window or {})},
+                data={
+                    **WINDOW_DATA,
+                    **({"room": "room_living"} if room is not None else {}),
+                    **(window or {}),
+                },
                 subentry_id=WINDOW_ID,
                 subentry_type=SUBENTRY_WINDOW,
                 title=(window or {}).get("name", WINDOW_DATA["name"]),
                 unique_id=None,
+            ),
+            *(
+                [
+                    ConfigSubentryData(
+                        data=room,
+                        subentry_id="room_living",
+                        subentry_type="room",
+                        title="Living room",
+                        unique_id=None,
+                    )
+                ]
+                if room is not None
+                else []
             ),
             *(
                 ConfigSubentryData(
