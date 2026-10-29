@@ -865,7 +865,10 @@ class MeterManager:
     @property
     def language(self) -> str:
         """Language of the house for messages and AI hints, else the one of Home Assistant."""
-        return str(self.options.get(CONF_LANGUAGE) or self.hass.config.language or "en")
+        language = self.options.get(CONF_LANGUAGE)
+        if language in (None, "", "auto"):
+            language = self.hass.config.language
+        return str(language or "en")
 
     async def async_setup(self) -> None:
         stored = await self._store.async_load() or {}

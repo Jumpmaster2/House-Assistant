@@ -67,13 +67,14 @@ In the panel under **House**:
 | Option | Meaning |
 |---|---|
 | Outdoor temperature, outdoor humidity, weather | for heating and covers; without an outdoor sensor the current temperature of the weather entity applies |
+| Wind sensor | shared sensor for wind protection; wind thresholds remain in covers |
 | Language of messages | logbook, last reason, notifications of every module; automatic = the language of Home Assistant |
 | Notification services | `notify.*` only; messages of the covers and of the vacation |
 | Workday sensor, weekend days | morning opening of the covers |
 | Front faces, length, depth | the house in the sun compass of the covers; with length and depth the heating detects draft through rooms |
 | Draft reach | how far a room may be from the line between two open windows of other rooms (default 2 m) |
 
-A value set here applies to every module. Without one the value in the settings of the module applies (the former integrations had the values each for themselves).
+Shared settings and room basics are edited only in House. Legacy module values migrate to House at startup: house values take precedence; otherwise heating wins over covers on conflicts. Vacation sources are combined. Empty house values then remain unset.
 
 ## Vacation
 

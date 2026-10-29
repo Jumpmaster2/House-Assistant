@@ -142,7 +142,7 @@ name: Schlafzimmer                     # optional
 
 Temperatursensoren dürfen in °C, °F oder K melden; ohne Einheit gilt das Einheitensystem von Home Assistant. Gerechnet wird intern in °C, und alle Temperaturen in den Einstellungen der Heizung (Sollwerte, Frostschutz, `theta`) werden in °C eingegeben. Die Thermostate zeigen Werte im Einheitensystem von Home Assistant.
 
-Außentemperatur, Außenfeuchte, Wetter und Urlaub stehen in den **Einstellungen des Hauses** (siehe [README](../README.md#einstellungen-des-hauses)); die gleichnamigen Felder der Heizung gelten nur, solange dort nichts eingetragen ist.
+Außentemperatur, Außenfeuchte, Wetter und Urlaub stehen in den **Einstellungen des Hauses** (siehe [README](../README.md#einstellungen-des-hauses)). Es gibt keine eigenen Quellen im Heizungsmodul.
 
 | Option | Standard | Bedeutung |
 |---|---|---|
@@ -153,7 +153,7 @@ Außentemperatur, Außenfeuchte, Wetter und Urlaub stehen in den **Einstellungen
 | Frostschutz | 7 °C | gilt immer |
 | Urlaubstemperatur | 18 °C | für alle Räume |
 | Vorheiz-Reserve | 30 min | |
-| Lüftungsempfehlung ruht | an | im Urlaub |
+| Lüftungsempfehlung ruht (Haus > Urlaub) | an | im Urlaub |
 | Startwert `theta` | 16 °C | Heiztag-Regel; nur bei der Einrichtung, danach wird der gelernte Wert bearbeitet |
 | API-Key, Modell | Claude Opus 5.5 | änderbar, eigener Modellname möglich |
 | Nachtlauf | 03:00 | |

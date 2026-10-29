@@ -25,7 +25,8 @@
           "house_azimuth": "Vorderseite zeigt nach",
           "house_width": "Länge der Vorderseite",
           "house_depth": "Tiefe",
-          "draft_reach": "Luftzug-Reichweite"
+          "draft_reach": "Luftzug-Reichweite",
+          "wind_entity": "Windsensor"
         },
         "data_description": {
           "outdoor_temperature": "Für Heizung und Rollos (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität.",
@@ -38,7 +39,8 @@
           "house_azimuth": "Himmelsrichtung, in die die Vorderseite schaut (90° = Ost, 180° = Süd, 270° = West), z. B. auf einer Karte abgelesen. Für das Haus im Sonnenkompass der Rollos.",
           "house_width": "Gilt auch für die Rückseite. Mit der Tiefe erscheint das Haus im Sonnenkompass, und der Luftzug durch Räume zwischen zwei offenen Fenstern wird erkannt.",
           "house_depth": "Länge der beiden Seitenwände.",
-          "draft_reach": "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
+          "draft_reach": "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m).",
+          "wind_entity": "Optional. Gemeinsamer Windsensor für den Windschutz der Rollos; Einheit wie die Windgrenzen im Rollo-Modul."
         }
       },
       "heating": {
@@ -128,7 +130,7 @@
       },
       "shutter_summer": {
         "title": "Sommertag",
-        "description": "Sonnenschutz gibt es nur an Sommertagen.",
+        "description": "Gemeinsame Einstellungen einschließlich Windsensor werden ausschließlich unter Haus › Einstellungen geändert. Sonnenschutz gibt es nur an Sommertagen.",
         "data": {
           "summer_threshold": "Sommertag ab Vorhersage-Höchsttemperatur",
           "night_threshold": "Später Sommertag nur bei Nacht ab",
@@ -203,7 +205,10 @@
       "invalid_auth": "Anthropic hat den API-Key abgelehnt. Prüfe ihn unter console.anthropic.com > API Keys und füge ihn ohne Leerzeichen ein. Ohne Key läuft die lokale Regelung weiter.",
       "cannot_connect": "Anthropic ist nicht erreichbar. Prüfe Internetverbindung, Proxy und Firewall. Der Key wurde nicht gespeichert.",
       "max_below_base": "Das maximale Intervall muss mindestens so groß sein wie das Prüfintervall (z. B. alle 4 h prüfen, höchstens alle 48 h).",
-      "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen."
+      "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
+      "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
+      "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
+      "create_rooms_in_house": "Neue Räume im Haus anlegen."
     }
   },
   "options": {
@@ -244,7 +249,8 @@
           "house_azimuth": "Vorderseite zeigt nach",
           "house_width": "Länge der Vorderseite",
           "house_depth": "Tiefe",
-          "draft_reach": "Luftzug-Reichweite"
+          "draft_reach": "Luftzug-Reichweite",
+          "wind_entity": "Windsensor"
         },
         "data_description": {
           "outdoor_temperature": "Für Heizung und Rollos (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität.",
@@ -257,7 +263,8 @@
           "house_azimuth": "Himmelsrichtung, in die die Vorderseite schaut (90° = Ost, 180° = Süd, 270° = West), z. B. auf einer Karte abgelesen. Für das Haus im Sonnenkompass der Rollos.",
           "house_width": "Gilt auch für die Rückseite. Mit der Tiefe erscheint das Haus im Sonnenkompass, und der Luftzug durch Räume zwischen zwei offenen Fenstern wird erkannt.",
           "house_depth": "Länge der beiden Seitenwände.",
-          "draft_reach": "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
+          "draft_reach": "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m).",
+          "wind_entity": "Optional. Gemeinsamer Windsensor für den Windschutz der Rollos; Einheit wie die Windgrenzen im Rollo-Modul."
         }
       },
       "vacation": {
@@ -292,7 +299,6 @@
       "shutter": {
         "title": "Rollos",
         "menu_options": {
-          "shutter_general": "Allgemein",
           "shutter_override": "Manuelle Übersteuerung",
           "shutter_summer": "Sommertag",
           "shutter_evening": "Abendmodus",
@@ -300,26 +306,9 @@
           "shutter_protection": "Wetterschutz",
           "shutter_startup": "Neustart-Schutz",
           "shutter_advanced": "Erweitert"
-        }
-      },
-      "shutter_general": {
-        "title": "Allgemein",
-        "data": {
-          "outdoor_temperature": "Außentemperatur-Sensor",
-          "weather": "Wetter-Entität",
-          "language": "Sprache der Meldungen",
-          "notify_services": "Benachrichtigungsdienste",
-          "workday_entity": "Werktag-Sensor",
-          "weekend_days": "Wochenendtage"
         },
-        "data_description": {
-          "outdoor_temperature": "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
-          "weather": "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
-          "language": "Logbuch, letzter Grund und Push-Nachrichten. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
-          "notify_services": "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
-          "workday_entity": "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
-          "weekend_days": "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-        }
+        "data": {},
+        "data_description": {}
       },
       "shutter_override": {
         "title": "Manuelle Übersteuerung",
@@ -333,7 +322,7 @@
       },
       "shutter_summer": {
         "title": "Sommertag",
-        "description": "Sonnenschutz gibt es nur an Sommertagen.",
+        "description": "Gemeinsame Einstellungen einschließlich Windsensor werden ausschließlich unter Haus › Einstellungen geändert. Sonnenschutz gibt es nur an Sommertagen.",
         "data": {
           "summer_threshold": "Sommertag ab Vorhersage-Höchsttemperatur",
           "night_threshold": "Später Sommertag nur bei Nacht ab",
@@ -391,9 +380,8 @@
       },
       "shutter_protection": {
         "title": "Wetterschutz",
-        "description": "Wind und Regen fahren die Rollos der beteiligten Fenster auf ihre Schutzposition, auch bei Übersteuerung und ausgeschalteter Automatik. Frost lässt beim Schließen einen Spalt. Die Positionen stehen am Fenster.",
+        "description": "Gemeinsame Einstellungen einschließlich Windsensor werden ausschließlich unter Haus › Einstellungen geändert. Wind und Regen fahren die Rollos der beteiligten Fenster auf ihre Schutzposition, auch bei Übersteuerung und ausgeschalteter Automatik. Frost lässt beim Schließen einen Spalt. Die Positionen stehen am Fenster.",
         "data": {
-          "wind_entity": "Windsensor",
           "wind_threshold": "Windschutz ab",
           "rain_entity": "Regensensor",
           "rain_threshold": "Regenschutz über",
@@ -401,7 +389,6 @@
           "protection_release": "Freigabe nach"
         },
         "data_description": {
-          "wind_entity": "Windgeschwindigkeit oder Böen, z. B. von einer Wetterstation.",
           "wind_threshold": "In der Einheit des Windsensors (z. B. km/h oder m/s).",
           "rain_entity": "Ein Regensensor, der einschaltet, oder eine Regenmenge (z. B. mm/h).",
           "rain_threshold": "Nur bei einem Zahlenwert: Regen zählt über diesem Wert.",
@@ -444,15 +431,14 @@
           "heating_ai": "KI",
           "heating_decision": "Heiztag-Entscheidung (Experten)",
           "heating_ai_limits": "KI-Grenzen (Experten)"
-        }
+        },
+        "data": {},
+        "data_description": {}
       },
       "heating_general": {
         "title": "Allgemein",
-        "description": "Sensoren, Heizperiode und Frostschutz.",
+        "description": "Gemeinsame Einstellungen einschließlich Windsensor werden ausschließlich unter Haus › Einstellungen geändert. Sensoren, Heizperiode und Frostschutz.",
         "data": {
-          "outdoor_temperature": "Außentemperatursensor",
-          "outdoor_humidity": "Außenfeuchtesensor",
-          "weather": "Wetter-Entität",
           "pv_power": "PV-Leistungssensor",
           "pv_forecast": "PV-Prognosesensor",
           "heat_meter": "Wärmezähler",
@@ -466,9 +452,6 @@
           "season_end_month": "Heizperiode endet: Monat"
         },
         "data_description": {
-          "outdoor_temperature": "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
-          "outdoor_humidity": "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
-          "weather": "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist.",
           "pv_power": "Optional. PV-Leistung (W oder kW) als Indikator für Sonne. Daraus wird der Sonneneinfluss je Bereich gelernt.",
           "pv_forecast": "Optional, nur zusammen mit dem PV-Leistungssensor. Erwartete PV-Energie der nächsten Stunde (Wh oder kWh, z. B. Forecast.Solar) oder erwartete Leistung in einer Stunde (W oder kW). Ohne diesen Sensor wird die Sonne aus der stündlichen Wettervorhersage und dem Sonnenstand geschätzt.",
           "heat_meter": "Optional. Zählerstand des Wärmezählers der hier geregelten Heizkreise (Wh, kWh, MWh, MJ oder GJ, z. B. total_increasing). Die KI sieht dann die gemessene Wärme, außerdem steht sie im Panel. Seltene und grobe Werte sind kein Problem.",
@@ -832,7 +815,9 @@
               "step": "Max. Änderung je Prüfung"
             }
           }
-        }
+        },
+        "data": {},
+        "data_description": {}
       }
     },
     "error": {
@@ -850,7 +835,10 @@
       "invalid_auth": "Anthropic hat den API-Key abgelehnt. Prüfe ihn unter console.anthropic.com > API Keys und füge ihn ohne Leerzeichen ein. Ohne Key läuft die lokale Regelung weiter.",
       "cannot_connect": "Anthropic ist nicht erreichbar. Prüfe Internetverbindung, Proxy und Firewall. Der Key wurde nicht gespeichert.",
       "max_below_base": "Das maximale Intervall muss mindestens so groß sein wie das Prüfintervall (z. B. alle 4 h prüfen, höchstens alle 48 h).",
-      "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen."
+      "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
+      "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
+      "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
+      "create_rooms_in_house": "Neue Räume im Haus anlegen."
     }
   },
   "config_subentries": {
@@ -863,143 +851,21 @@
       "step": {
         "user": {
           "title": "Raum",
-          "description": "Ein Raum des Hauses. Mit Temperatursensor bekommt er Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat. Fenster werden als Fenster angelegt und dort dem Raum zugeordnet.",
+          "description": "Name, Bereich, Wohnfläche, Sensoren und Klimaanlage werden ausschließlich im Haus geändert. Neue Räume im Haus anlegen.",
           "data": {
-            "name": "Name",
-            "area": "Bereich (Home Assistant)",
-            "floor_area": "Wohnfläche"
+            "name": "Name"
           },
           "data_description": {
-            "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
-            "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften.",
-            "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
+            "name": "Name des Raums, auch für das Gerät und seine Entitäten."
           },
-          "sections": {
-            "sensors": {
-              "name": "Sensoren",
-              "data": {
-                "temperature_sensor": "Temperatursensor",
-                "humidity_sensor": "Feuchtesensor"
-              },
-              "data_description": {
-                "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
-                "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung."
-              }
-            },
-            "heating": {
-              "name": "Heizkreis",
-              "data": {
-                "heater_switch": "Heizkreis-Schalter",
-                "default_target": "Start-Sollwert",
-                "min_target": "Kleinster Sollwert",
-                "max_target": "Größter Sollwert",
-                "min_on_time": "Mindest-Einschaltzeit",
-                "min_off_time": "Mindest-Ausschaltzeit",
-                "heating_type": "Heizungsart"
-              },
-              "data_description": {
-                "heater_switch": "Schalter des Stellantriebs (z. B. ein Relais). Leer lassen für einen Raum nur mit Lüftungsempfehlung.",
-                "default_target": "Sollwert, bis du ihn an der Thermostatkarte änderst.",
-                "min_target": "Kleinster Wert der Thermostatkarte.",
-                "max_target": "Größter Wert der Thermostatkarte.",
-                "min_on_time": "Wird immer eingehalten (schont den Stellantrieb). Wird nicht gelernt.",
-                "min_off_time": "Wird immer eingehalten. Wird nicht gelernt.",
-                "heating_type": "Wie der Kreis heizt. Ein Fußboden speichert Wärme über Stunden, Heizkörper reagieren in Minuten; die KI beurteilt die gelernten Werte entsprechend."
-              }
-            },
-            "start_values": {
-              "name": "Startwerte (werden gelernt)",
-              "description": "Nur beim Anlegen des Raums. Danach werden die gelernten Werte bearbeitet.",
-              "data": {
-                "window_delay": "Fensterverzögerung (Startwert)",
-                "recovery_time": "Erholungszeit nach Lüften (Startwert)",
-                "dead_time": "Totzeit bis der Raum wärmer wird (Startwert)",
-                "puffer": "Reserve über Sollwert (Startwert)"
-              },
-              "data_description": {
-                "window_delay": "So lange offen pausiert die Heizung. Die KI darf den Wert anpassen.",
-                "recovery_time": "Nach dem Schließen wird so lange gewartet, weil Estrich und Wände den Raum oft selbst aufheizen. Wird danach gelernt.",
-                "dead_time": "Zeit vom Einschalten, bis der Raum wärmer wird; bei Fußbodenheizung oft 30-90 min, bei Heizkörpern 5-20 min. Wird danach gelernt.",
-                "puffer": "Heiztag-Regel: wie weit ein Raum beim Nachtlauf über dem Sollwert liegen muss, um einen Tag ohne Heizen zu überstehen (z. B. 0,7 K). Wird danach gelernt."
-              }
-            },
-            "airing": {
-              "name": "Lüften",
-              "description": "Kurzes Lüften und die Wartezeit danach. Jederzeit änderbar, auch bei bestehenden Räumen.",
-              "data": {
-                "short_airing_min": "Kurz lüften ab",
-                "short_recovery_percent": "Wartezeit nach kurzem Lüften"
-              },
-              "data_description": {
-                "short_airing_min": "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause.",
-                "short_recovery_percent": "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
-              }
-            },
-            "ventilation": {
-              "name": "Lüftung",
-              "data": {
-                "ventilation_rh_threshold": "Feuchte-Schwelle",
-                "reference_temperature": "Referenz-Temperatur statt außen",
-                "reference_humidity": "Referenz-Feuchte statt außen",
-                "ventilation_block_entity": "Lüftungs-Sperr-Entität"
-              },
-              "data_description": {
-                "ventilation_rh_threshold": "Startwert der relativen Feuchte, ab der Lüften empfohlen wird (z. B. 65 % für Bäder); die KI-Lüftungsprüfung passt ihn an den Raum an.",
-                "reference_temperature": "Optional, für Räume, die über einen anderen Raum gelüftet werden.",
-                "reference_humidity": "Zusammen mit der Referenz-Temperatur nötig.",
-                "ventilation_block_entity": "Optional. Solange sie sperrt, wird kein Lüften empfohlen: eine Abdeckung (cover), solange sie geschlossen ist (z. B. Beschattung unten), eine Klima-Entität oder ein Warmwasserbereiter, solange nicht aus (z. B. Klimaanlage läuft), ein Schalter, Binärsensor, Ventilator o. Ä., solange an."
-              }
-            },
-            "draft": {
-              "name": "Luftzug aus anderen Räumen",
-              "description": "Fenster anderer Räume, deren gemeinsames Öffnen auch diesen Raum auskühlt (Querlüftung). Je Kombination die Fenster wählen, die zusammen offen sein müssen. Sobald alle Fenster einer Kombination offen sind, verhält sich der Raum wie bei einem eigenen offenen Fenster: Die Heizung pausiert nach der Fensterverzögerung und wartet danach die Erholungszeit ab. Eine Kombination mit nur einem Fenster löst schon allein aus.",
-              "data": {
-                "draft_group_1": "Kombination 1",
-                "draft_group_2": "Kombination 2",
-                "draft_group_3": "Kombination 3",
-                "draft_group_4": "Kombination 4"
-              },
-              "data_description": {
-                "draft_group_1": "z. B. Kinderzimmer + Bad; eine zweite Kombination z. B. Kinderzimmer + Schlafzimmer."
-              }
-            },
-            "sun_protection": {
-              "name": "Sonnenschutz",
-              "description": "Vorgaben für die Rollos der Fenster dieses Raums. Raumtemperatur und Sollwert kommen vom Temperatursensor und vom Thermostat des Raums, solange ein Fenster keine eigene Raumtemperatur hat.",
-              "data": {
-                "cooling_entity": "Klimaanlage"
-              },
-              "data_description": {
-                "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
-              }
-            }
-          }
+          "sections": {}
         },
         "reconfigure": {
           "title": "Raum",
-          "description": "Ein Raum des Hauses. Mit Temperatursensor bekommt er Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat. Fenster werden als Fenster angelegt und dort dem Raum zugeordnet.",
-          "data": {
-            "name": "Name",
-            "area": "Bereich (Home Assistant)",
-            "floor_area": "Wohnfläche"
-          },
-          "data_description": {
-            "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
-            "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften.",
-            "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
-          },
+          "description": "Name, Bereich, Wohnfläche, Sensoren und Klimaanlage werden ausschließlich im Haus geändert. Neue Räume im Haus anlegen.",
+          "data": {},
+          "data_description": {},
           "sections": {
-            "sensors": {
-              "name": "Sensoren",
-              "data": {
-                "temperature_sensor": "Temperatursensor",
-                "humidity_sensor": "Feuchtesensor"
-              },
-              "data_description": {
-                "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
-                "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung."
-              }
-            },
             "heating": {
               "name": "Heizkreis",
               "data": {
@@ -1064,16 +930,6 @@
               "data_description": {
                 "draft_group_1": "z. B. Kinderzimmer + Bad; eine zweite Kombination z. B. Kinderzimmer + Schlafzimmer."
               }
-            },
-            "sun_protection": {
-              "name": "Sonnenschutz",
-              "description": "Vorgaben für die Rollos der Fenster dieses Raums. Raumtemperatur und Sollwert kommen vom Temperatursensor und vom Thermostat des Raums, solange ein Fenster keine eigene Raumtemperatur hat.",
-              "data": {
-                "cooling_entity": "Klimaanlage"
-              },
-              "data_description": {
-                "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
-              }
             }
           }
         }
@@ -1085,7 +941,10 @@
         "min_above_max": "Der kleinste Sollwert muss kleiner sein als der größte. Bitte einen der beiden Werte ändern (beide in °C).",
         "target_out_of_range": "Der Start-Sollwert muss zwischen dem kleinsten und dem größten Sollwert liegen. Bitte ihn oder die Grenzen anpassen.",
         "reference_incomplete": "Referenztemperatur und Referenzfeuchte gehen nur zusammen: beide Sensoren wählen oder keinen.",
-        "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor."
+        "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor.",
+        "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
+        "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
+        "create_rooms_in_house": "Neue Räume im Haus anlegen."
       }
     },
     "group": {
@@ -2425,6 +2284,28 @@
     "outdoor_unavailable": {
       "title": "Außentemperatursensor nicht verfügbar",
       "description": "Der Außentemperatursensor {entity_id} liefert seit mindestens 15 Minuten keinen gültigen Wert. Die Regelung läuft weiter, aber die Vorhersage ist ungenauer, und das thermische Modell lernt in dieser Zeit nichts.\n\nPrüfe den Sensor oder wähle in den Einstellungen der Heizung (Allgemein) einen anderen. Die Meldung verschwindet von selbst, sobald der Sensor wieder Werte liefert."
+    }
+  },
+  "panel": {
+    "house_settings_note": "Außentemperatur und -feuchte, Wetter, Windsensor, Sprache, Benachrichtigungen, Werktage, Hausmaße und Urlaubsquellen werden nur im Haus eingestellt.",
+    "room_basics_note": "Name, Bereich, Wohnfläche, Sensoren und Klimaanlage werden ausschließlich im Haus geändert. Neue Räume im Haus anlegen.",
+    "room": {
+      "data": {
+        "name": "Name",
+        "area": "Bereich (Home Assistant)",
+        "floor_area": "Wohnfläche",
+        "temperature_sensor": "Temperatursensor",
+        "humidity_sensor": "Feuchtesensor",
+        "cooling_entity": "Klimaanlage"
+      },
+      "data_description": {
+        "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
+        "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften.",
+        "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil.",
+        "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
+        "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung.",
+        "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
+      }
     }
   }
 }

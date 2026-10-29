@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.0b15 (2026-10-29)
+
+### Added
+
+- The wind sensor is now set under House > Settings and supplies wind protection of the covers. Wind thresholds and the rain sensor remain in the covers module.
+- Floor area (1–200 m²) can now be edited in the House panel alongside the other room basics.
+
+### Changed
+
+- Outdoor sources, weather, language, notifications, working days, house dimensions and vacation sources are configured only in House. At startup legacy module values move to House and leave the modules: existing house values win; otherwise heating takes precedence over covers on conflicts, which are logged. Vacation sources are combined.
+- A house language of "auto" allows an explicit legacy module language to migrate once, preserving the former choice. Afterwards "auto" always uses the Home Assistant language, with no module fallback.
+- Create rooms in House and edit their name, HA area, floor area, sensors and air conditioner there. The native creation dialog asks only for the name; reconfiguring a room shows only heating fields. The heating panel displays room basics read-only and directs changes to House.
+
+### Fixed
+
+- Empty house settings no longer revive stale module values. Module save commands reject shared settings and room basics instead of storing duplicates.
+- Vacation options are saved only in their module sections; old copies in the house section are removed at startup.
+
 ## 1.0.0b14 (2026-10-28)
 
 ### Fixed

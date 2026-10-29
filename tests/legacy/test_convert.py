@@ -114,20 +114,21 @@ def test_options() -> None:
     assert options["core"]["vacation_entities"] == ["input_boolean.away"]
     assert options["core"]["notify_services"] == ["notify.phone"]
     assert options["core"]["house_azimuth"] == 180
-    # differing: each module keeps its own
-    assert "weather" not in options["core"]
-    assert any(note.startswith("weather differs") for note in plan.notes)
-    # the language stays with the covers
-    assert "language" not in options["core"]
-    assert options["shutter"]["language"] == "de"
+    # On conflicts heating wins; no shared module values remain.
+    assert options["core"]["weather"] == "weather.home"
+    assert any(
+        note.startswith("weather differs") and note.endswith("using heating") for note in plan.notes
+    )
+    # Covers supplied the language before the transfer.
+    assert options["core"]["language"] == "de"
+    assert "language" not in options["shutter"]
     # set in the house: no copy in the modules
     assert "vacation_entities" not in options["heating"]
     assert "outdoor_temperature" not in options["shutter"]
     assert "notify_services" not in options["shutter"]
     assert "house_azimuth" not in options["shutter"]
-    # differing values stay in the modules
-    assert options["heating"]["weather"] == "weather.home"
-    assert options["shutter"]["weather"] == "weather.forecast"
+    for module in ("heating", "shutter"):
+        assert not set(options[module]) & set(SHARED_KEYS)
     # the heating day sensor of the heating becomes the link to the heating module
     assert options["shutter"]["use_heating_day"] is True
     assert "heating_entity" not in options["shutter"]
@@ -230,3 +231,22 @@ def test_ulid() -> None:
     first, second = cv.ulid(), cv.ulid()
     assert len(first) == 26 and first != second
     assert set(first) <= set(cv.CROCKFORD)
+
+
+@pytest.mark.parametrize("key", set(SHARED_KEYS) - {"language", "vacation_entities"})
+def test_shared_conflicts_prefer_heating(key):
+    # Selection must not depend on the order of the input dictionaries.
+    sections = {"shutter": {key: "cover"}, "heating": {key: "heat"}}
+    notes = []
+    assert cv.shared_settings(sections, notes) == {key: "heat"}
+    assert notes == [f"{key} differs (shutter: cover, heating: heat), using heating"]
+
+
+def test_shared_vacation_sources_are_combined():
+    sections = {
+        "heating": {"vacation_entities": ["calendar.one"]},
+        "shutter": {"vacation_entities": ["calendar.one", "calendar.two"]},
+    }
+    assert cv.shared_settings(sections, []) == {
+        "vacation_entities": ["calendar.one", "calendar.two"]
+    }

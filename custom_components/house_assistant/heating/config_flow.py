@@ -17,7 +17,6 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_API_KEY
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
-    AreaSelector,
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
@@ -33,9 +32,8 @@ from homeassistant.helpers.selector import (
     TimeSelector,
 )
 
-from ..const import OPT_CORE
-from ..core.house import CONF_AREA, CONF_COOLING_ENTITY, CONF_FLOOR_AREA
-from ..core.schema import without
+from ..const import OPT_CORE, SHARED_KEYS
+from ..core.house import CONF_AREA, CONF_FLOOR_AREA
 from ..runtime import enabled_modules, module_options, shared_options
 from .ai_client import AiAuthError, AiError, ClaudeClient
 
@@ -243,27 +241,15 @@ def _join_season(user_input: dict[str, Any]) -> dict[str, Any]:
     return values
 
 
-def general_schema(v: dict[str, Any], season_text: bool = False, shared: bool = True) -> vol.Schema:
-    """``season_text``: the period as text fields (the panel); the dialogs use day and
-    month fields. ``shared``: with the outdoor values and the weather, which the house
-    sets for every module (the setup asks for them with the house)."""
+def general_schema(v: dict[str, Any], season_text: bool = False) -> vol.Schema:
+    """Heating settings; season text fields are used by the panel."""
     season = (
         {_req(CONF_SEASON_START, v): TextSelector(), _req(CONF_SEASON_END, v): TextSelector()}
         if season_text
         else _season_fields(v)
     )
-    outdoor = (
-        {
-            _opt_entity(CONF_OUTDOOR_TEMP, v): _sensor("temperature", TEMP_UNITS),
-            _opt_entity(CONF_OUTDOOR_HUMIDITY, v): _sensor("humidity", HUMIDITY_UNITS),
-            _opt_entity(CONF_WEATHER, v): _entity(["weather"]),
-        }
-        if shared
-        else {}
-    )
     return vol.Schema(
         {
-            **outdoor,
             _opt_entity(CONF_PV_POWER, v): _sensor("power", POWER_UNITS),
             _opt_entity(CONF_PV_FORECAST, v): _entity(
                 ["sensor"],
@@ -545,7 +531,7 @@ class HeatingSetupSteps:
             user_input = dict(SOUTHERN_SEASON)  # winter is in the middle of the year
         return self.async_show_form(  # type: ignore[attr-defined]
             step_id="heating",
-            data_schema=general_schema(user_input or {}, shared=False),
+            data_schema=general_schema(user_input or {}),
             errors=errors,
         )
 
@@ -615,7 +601,7 @@ class HeatingSetupSteps:
         options = {**DEFAULTS, **self._heating()}
         options = with_price_suggestions({CONF_AI_MODEL: DEFAULTS[CONF_AI_MODEL]}, options)
         options[CONF_LIMITS] = default_limits()
-        self._options[MODULE_HEATING] = options
+        self._options[MODULE_HEATING] = {k: v for k, v in options.items() if k not in SHARED_KEYS}
         return await self._async_next()
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
@@ -698,16 +684,18 @@ class HeatingOptionsSteps:
             options.pop(key, None)
         options.update(updates)
         return self.async_create_entry(  # type: ignore[attr-defined]
-            data={**self.config_entry.options, MODULE_HEATING: options}
+            data={
+                **self.config_entry.options,
+                MODULE_HEATING: {k: v for k, v in options.items() if k not in SHARED_KEYS},
+            }
         )
 
     def _heating_form(
         self, step_id: str, schema: vol.Schema, errors: dict[str, str] | None = None
     ) -> ConfigFlowResult:
-        # the settings the house sets for every module are not asked for again
         return self.async_show_form(  # type: ignore[attr-defined]
             step_id=step_id,
-            data_schema=without(schema, shared_options(self.config_entry)),
+            data_schema=schema,
             errors=errors or {},
         )
 
@@ -824,28 +812,12 @@ def area_schema(
     heating: bool = True,
     covers: bool = True,
 ) -> vol.Schema:
-    """Form of a room. Name, Home Assistant area and sensors always; the sections of the
-    heating with the heating module, the air conditioner with the covers. Start values
-    only when the room is created: an existing room shows the learned values instead
-    (``learned``, omitted when unknown). The windows of a room are entered as windows."""
+    """Heating fields of an existing room; basic data is edited in the house."""
 
     def req(key: str) -> vol.Required:
         return vol.Required(key, default=v.get(key, AREA_DEFAULTS.get(key)))
 
-    fields: dict[Any, Any] = {
-        vol.Required(CONF_AREA_NAME, default=v.get(CONF_AREA_NAME, "")): TextSelector(),
-        _opt_entity(CONF_AREA, v): AreaSelector(),
-        _opt_entity(CONF_FLOOR_AREA, v): _number(1, 200, 0.5, "m²"),
-        vol.Required(SECTION_SENSORS): section(
-            vol.Schema(
-                {
-                    _opt_entity(CONF_TEMP_SENSOR, v): _sensor("temperature", TEMP_UNITS),
-                    _opt_entity(CONF_HUMIDITY_SENSOR, v): _sensor("humidity", HUMIDITY_UNITS),
-                }
-            ),
-            {"collapsed": False},
-        ),
-    }
+    fields: dict[Any, Any] = {}
     if heating:
         # stored combinations (or those of version 1.1.0), filled up to all fields
         drafts = draft_groups(v)
@@ -910,11 +882,6 @@ def area_schema(
                     {"collapsed": not any(drafts)},
                 ),
             }
-        )
-    if covers:
-        fields[vol.Required(SECTION_SUN)] = section(
-            vol.Schema({_opt_entity(CONF_COOLING_ENTITY, v): _entity(["climate"])}),
-            {"collapsed": not v.get(CONF_COOLING_ENTITY)},
         )
     return vol.Schema(fields)
 
@@ -1035,12 +1002,14 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         errors: dict[str, str] = {}
         values: dict[str, Any] = {}
         if user_input is not None:
-            values = _flatten(user_input)
+            values = {CONF_AREA_NAME: str(user_input.get(CONF_AREA_NAME, "")).strip()}
             errors = validate_area(values, other_areas(self._get_entry()))
             if not errors:
                 return self.async_create_entry(title=values[CONF_AREA_NAME], data=values)
         return self.async_show_form(
-            step_id="user", data_schema=area_schema(values, **self._modules()), errors=errors
+            step_id="user",
+            data_schema=vol.Schema({vol.Required(CONF_AREA_NAME): TextSelector()}),
+            errors=errors,
         )
 
     async def async_step_reconfigure(
@@ -1062,7 +1031,12 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             # values of a module switched off stay as well
             shown = set(_fields_of(area_schema(values, **self._modules())))
             kept = {k: v for k, v in subentry.data.items() if k not in shown}
-            values = {**kept, **_flatten(user_input), **keep_start_values(subentry.data)}
+            values = {
+                **kept,
+                **{k: v for k, v in _flatten(user_input).items() if k in shown},
+                **keep_start_values(subentry.data),
+                CONF_AREA_NAME: subentry.title,
+            }
             errors = validate_area(values, other_areas(entry, subentry.subentry_id))
             if not errors:
                 if coordinator is not None and edited:

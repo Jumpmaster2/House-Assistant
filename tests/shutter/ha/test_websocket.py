@@ -48,7 +48,7 @@ async def test_config(hass: HomeAssistant, base_states, hass_ws_client) -> None:
     assert msg["success"], msg
     cfg = msg["result"]
     assert cfg["loaded"] is True
-    assert cfg["options"]["outdoor_temperature"] == OUTDOOR
+    assert cfg["house"]["outdoor_temperature"] == OUTDOOR
     assert [g["id"] for g in cfg["groups"]] == [GROUP_ID]
     window = cfg["windows"][0]
     assert window["id"] == WINDOW_ID
@@ -67,7 +67,7 @@ async def test_config(hass: HomeAssistant, base_states, hass_ws_client) -> None:
     # every morning mode and every sensor type is described
     for key in ("morning_trigger_entity", "morning_lux_threshold", "lux_threshold"):
         assert key in fields
-    assert fields["language"]["select"]["translation_key"] == "language"
+    assert "language" not in fields
     assert fields["override_trigger"]["select"]["options"] == ["movement", "command"]
     assert cfg["options"]["override_trigger"] == "movement"
 
@@ -80,14 +80,14 @@ async def test_save_options(hass: HomeAssistant, base_states, hass_ws_client) ->
     msg = await _send(
         client,
         type="house_assistant/shutter/save_options",
-        options={"summer_threshold": "25", "evening_earliest": "17:30", "weather": None},
+        options={"summer_threshold": "25", "evening_earliest": "17:30"},
     )
     assert msg["success"], msg
     assert "errors" not in msg["result"]
     assert entry.options["shutter"]["summer_threshold"] == 25
     assert entry.options["shutter"]["evening_earliest"] == "17:30:00"
     assert "weather" not in entry.options["shutter"]
-    assert entry.options["shutter"]["outdoor_temperature"] == OUTDOOR
+    assert entry.options["core"]["outdoor_temperature"] == OUTDOOR
 
     # same checks as the dialogs
     msg = await _send(
@@ -105,24 +105,23 @@ async def test_save_options(hass: HomeAssistant, base_states, hass_ws_client) ->
     msg = await _send(
         client,
         type="house_assistant/shutter/save_options",
-        options={"summer_threshold": 99, "weather": "light.x"},
+        options={"summer_threshold": 99},
     )
     assert msg["result"]["errors"] == {
         "summer_threshold": "invalid_value",
-        "weather": "invalid_value",
     }
     # without outdoor sensor and weather entity there is no temperature
     msg = await _send(
         client, type="house_assistant/shutter/save_options", options={"outdoor_temperature": ""}
     )
-    assert msg["result"]["errors"] == {"outdoor_temperature": "need_temperature_source"}
+    assert msg["error"]["message"] == "house_settings_only:outdoor_temperature"
     # only notification services
     msg = await _send(
         client,
         type="house_assistant/shutter/save_options",
         options={"notify_services": ["homeassistant.restart"]},
     )
-    assert msg["result"]["errors"] == {"notify_services": "invalid_notify_service"}
+    assert msg["error"]["message"] == "house_settings_only:notify_services"
     assert entry.options["shutter"]["summer_threshold"] == 25
 
     msg = await _send(
@@ -398,32 +397,13 @@ async def test_house_and_walls(hass: HomeAssistant, base_states, hass_ws_client)
 
     msg = await _send(client, type="house_assistant/shutter/config")
     fields = msg["result"]["fields"]
-    assert fields["house_width"]["number"]["unit_of_measurement"] == "m"
+    assert "house_width" not in fields
     assert fields["wall"]["select"]["options"] == ["front", "right", "back", "left"]
 
-    msg = await _send(
-        client,
-        type="house_assistant/shutter/save_options",
-        options={"house_azimuth": 175, "house_width": "10.5", "house_depth": 8},
-    )
-    assert "errors" not in msg["result"], msg
-    assert entry.options["shutter"]["house_azimuth"] == 175
-    assert entry.options["shutter"]["house_width"] == 10.5
-    msg = await _send(
-        client,
-        type="house_assistant/shutter/save_options",
-        options={"house_azimuth": 400, "house_depth": 0},
-    )
-    assert msg["result"]["errors"] == {
-        "house_azimuth": "invalid_value",
-        "house_depth": "invalid_value",
-    }
-    # the house is optional: clearing a value removes it
-    msg = await _send(
-        client, type="house_assistant/shutter/save_options", options={"house_depth": None}
-    )
-    assert "house_depth" not in entry.options["shutter"]
-    assert entry.options["shutter"]["house_width"] == 10.5
+    for key, value in {"house_azimuth": 175, "house_width": "10.5", "house_depth": None}.items():
+        msg = await _send(client, type="house_assistant/shutter/save_options", options={key: value})
+        assert msg["error"]["message"] == f"house_settings_only:{key}"
+        assert key not in entry.options["shutter"]
 
     msg = await _send(
         client,

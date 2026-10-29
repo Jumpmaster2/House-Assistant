@@ -30,6 +30,7 @@ from homeassistant.helpers.selector import (
     TimeSelector,
 )
 
+from ..const import SHARED_KEYS
 from ..core.house import (
     CONF_ROOM,
     CONF_SIZE,
@@ -38,8 +39,7 @@ from ..core.house import (
     rooms,
     window_errors,
 )
-from ..core.schema import without
-from ..runtime import module_options, shared_options
+from ..runtime import module_options
 from .const import (
     ACTIVE_STATES_DEFAULT,
     CONF_AUTO_UP,
@@ -64,7 +64,6 @@ from .const import (
     CONF_FROST_THRESHOLD,
     CONF_GROUP,
     CONF_HEATING_ENTITY,
-    CONF_LANGUAGE,
     CONF_LOCKOUT,
     CONF_LUX_SENSORS,
     CONF_MANUAL_AT_SUN,
@@ -89,11 +88,9 @@ from .const import (
     CONF_NAME,
     CONF_NIGHT_END,
     CONF_NIGHT_THRESHOLD,
-    CONF_NOTIFY,
     CONF_NOTIFY_OPEN,
     CONF_OPEN_BLOCK,
     CONF_OPEN_BLOCK_FREE,
-    CONF_OUTDOOR_TEMP,
     CONF_OVERRIDE_DURATION,
     CONF_OVERRIDE_IGNORE_EVENING,
     CONF_OVERRIDE_SUNRISE,
@@ -135,9 +132,7 @@ from .const import (
     CONF_VENT_POSITION,
     CONF_VENTILATION,
     CONF_VERIFY_AFTER,
-    CONF_WEATHER,
     CONF_WEATHER_PROTECTION,
-    CONF_WEEKEND_DAYS,
     CONF_WIND_ENTITY,
     CONF_WIND_POSITION,
     CONF_WIND_THRESHOLD,
@@ -145,7 +140,6 @@ from .const import (
     CONF_WINDOW_EXCEPTION,
     CONF_WINDOW_SENSORS,
     CONF_WINDOW_WIND_THRESHOLD,
-    CONF_WORKDAY,
     DEFAULTS,
     FORECAST_TYPES,
     FREE_STATES_DEFAULT,
@@ -153,7 +147,6 @@ from .const import (
     KIND_LUX,
     KIND_PV,
     KIND_RADIATION,
-    LANGUAGE_OPTIONS,
     MODULE_SHUTTER,
     OVERRIDE_TRIGGERS,
     SECTION_CONDITIONS,
@@ -164,7 +157,6 @@ from .const import (
     SENSOR_KINDS,
     SUBENTRY_GROUP,
     THRESHOLD_KEYS,
-    WEEKDAYS,
     WINDOW_DEFAULTS,
 )
 from .logic.morning import (
@@ -271,48 +263,12 @@ def _not_numeric(hass: HomeAssistant, entity_id: str | None) -> bool:
     return False
 
 
-def validate_general(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]:
-    """Temperature source, a numeric outdoor sensor and only notification services."""
-    errors: dict[str, str] = {}
-    outdoor = data.get(CONF_OUTDOOR_TEMP)
-    if not outdoor and not data.get(CONF_WEATHER):
-        errors[CONF_OUTDOOR_TEMP] = "need_temperature_source"
-    elif _not_numeric(hass, outdoor):
-        errors[CONF_OUTDOOR_TEMP] = "not_numeric"
-    services = data.get(CONF_NOTIFY) or []
-    if any(not str(s).startswith("notify.") or str(s) == "notify." for s in services):
-        errors[CONF_NOTIFY] = "invalid_notify_service"
-    return errors
-
-
 def _time_key(value: Any) -> str:
     text = str(value or "")
     return text if text.count(":") == 2 else f"{text}:00"
 
 
 # ---------------------------------------------------------------- global schemas
-
-
-def _general_schema(hass: HomeAssistant, v: dict[str, Any]) -> vol.Schema:
-    return vol.Schema(
-        {
-            _opt(CONF_OUTDOOR_TEMP, v): _entity(["sensor"]),
-            _opt(CONF_WEATHER, v): _entity(["weather"]),
-            _req(CONF_LANGUAGE, v): _choice(LANGUAGE_OPTIONS, "language"),
-            vol.Optional(CONF_NOTIFY, default=v.get(CONF_NOTIFY, [])): SelectSelector(
-                SelectSelectorConfig(
-                    options=_notify_services(hass),
-                    multiple=True,
-                    custom_value=True,
-                    mode=SelectSelectorMode.DROPDOWN,
-                )
-            ),
-            _opt(CONF_WORKDAY, v): _entity(["binary_sensor"]),
-            vol.Optional(
-                CONF_WEEKEND_DAYS, default=v.get(CONF_WEEKEND_DAYS, DEFAULTS[CONF_WEEKEND_DAYS])
-            ): _choice(WEEKDAYS, "weekday", multiple=True),
-        }
-    )
 
 
 def _summer_schema(v: dict[str, Any], unit: str) -> vol.Schema:
@@ -343,7 +299,6 @@ def _protection_schema(v: dict[str, Any], unit: str) -> vol.Schema:
     temps = defaults(unit)
     return vol.Schema(
         {
-            _opt(CONF_WIND_ENTITY, v): _entity(["sensor"]),
             _req(CONF_WIND_THRESHOLD, v): _number(0, 300, 0.5),
             _opt(CONF_RAIN_ENTITY, v): _entity(["binary_sensor", "sensor", "input_boolean"]),
             _req(CONF_RAIN_THRESHOLD, v): _number(0, 100, 0.1),
@@ -456,7 +411,11 @@ class ShutterSetupSteps:
             errors = _validate_evening(user_input)
             if not errors:
                 self._options[MODULE_SHUTTER] = {
-                    **defaults(temperature_unit(self.hass)),
+                    **{
+                        k: v
+                        for k, v in defaults(temperature_unit(self.hass)).items()
+                        if k not in SHARED_KEYS
+                    },
                     **self._options[MODULE_SHUTTER],
                     **user_input,
                 }
@@ -467,7 +426,6 @@ class ShutterSetupSteps:
 
 
 SHUTTER_MENU = [
-    "shutter_general",
     "shutter_override",
     "shutter_summer",
     "shutter_evening",
@@ -498,14 +456,16 @@ class ShutterOptionsSteps:
             options.pop(key, None)
         options.update(updates)
         return self.async_create_entry(  # type: ignore[attr-defined]
-            data={**self.config_entry.options, MODULE_SHUTTER: options}
+            data={
+                **self.config_entry.options,
+                MODULE_SHUTTER: {k: v for k, v in options.items() if k not in SHARED_KEYS},
+            }
         )
 
     def _form(self, step_id: str, schema: vol.Schema, errors: dict[str, str] | None = None):
-        # the settings the house sets for every module are not asked for again
         return self.async_show_form(  # type: ignore[attr-defined]
             step_id=step_id,
-            data_schema=without(schema, shared_options(self.config_entry)),
+            data_schema=schema,
             errors=errors or {},
         )
 
@@ -513,23 +473,6 @@ class ShutterOptionsSteps:
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         return self.async_show_menu(step_id="shutter", menu_options=SHUTTER_MENU)  # type: ignore[attr-defined]
-
-    async def async_step_shutter_general(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            # the outdoor temperature or weather of the house counts as well
-            errors = validate_general(
-                self.hass, {**user_input, **shared_options(self.config_entry)}
-            )
-            if not errors:
-                return self._save(
-                    _clean(user_input), remove=(CONF_OUTDOOR_TEMP, CONF_WEATHER, CONF_WORKDAY)
-                )
-        return self._form(
-            "shutter_general", _general_schema(self.hass, user_input or self._values), errors
-        )
 
     async def async_step_shutter_summer(
         self, user_input: dict[str, Any] | None = None

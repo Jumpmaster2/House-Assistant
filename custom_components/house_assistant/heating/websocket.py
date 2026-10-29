@@ -17,6 +17,7 @@ from homeassistant.data_entry_flow import section
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import EntitySelector, Selector, TimeSelector
 
+from ..const import SHARED_KEYS
 from ..core.entry import house_entry, update_section
 from ..runtime import module_options, shared_options
 from .config_flow import (
@@ -208,6 +209,8 @@ def apply_options(
 ) -> dict[str, Any]:
     """New options from the changed values of one card; raises PanelError. ``house``: the
     settings of the house, its outdoor sensor or weather counts as well."""
+    if shared := set(changes) & set(SHARED_KEYS):
+        raise PanelError("house_settings_only", sorted(shared)[0])
     fields = option_fields()
     updates: dict[str, Any] = {}
     removed: set[str] = set()
@@ -239,7 +242,7 @@ def apply_options(
     options = {k: v for k, v in current.items() if k not in removed}
     options.update(updates)
     merged = {**DEFAULTS, **options}
-    sources = {**merged, **(house or {})}
+    sources = house or {}
     if not sources.get(CONF_OUTDOOR_TEMP) and not sources.get(CONF_WEATHER):
         raise PanelError("outdoor_required", CONF_OUTDOOR_TEMP)
     for key in (CONF_SEASON_START, CONF_SEASON_END):
@@ -255,7 +258,10 @@ def apply_options(
 
 
 def area_data(
-    title: str, data: dict[str, Any], others: Sequence[ConfigSubentry] = ()
+    title: str,
+    data: dict[str, Any],
+    others: Sequence[ConfigSubentry] = (),
+    current: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validated data of a room; raises PanelError. ``others`` are the other rooms of
     the entry (names and switches must differ)."""
@@ -272,7 +278,7 @@ def area_data(
             raise PanelError("invalid_value", key) from err
         if coerced is not None:
             values[key] = coerced
-    values = {**AREA_DEFAULTS, CONF_AREA_NAME: title, **values}
+    values = {**AREA_DEFAULTS, **(current or {}), CONF_AREA_NAME: title, **values}
     errors = validate_area(values, others)
     if error := errors.get(CONF_AREA_NAME):
         raise PanelError(error)
@@ -537,9 +543,28 @@ def ws_save_area(
     if sub_id and (subentry is None or subentry.subentry_type != SUBENTRY_ROOM):
         connection.send_error(msg["id"], "not_found", "room not found")
         return
+    basics = {
+        "name",
+        "area",
+        "floor_area",
+        "temperature_sensor",
+        "humidity_sensor",
+        "cooling_entity",
+    }
+    if subentry is None:
+        connection.send_error(msg["id"], "invalid", "create_rooms_in_house")
+        return
+    if basics & set(msg["data"]) or msg["title"] != subentry.title:
+        connection.send_error(msg["id"], "invalid", "room_basics_house_only")
+        return
     coordinator = running_coordinator(entry)
     try:
-        data = area_data(msg["title"], msg["data"], other_areas(entry, sub_id))
+        data = area_data(
+            subentry.title,
+            msg["data"],
+            other_areas(entry, sub_id),
+            {k: v for k, v in subentry.data.items() if k in basics},
+        )
         learned = (
             _learned(coordinator, msg["learned"])
             if subentry is not None and coordinator is not None and "learned" in msg

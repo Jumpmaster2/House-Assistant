@@ -21,7 +21,6 @@ from ..const import (
     CONF_DRAFT_REACH,
     CONF_HOUSE_DEPTH,
     CONF_HOUSE_WIDTH,
-    MODULE_SHUTTER,
     OPT_CORE,
     SUBENTRY_GROUP,
     SUBENTRY_ROOM,
@@ -181,8 +180,8 @@ def room_floors(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, str | None
 
 
 def house_dimensions(entry: ConfigEntry) -> dict[str, float | None]:
-    """Width and depth of the house (the plan of the house, else the one of the covers)."""
-    house = {**module_options(entry, MODULE_SHUTTER), **shared_options(entry)}
+    """Width and depth from the house settings."""
+    house = shared_options(entry)
     return {
         CONF_HOUSE_WIDTH: _number(house.get(CONF_HOUSE_WIDTH)),
         CONF_HOUSE_DEPTH: _number(house.get(CONF_HOUSE_DEPTH)),

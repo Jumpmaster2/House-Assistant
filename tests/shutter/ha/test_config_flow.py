@@ -87,7 +87,7 @@ async def test_options_flow(hass: HomeAssistant, base_states) -> None:
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options["shutter"]["vacation_position_min"] == 50
-    assert entry.options["shutter"]["outdoor_temperature"] == OUTDOOR
+    assert entry.options["core"]["outdoor_temperature"] == OUTDOOR
 
 
 async def test_options_override_trigger(hass: HomeAssistant, base_states) -> None:
@@ -337,17 +337,23 @@ async def test_options_summer_clears_the_heating_entity(hass: HomeAssistant, bas
     assert entry.options["shutter"]["summer_threshold"] == 24.0
 
 
-async def test_options_general_clears_weather(hass: HomeAssistant, base_states) -> None:
+async def test_options_menu_keeps_shared_settings_in_house(
+    hass: HomeAssistant, base_states
+) -> None:
     entry = make_entry(weather="weather.home", workday_entity="binary_sensor.workday")
     await setup_entry(hass, entry)
-    result = await open_options(hass, entry, "general")
-    result = await hass.config_entries.options.async_configure(result["flow_id"], GENERAL)
-    assert result["type"] is FlowResultType.CREATE_ENTRY
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "shutter"}
+    )
+    assert "shutter_general" not in result["menu_options"]
     assert "weather" not in entry.options["shutter"]
     assert "workday_entity" not in entry.options["shutter"]
+    assert entry.options["core"]["weather"] == "weather.home"
+    assert entry.options["core"]["workday_entity"] == "binary_sensor.workday"
 
 
-async def test_options_general_without_house_settings(hass: HomeAssistant, base_states) -> None:
+async def test_options_protection_without_shared_settings(hass: HomeAssistant, base_states) -> None:
     """Settings the house sets for every module are not asked for again by the covers."""
     entry = make_entry()
     entry.add_to_hass(hass)
@@ -355,14 +361,13 @@ async def test_options_general_without_house_settings(hass: HomeAssistant, base_
     hass.config_entries.async_update_entry(entry, options={**entry.options, "core": core})
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    result = await open_options(hass, entry, "general")
+    result = await open_options(hass, entry, "protection")
     keys = {str(key) for key in result["data_schema"].schema}
     assert "outdoor_temperature" not in keys
     assert "language" not in keys
-    assert "notify_services" in keys
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"notify_services": []}
-    )
+    assert "notify_services" not in keys
+    values = {str(k): k.default() for k in result["data_schema"].schema if callable(k.default)}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], values)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     # the house still decides
     assert entry.options["core"]["outdoor_temperature"] == OUTDOOR

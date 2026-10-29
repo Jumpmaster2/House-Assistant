@@ -153,6 +153,7 @@ def shutter_labels(translation: dict[str, Any]) -> dict[str, Any]:
                 known[1] = help_text
     sensor = translation["entity"]["sensor"]
     return {
+        "notes": translation["panel"],
         "LABELS": dict(sorted(fields.items())),
         "CHOICES": {
             key: translation["selector"][key]["options"] for key in sorted(SHUTTER_CHOICES)
@@ -181,7 +182,7 @@ def heating_labels(translation: dict[str, Any]) -> dict[str, Any]:
         setup_ai.get("data_description", {}).get("api_key", ""),
     ]
     room = translation["config_subentries"]["room"]
-    area = room["step"]["user"]
+    area = room["step"]["reconfigure"]
     _add(fields, area)
     for sec in area["sections"].values():
         _add(fields, sec)
@@ -192,6 +193,7 @@ def heating_labels(translation: dict[str, Any]) -> dict[str, Any]:
     entity = translation["entity"]
     limits = options["heating_ai_limits"]["sections"]
     return {
+        "notes": translation["panel"],
         "fields": fields,
         "learned": learned,
         "sections": {
@@ -218,9 +220,9 @@ def house_labels(translation: dict[str, Any]) -> dict[str, Any]:
     room = translation["config_subentries"]["room"]
     window = translation["config_subentries"]["window"]
     room_fields: dict[str, list[str]] = {}
-    step = room["step"]["user"]
+    step = translation["panel"]["room"]
     _add(room_fields, step)
-    for sec in step["sections"].values():
+    for sec in step.get("sections", {}).values():
         _add(room_fields, sec)
     window_fields: dict[str, list[str]] = {}
     _add(window_fields, window["step"]["basics"])

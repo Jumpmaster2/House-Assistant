@@ -142,7 +142,7 @@ name: Bedroom                          # optional
 
 Temperature sensors may report in °C, °F or K; without a unit the unit system of Home Assistant applies. Internally everything is in °C, and every temperature in the settings of the heating (targets, frost protection, `theta`) is entered in °C. The thermostats show values in the unit system of Home Assistant.
 
-Outdoor temperature, outdoor humidity, weather and vacation are **settings of the house** (see [README](../README.en.md#settings-of-the-house)); the fields of the same name of the heating apply only while nothing is set there.
+Outdoor temperature, outdoor humidity, weather and vacation are **settings of the house** (see [README](../README.en.md#settings-of-the-house)). The heating module has no sources of its own.
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -153,7 +153,7 @@ Outdoor temperature, outdoor humidity, weather and vacation are **settings of th
 | Frost protection | 7 °C | always applies |
 | Vacation temperature | 18 °C | for every room |
 | Preheating reserve | 30 min | |
-| Ventilation advice rests | on | on vacation |
+| Ventilation advice rests (House > Vacation) | on | on vacation |
 | Starting value `theta` | 16 °C | heating day rule; only at setup, afterwards the learned value is edited |
 | API key, model | Claude Opus 5.5 | changeable, own model name possible |
 | Nightly run | 03:00 | |

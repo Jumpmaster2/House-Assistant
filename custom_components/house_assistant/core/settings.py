@@ -31,6 +31,7 @@ from ..const import (
     CONF_VACATION_WINDOW_ALERT,
     CONF_WEATHER,
     CONF_WEEKEND_DAYS,
+    CONF_WIND_ENTITY,
     CONF_WORKDAY,
     MODULE_HEATING,
     MODULE_SHUTTER,
@@ -45,6 +46,7 @@ HOUSE_FORM = (
     CONF_OUTDOOR_TEMP,
     CONF_OUTDOOR_HUMIDITY,
     CONF_WEATHER,
+    CONF_WIND_ENTITY,
     CONF_LANGUAGE,
     CONF_NOTIFY,
     CONF_WORKDAY,
@@ -89,6 +91,7 @@ def house_schema(hass: HomeAssistant, v: dict[str, Any]) -> vol.Schema:
             optional(CONF_OUTDOOR_TEMP, v): _sensor("temperature", ["°C", "°F", "K"]),
             optional(CONF_OUTDOOR_HUMIDITY, v): _sensor("humidity", ["%"]),
             optional(CONF_WEATHER, v): entity(["weather"]),
+            optional(CONF_WIND_ENTITY, v): entity(["sensor"]),
             vol.Required(CONF_LANGUAGE, default=v.get(CONF_LANGUAGE, "auto")): SelectSelector(
                 SelectSelectorConfig(
                     options=LANGUAGES, translation_key="language", mode=SelectSelectorMode.LIST
@@ -182,16 +185,12 @@ def validate_house(
     hass: HomeAssistant,
     data: dict[str, Any],
     modules: list[str],
-    module_values: list[dict[str, Any]] = (),
 ) -> dict[str, str]:
-    """Heating and covers need an outdoor temperature: a sensor or a weather entity, of the
-    house or (without one there) of each module. A numeric sensor, only notification
-    services."""
+    """Validate the shared outdoor source and notification services of the house."""
     errors: dict[str, str] = {}
     needed = [key for key in (MODULE_HEATING, MODULE_SHUTTER) if key in modules]
     house = bool(data.get(CONF_OUTDOOR_TEMP) or data.get(CONF_WEATHER))
-    own = all(v.get(CONF_OUTDOOR_TEMP) or v.get(CONF_WEATHER) for v in module_values)
-    if needed and not house and not (module_values and own):
+    if needed and not house:
         errors[CONF_OUTDOOR_TEMP] = "need_temperature_source"
     elif _not_numeric(hass, data.get(CONF_OUTDOOR_TEMP)):
         errors[CONF_OUTDOOR_TEMP] = "not_numeric"

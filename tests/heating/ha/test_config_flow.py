@@ -14,7 +14,7 @@ from pytest_homeassistant_custom_component.common import async_capture_events
 from custom_components.house_assistant.heating.ai_client import AiAuthError
 from custom_components.house_assistant.heating.const import EVENT_LOGBOOK, SUBENTRY_ROOM
 
-from .conftest import heating, heating_options, make_entry, open_options, start_setup
+from .conftest import AREA_DATA, heating, heating_options, make_entry, open_options, start_setup
 
 GENERAL = {
     "season_start_day": 1,
@@ -112,37 +112,15 @@ async def test_subentry_flow_adds_area(hass: HomeAssistant, base_states) -> None
         (entry.entry_id, SUBENTRY_ROOM), context={"source": SOURCE_USER}
     )
     assert result["type"] is FlowResultType.FORM
-    user_input = {
-        "name": "Living room",
-        "sensors": {
-            "temperature_sensor": "sensor.living_room_temperature",
-            "humidity_sensor": "sensor.living_room_humidity",
-        },
-        "heating": {
-            "heater_switch": "input_boolean.heating_circuit_1",
-            "default_target": 21.0,
-            "min_target": 16.0,
-            "max_target": 24.0,
-            "min_on_time": 10,
-            "min_off_time": 10,
-        },
-        "start_values": {"window_delay": 5, "recovery_time": 30, "dead_time": 30, "puffer": 0.7},
-        "airing": {},
-        "ventilation": {"ventilation_rh_threshold": 60},
-        "draft": {},
-    }
-    bad = {**user_input, "heating": {**user_input["heating"], "min_target": 25.0}}
-    result = await hass.config_entries.subentries.async_configure(result["flow_id"], bad)
-    assert result["errors"] == {"base": "min_above_max"}
-
-    result = await hass.config_entries.subentries.async_configure(result["flow_id"], user_input)
+    assert {str(k) for k in result["data_schema"].schema} == {"name"}
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"name": "Living room"}
+    )
     await hass.async_block_till_done(wait_background_tasks=True)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     subentry = next(iter(entry.subentries.values()))
     assert subentry.title == "Living room"
-    assert subentry.data["heater_switch"] == "input_boolean.heating_circuit_1"
-    # entry was reloaded and the thermostat exists
-    assert hass.states.get("climate.living_room") is not None
+    assert dict(subentry.data) == {"name": "Living room"}
 
 
 async def test_options_menu_and_ai_step(hass: HomeAssistant, base_states) -> None:
@@ -249,11 +227,6 @@ async def test_reconfigure_target_of_area_without_circuit(hass: HomeAssistant, b
 
     result = await entry.start_subentry_reconfigure_flow(hass, sub.subentry_id)
     user_input = {
-        "name": "Storage room",
-        "sensors": {
-            "temperature_sensor": "sensor.storage_temperature",
-            "humidity_sensor": "sensor.storage_humidity",
-        },
         "heating": {
             "default_target": 18.0,
             "min_target": 16.0,
@@ -298,11 +271,6 @@ async def test_existing_area_edits_learned_values(hass: HomeAssistant, base_stat
     }
 
     user_input = {
-        "name": "Living room",
-        "sensors": {
-            "temperature_sensor": "sensor.living_room_temperature",
-            "humidity_sensor": "sensor.living_room_humidity",
-        },
         "heating": {
             "heater_switch": "input_boolean.heating_circuit_1",
             "default_target": 21.0,
@@ -370,12 +338,11 @@ async def test_switch_of_another_area_is_rejected(hass: HomeAssistant, base_stat
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
-    result = await hass.config_entries.subentries.async_init(
-        (entry.entry_id, SUBENTRY_ROOM), context={"source": SOURCE_USER}
-    )
+    storage = next(s for s in entry.subentries.values() if s.title == "Storage room")
+    result = await entry.start_subentry_reconfigure_flow(hass, storage.subentry_id)
+    learned = result["data_schema"].schema["learned_values"].schema.schema
     user_input = {
-        "name": "Kitchen",
-        "sensors": {"temperature_sensor": "sensor.storage_temperature"},
+        "learned_values": {str(k): k.default() for k in learned},
         "heating": {
             "heater_switch": "input_boolean.heating_circuit_1",
             "default_target": 21.0,
@@ -384,18 +351,15 @@ async def test_switch_of_another_area_is_rejected(hass: HomeAssistant, base_stat
             "min_on_time": 10,
             "min_off_time": 10,
         },
-        "start_values": {"window_delay": 5, "recovery_time": 30, "dead_time": 30, "puffer": 0.7},
         "airing": {},
         "ventilation": {"ventilation_rh_threshold": 60},
         "draft": {},
     }
     result = await hass.config_entries.subentries.async_configure(result["flow_id"], user_input)
     assert result["errors"] == {"base": "switch_in_use"}
-    # the name comes first, whatever its case and spaces
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {**user_input, "name": " living ROOM"}
-    )
-    assert result["errors"] == {"name": "name_in_use", "base": "switch_in_use"}
+    from custom_components.house_assistant.heating.config_flow import other_areas, validate_area
+
+    assert validate_area({"name": " living ROOM"}, other_areas(entry)) == {"name": "name_in_use"}
 
     # the area that owns the switch keeps it when it is changed
     living = next(s for s in entry.subentries.values() if s.title == "Living room")
@@ -405,8 +369,6 @@ async def test_switch_of_another_area_is_rejected(hass: HomeAssistant, base_stat
         result["flow_id"],
         {
             **{k: v for k, v in user_input.items() if k != "start_values"},
-            "name": "Living room",
-            "sensors": {"temperature_sensor": "sensor.living_room_temperature"},
             "learned_values": {str(k): k.default() for k in learned},
         },
     )
@@ -422,52 +384,36 @@ async def test_subentry_flow_keeps_the_area(hass: HomeAssistant, base_states) ->
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
-    result = await hass.config_entries.subentries.async_init(
-        (entry.entry_id, SUBENTRY_ROOM), context={"source": SOURCE_USER}
+    from types import MappingProxyType
+
+    from homeassistant.config_entries import ConfigSubentry
+
+    from custom_components.house_assistant.core.house_ws import room_data
+
+    data = room_data(
+        entry,
+        None,
+        "Kitchen",
+        {"area": area_id, "floor_area": 12.5, "temperature_sensor": "sensor.storage_temperature"},
     )
-    user_input = {
-        "name": "Kitchen",
-        "area": area_id,
-        "floor_area": 12.5,
-        "sensors": {"temperature_sensor": "sensor.storage_temperature"},
-        "heating": {
-            "heater_switch": "input_boolean.heating_circuit_1",
-            "default_target": 21.0,
-            "min_target": 16.0,
-            "max_target": 24.0,
-            "min_on_time": 10,
-            "min_off_time": 10,
-        },
-        "start_values": {"window_delay": 5, "recovery_time": 30, "dead_time": 30, "puffer": 0.7},
-        "airing": {},
-        "ventilation": {"ventilation_rh_threshold": 60},
-        "draft": {},
-    }
-    result = await hass.config_entries.subentries.async_configure(result["flow_id"], user_input)
+    kitchen = ConfigSubentry(
+        data=MappingProxyType(data), subentry_type=SUBENTRY_ROOM, title="Kitchen", unique_id=None
+    )
+    hass.config_entries.async_add_subentry(entry, kitchen)
     await hass.async_block_till_done(wait_background_tasks=True)
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    kitchen = next(s for s in entry.subentries.values() if s.title == "Kitchen")
-    assert kitchen.data["area"] == area_id
-    assert kitchen.data["floor_area"] == 12.5
-
-    async def reconfigure(changes: dict, drop: str = "") -> None:
-        result = await entry.start_subentry_reconfigure_flow(hass, kitchen.subentry_id)
-        learned = result["data_schema"].schema["learned_values"].schema.schema
-        form = {k: v for k, v in user_input.items() if k not in ("start_values", drop)}
-        result = await hass.config_entries.subentries.async_configure(
-            result["flow_id"],
-            {**form, **changes, "learned_values": {str(k): k.default() for k in learned}},
-        )
-        await hass.async_block_till_done(wait_background_tasks=True)
-        assert result["reason"] == "reconfigure_successful"
-
-    await reconfigure({})  # unchanged: the area stays
+    result = await entry.start_subentry_reconfigure_flow(hass, kitchen.subentry_id)
+    schema = result["data_schema"].schema
+    assert not {"name", "area", "floor_area", "sensors", "sun_protection"} & set(map(str, schema))
+    form = {
+        str(k): {str(m): m.default() for m in v.schema.schema if callable(m.default)}
+        for k, v in schema.items()
+    }
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], form)
+    assert result["reason"] == "reconfigure_successful"
     kitchen = entry.subentries[kitchen.subentry_id]
     assert kitchen.data["area"] == area_id
-    await reconfigure({}, drop="area")  # cleared (the form sends no value): it is gone
-    kitchen = entry.subentries[kitchen.subentry_id]
-    assert "area" not in kitchen.data
     assert kitchen.data["floor_area"] == 12.5
+    assert "area" not in room_data(entry, kitchen.subentry_id, kitchen.title, {"floor_area": 12.5})
 
 
 async def test_reauth_flow_replaces_the_key(hass: HomeAssistant, base_states) -> None:
@@ -516,7 +462,6 @@ async def test_options_can_switch_to_the_weather_temperature(
     await hass.async_block_till_done(wait_background_tasks=True)
     result = await open_options(hass, entry, "general")
     values = {
-        "weather": "weather.home",
         "season_start_day": 15,
         "season_start_month": "9",
         "season_end_day": 30,
@@ -543,10 +488,13 @@ def test_entity_fields_offer_matching_entities_but_accept_others() -> None:
         inner = getattr(value, "schema", None)
         fields.update(inner.schema if inner is not None else {str(key): value})
     by_name = {str(k): v for k, v in fields.items()}
-    temp = by_name["temperature_sensor"]
+    from custom_components.house_assistant.core.house_ws import room_fields
+
+    basics = {str(k): v for k, v in room_fields().items()}
+    temp = basics["temperature_sensor"]
     assert {"domain": ["sensor"], "device_class": ["temperature"]} in temp.config["filter"]
     assert temp("sensor.without_device_class") == "sensor.without_device_class"
-    humidity = by_name["humidity_sensor"]
+    humidity = basics["humidity_sensor"]
     assert {"domain": ["sensor"], "unit_of_measurement": ["%"]} in humidity.config["filter"]
     # the contacts are entered at the windows (often without a device class: no filter)
     assert "window_sensors" not in by_name
@@ -571,11 +519,6 @@ async def test_airing_values_are_room_settings_not_start_values(
     assert "short_airing_min" not in PARAMS and "short_recovery_percent" not in PARAMS
 
     base = {
-        "name": "Living room",
-        "sensors": {
-            "temperature_sensor": "sensor.living_room_temperature",
-            "humidity_sensor": "sensor.living_room_humidity",
-        },
         "heating": {
             "heater_switch": "input_boolean.heating_circuit_1",
             "default_target": 21.0,
@@ -589,20 +532,18 @@ async def test_airing_values_are_room_settings_not_start_values(
         "ventilation": {"ventilation_rh_threshold": 60},
         "draft": {},
     }
-    entry = make_entry(areas=[])
+    entry = make_entry(
+        areas=[
+            {
+                **AREA_DATA,
+                "short_airing_min": 2.5,
+                "short_recovery_percent": 30,
+            }
+        ]
+    )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
-
-    result = await hass.config_entries.subentries.async_init(
-        (entry.entry_id, SUBENTRY_ROOM), context={"source": SOURCE_USER}
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {**base, "airing": {"short_airing_min": 2.5, "short_recovery_percent": 30}},
-    )
-    await hass.async_block_till_done(wait_background_tasks=True)
-    assert result["type"] is FlowResultType.CREATE_ENTRY
     room = next(iter(entry.subentries.values()))
     assert (room.data["short_airing_min"], room.data["short_recovery_percent"]) == (2.5, 30)
 
@@ -626,8 +567,7 @@ async def test_airing_values_are_room_settings_not_start_values(
     area = heating(entry).areas[room.subentry_id]
     assert (area.params.short_airing_min, area.params.short_recovery_percent) == (3.0, 20.0)
 
-    # a new room without values in the section: the standard values (own entry, the heater
-    # circuit of the first room is in use)
+    # New rooms ask only for a name; sensor data comes from the house editor.
     other = make_entry(areas=[])
     other.add_to_hass(hass)
     assert await hass.config_entries.async_setup(other.entry_id)
@@ -636,9 +576,24 @@ async def test_airing_values_are_room_settings_not_start_values(
         (other.entry_id, SUBENTRY_ROOM), context={"source": SOURCE_USER}
     )
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {**base, "airing": {}}
+        result["flow_id"], {"name": "Standard room"}
     )
     await hass.async_block_till_done(wait_background_tasks=True)
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    standard = next(iter(other.subentries.values())).data
-    assert (standard["short_airing_min"], standard["short_recovery_percent"]) == (1, 50)
+    standard = next(iter(other.subentries.values()))
+    from custom_components.house_assistant.core.house_ws import room_data
+
+    data = room_data(
+        other,
+        standard.subentry_id,
+        standard.title,
+        {
+            "temperature_sensor": "sensor.storage_temperature",
+        },
+    )
+    assert "short_airing_min" not in data
+    assert "short_recovery_percent" not in data
+    hass.config_entries.async_update_subentry(other, standard, data=data)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    params = heating(other).areas[standard.subentry_id].params
+    assert (params.short_airing_min, params.short_recovery_percent) == (1.0, 50.0)

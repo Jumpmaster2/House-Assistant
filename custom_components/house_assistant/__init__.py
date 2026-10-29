@@ -9,14 +9,15 @@ from homeassistant.helpers.typing import ConfigType
 
 from . import modules  # noqa: F401  (the modules register themselves)
 from .const import (
-    CONF_RETURN_ENTITY,
+    CONF_LANGUAGE,
     CONF_SHOW_PANEL,
     CONF_VACATION_ENTITIES,
     DOMAIN,
-    MODULE_HEATING,
-    MODULE_SHUTTER,
+    LOGGER,
+    MODULE_ORDER,
     OPT_CORE,
     PLATFORMS,
+    SHARED_KEYS,
 )
 from .core.panel import (
     async_register_frontend,
@@ -64,28 +65,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> boo
 
 
 def _move_vacation_sources(hass: HomeAssistant, entry: HouseConfigEntry) -> None:
-    """The external vacation sources are set only in the house. Values a module still
-    holds (from before) go to the house unless it has its own, and leave the module."""
+    """Move legacy shared settings to the house once, without overriding house values."""
     options = dict(entry.options)
     core = dict(options.get(OPT_CORE) or {})
-    changed = False
-    for module in (MODULE_HEATING, MODULE_SHUTTER):
+    original_house = dict(core)
+    selected: dict[str, tuple[str, object]] = {}
+    for module in MODULE_ORDER:
+        if module not in options:
+            continue
         section = dict(options.get(module) or {})
-        for key in (CONF_VACATION_ENTITIES, CONF_RETURN_ENTITY):
+        for key in SHARED_KEYS:
             if key not in section:
                 continue
             value = section.pop(key)
-            changed = True
-            if value in (None, "", []):
+            if value in (None, "", []) or (key == CONF_LANGUAGE and value == "auto"):
                 continue
             if key == CONF_VACATION_ENTITIES:
                 known = list(core.get(key) or [])
                 core[key] = known + [e for e in value if e not in known]
-            elif not core.get(key):
-                core[key] = value
+            elif original_house.get(key) in (None, "", []) or (
+                key == CONF_LANGUAGE and original_house.get(key) == "auto"
+            ):
+                if key not in selected:
+                    selected[key] = (module, value)
+                    core[key] = value
+                elif selected[key][1] != value:
+                    LOGGER.warning(
+                        "Conflicting shared setting %s in modules %s and %s",
+                        key,
+                        selected[key][0],
+                        module,
+                    )
         options[module] = section
-    if changed:
+    for key in ("vacation_ventilation_pause", "vacation_heat_protection"):
+        core.pop(key, None)
+    if core or OPT_CORE in options:
         options[OPT_CORE] = core
+    if options != dict(entry.options):
         hass.config_entries.async_update_entry(entry, options=options)
 
 

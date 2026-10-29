@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Final
 
+from ..const import CONF_WIND_ENTITY as CONF_WIND_ENTITY
 from ..const import (
     DOMAIN,
     EVENT_LOGBOOK,
@@ -45,7 +46,6 @@ CONF_NOTIFY = "notify_services"
 CONF_WORKDAY = "workday_entity"
 # Days without work when there is no workday sensor.
 CONF_WEEKEND_DAYS = "weekend_days"
-WEEKDAYS: Final = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 CONF_SUMMER_THRESHOLD = "summer_threshold"
 # A summer day only by the outdoor temperature needs a forecast low of the
@@ -92,7 +92,7 @@ OVERRIDE_TRIGGERS: Final = [TRIGGER_MOVEMENT, TRIGGER_COMMAND]
 
 # Weather protection: wind and rain move covers to a protection position, frost
 # keeps a gap when closing. Each ends only after the release time.
-CONF_WIND_ENTITY = "wind_entity"
+
 CONF_WIND_THRESHOLD = "wind_threshold"
 CONF_RAIN_ENTITY = "rain_entity"
 CONF_RAIN_THRESHOLD = "rain_threshold"
@@ -103,7 +103,6 @@ CONF_PROTECTION_RELEASE = "protection_release"
 CONF_COMMAND_INTERVAL = "command_interval"
 CONF_VERIFY_AFTER = "verify_after"
 
-LANGUAGE_OPTIONS: Final = ["auto", "de", "en"]
 
 DEFAULTS: Final[dict[str, object]] = {
     CONF_LANGUAGE: "auto",

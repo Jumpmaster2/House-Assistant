@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
+from custom_components.house_assistant.const import SHARED_KEYS
 from custom_components.house_assistant.diagnostics import async_get_config_entry_diagnostics
 from custom_components.house_assistant.shutter.const import DOMAIN
 
@@ -69,8 +70,9 @@ async def test_diagnostics_redact_notification_services(hass: HomeAssistant, bas
     entry = make_entry()
     await setup_entry(hass, entry)
     result = await async_get_config_entry_diagnostics(hass, entry)
-    assert result["entry"]["options"]["shutter"]["notify_services"] == "**REDACTED**"
-    assert result["entry"]["options"]["shutter"]["outdoor_temperature"] == OUTDOOR
+    assert result["entry"]["options"]["core"]["notify_services"] == "**REDACTED**"
+    assert result["entry"]["options"]["core"]["outdoor_temperature"] == OUTDOOR
+    assert not set(result["entry"]["options"]["shutter"]) & set(SHARED_KEYS)
     assert WINDOW_ID in result["modules"]["shutter"]["windows"]
 
 

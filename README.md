@@ -57,7 +57,7 @@ Wer die bisherigen Integrationen nutzt: House Assistant installieren, aber **nic
 
 Im Panel unter **Haus**:
 
-* **Räume:** Name, Home-Assistant-Bereich (das Gerät des Raums kommt dorthin, er liefert die Etage), Temperatur- und Feuchtesensor, Klimaanlage. Mit Temperatursensor bekommt ein Raum Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat (Bereich Heizung). Der Raum-Editor zeigt den Plan des Hauses mit den Querlüft- und Luftzug-Kombinationen des Raums, jede mit eigenem Schalter.
+* **Räume:** Name, Wohnfläche, Home-Assistant-Bereich (das Gerät des Raums kommt dorthin, er liefert die Etage), Temperatur- und Feuchtesensor, Klimaanlage. Mit Temperatursensor bekommt ein Raum Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat (Bereich Heizung). Der Raum-Editor zeigt den Plan des Hauses mit den Querlüft- und Luftzug-Kombinationen des Raums, jede mit eigenem Schalter.
 * **Fenster:** Name, Raum, Größe (klein, mittel, groß, Tür), Fensterkontakte (auch Fenstergriffe), Kipp-Kontakte, Himmelsrichtung, Wand und Position an der Wand, Rollo. Mindestens ein Kontakt oder ein Rollo. Mit Rollo stehen die weiteren Einstellungen im Bereich Rollos.
 * **Urlaub:** Schalter, Abreise und Rückkehr, Quellen und Meldungen (siehe unten).
 * **Allgemein:** die Einstellungen des Hauses, die Module und ob das Panel in der Seitenleiste steht.
@@ -67,13 +67,14 @@ Im Panel unter **Haus**:
 | Option | Bedeutung |
 |---|---|
 | Außentemperatur, Außenfeuchte, Wetter | für Heizung und Rollos; ohne Außensensor gilt die aktuelle Temperatur der Wetter-Entität |
+| Windsensor | gemeinsamer Sensor für den Windschutz; Windgrenzen bleiben bei den Rollos |
 | Sprache der Meldungen | Logbuch, letzter Grund, Benachrichtigungen aller Module; Automatisch = die Sprache von Home Assistant |
 | Benachrichtigungsdienste | nur `notify.*`; Meldungen der Rollos und des Urlaubs |
 | Werktag-Sensor, Wochenendtage | Morgenöffnung der Rollos |
 | Vorderseite zeigt nach, Länge, Tiefe | Haus im Sonnenkompass der Rollos; mit Länge und Tiefe erkennt die Heizung Luftzug durch Räume |
 | Luftzug-Reichweite | wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf (Standard 2 m) |
 
-Ein hier eingetragener Wert gilt für alle Module. Ohne Wert gilt der in den Einstellungen des Moduls (die bisherigen Integrationen hatten die Werte jede für sich).
+Gemeinsame Einstellungen und Raum-Grunddaten werden nur im Haus geändert. Alte Modulwerte werden beim Start ins Haus übernommen: Hauswerte haben Vorrang, sonst gewinnt bei Abweichungen die Heizung vor den Rollos. Urlaubsquellen werden vereinigt. Leere Hauswerte bleiben danach ungesetzt.
 
 ## Urlaub
 

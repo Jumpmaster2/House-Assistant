@@ -11,8 +11,8 @@ ids and the history of the entities stay as well.
   one window with the size from the heating and the room of the area; its room also
   follows from ``room_entity`` being the thermostat of an area; every other heating
   contact becomes a window without a cover;
-* settings the modules share go to the house where they agree (the language stays
-  with the covers: the heating followed the language of Home Assistant);
+* shared settings go to the house, preferring heating on conflicts; the language
+  comes from the covers, since heating followed the language of Home Assistant;
 * the option migrations of AI Heating Assistant (minor versions 2 to 4) are applied.
 
 Only the standard library: the script runs where the configuration is, not inside
@@ -53,6 +53,7 @@ SHARED_KEYS = (
     "outdoor_temperature",
     "outdoor_humidity",
     "weather",
+    "wind_entity",
     "notify_services",
     "workday_entity",
     "weekend_days",
@@ -181,18 +182,22 @@ def _same(key: str, values: list[Any]) -> bool:
 
 
 def shared_settings(sections: dict[str, dict[str, Any]], notes: list[str]) -> dict[str, Any]:
-    """Settings for the house: a value set in one module, or the same in both."""
+    """Settings for the house, preferring heating and combining vacation sources."""
     core: dict[str, Any] = {}
     for key in SHARED_KEYS:
         found = {m: o[key] for m, o in sections.items() if not _empty(o.get(key))}
         if not found:
             continue
         values = list(found.values())
-        if _same(key, values):
+        if key == "vacation_entities":
+            core[key] = list(dict.fromkeys(e for value in values for e in value))
+        elif _same(key, values):
             core[key] = values[0]
         else:
             listed = ", ".join(f"{m}: {v}" for m, v in found.items())
-            notes.append(f"{key} differs ({listed}), kept in the settings of each module")
+            chosen = "heating" if "heating" in found else next(iter(found))
+            core[key] = found[chosen]
+            notes.append(f"{key} differs ({listed}), using {chosen}")
     return core
 
 
@@ -283,9 +288,11 @@ def build_plan(
         "modules": [MODULE_OF[d] for d in LEGACY if d in entries],
         **shared_settings({k: v for k, v in sections.items() if k != "meter"}, notes),
     }
+    if "language" in sections.get("shutter", {}):
+        core["language"] = sections["shutter"]["language"]
     # set once in the house: the modules do not keep a copy (the house wins anyway)
     for name in ("heating", "shutter"):
-        for key in core:
+        for key in (*SHARED_KEYS, "language"):
             sections.get(name, {}).pop(key, None)
 
     # the heating day sensor of the heating becomes the link to the heating module
@@ -302,12 +309,6 @@ def build_plan(
     if heating_day and sections.get("shutter", {}).get("heating_entity") == heating_day:
         del sections["shutter"]["heating_entity"]
         sections["shutter"]["use_heating_day"] = True
-    if "language" in sections.get("shutter", {}):
-        notes.append(
-            "the language of the covers stays in their settings (the heating keeps the "
-            "language of Home Assistant); set it under Settings > House for every module"
-        )
-
     # ------------------------------------------------ rooms
     subentries: list[dict[str, Any]] = []
     contact_room: dict[str, tuple[str, str]] = {}  # contact -> room, size
