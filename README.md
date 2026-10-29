@@ -10,7 +10,7 @@ Custom Integration für Home Assistant, die Heizung, Rollos und Zählerablesung 
 
 Jedes Modul lässt sich einzeln ein- und ausschalten. Keine Funktion der bisherigen Integrationen fällt weg; wer sie nutzt, zieht mit einem Skript um, ohne Verlauf und Lernwerte zu verlieren ([docs/transfer.md](docs/transfer.md)).
 
-> Status: Version 1.0.0b17 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
+> Status: Version 1.0.0b18 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
 
 ## Zusammenspiel
 

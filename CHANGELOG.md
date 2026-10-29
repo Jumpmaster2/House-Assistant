@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0b18 (2026-10-29)
+
+### Fixed
+
+- Panel descriptions now reflect that shared settings are configured only in House: the house introduction, the heating PV and heat meter card, and remaining cover hints.
+- Restored the airing and start value section names, field labels and help texts in the heating room editor and the native room reconfiguration dialog.
+- Added spacing below the read-only room basics in the heating editor and allowed long entity IDs to wrap above the separate hint paragraph.
+
 ## 1.0.0b17 (2026-10-29)
 
 ### Added

@@ -911,6 +911,34 @@
                 "puffer": "Heating day rule: needed margin above the target at the nightly run (learned)."
               }
             },
+            "start_values": {
+              "name": "Start values (learned later)",
+              "description": "Only when the room is created. Afterwards the learned values are edited.",
+              "data": {
+                "window_delay": "Window delay (start value)",
+                "recovery_time": "Recovery time after airing (start value)",
+                "dead_time": "Dead time until the room warms (start value)",
+                "puffer": "Margin above target (start value)"
+              },
+              "data_description": {
+                "window_delay": "Window open this long pauses heating. The AI may adjust it.",
+                "recovery_time": "After closing, heating waits this long because floor and walls often reheat the room. Learned afterwards.",
+                "dead_time": "Time from switching on until the room gets warmer; underfloor heating often 30-90 min, radiators 5-20 min. Learned afterwards.",
+                "puffer": "Heating day rule: how far above the target a room must be at the nightly run to manage a day without heating (e.g. 0.7 K). Learned afterwards."
+              }
+            },
+            "airing": {
+              "name": "Airing",
+              "description": "Brief airing and the wait after it. Can be changed at any time, also for existing rooms.",
+              "data": {
+                "short_airing_min": "Brief airing from",
+                "short_recovery_percent": "Wait after brief airing"
+              },
+              "data_description": {
+                "short_airing_min": "Airing at least this long but shorter than the window delay counts as brief airing: heating then waits. 0 = every airing counts. From the window delay on, the normal pause applies.",
+                "short_recovery_percent": "Share of the learned recovery time that heating waits after a brief airing (50 % = half the wait). Fixed, not learned. 0 = no wait."
+              }
+            },
             "ventilation": {
               "name": "Ventilation",
               "data": {
