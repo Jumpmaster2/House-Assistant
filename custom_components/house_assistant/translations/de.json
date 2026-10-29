@@ -820,6 +820,10 @@
         },
         "data": {},
         "data_description": {}
+      },
+      "house_settings_note": {
+        "title": "Gemeinsame Einstellungen",
+        "description": "Außentemperatur und -feuchte, Wetter, Windsensor, Sprache, Benachrichtigungen, Werktage, Hausmaße und Urlaubsquellen werden nur im Haus eingestellt."
       }
     },
     "error": {
@@ -935,6 +939,26 @@
                 "draft_group_1": "z. B. Kinderzimmer + Bad; eine zweite Kombination z. B. Kinderzimmer + Schlafzimmer."
               }
             }
+          }
+        },
+        "basics": {
+          "title": "Raum-Grunddaten",
+          "description": "Name, Bereich, Wohnfläche, Sensoren und Klimaanlage werden ausschließlich im Haus geändert. Neue Räume im Haus anlegen.",
+          "data": {
+            "name": "Name",
+            "area": "Bereich (Home Assistant)",
+            "floor_area": "Wohnfläche",
+            "temperature_sensor": "Temperatursensor",
+            "humidity_sensor": "Feuchtesensor",
+            "cooling_entity": "Klimaanlage"
+          },
+          "data_description": {
+            "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
+            "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften.",
+            "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil.",
+            "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
+            "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung.",
+            "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
           }
         }
       },
@@ -2295,28 +2319,6 @@
     "corrupt_storage": {
       "title": "Beschädigte Speicherdaten: {module}",
       "description": "Im Modul {module} wurden beschädigte Speicherdaten verworfen und durch Standardwerte ersetzt. Die Rohdaten wurden vor dem Speichern in einem eigenen Speicher mit der Endung .corrupt gesichert. Prüfe die Einstellungen und das Protokoll. Die Meldung verschwindet beim nächsten fehlerfreien Laden."
-    }
-  },
-  "panel": {
-    "house_settings_note": "Außentemperatur und -feuchte, Wetter, Windsensor, Sprache, Benachrichtigungen, Werktage, Hausmaße und Urlaubsquellen werden nur im Haus eingestellt.",
-    "room_basics_note": "Name, Bereich, Wohnfläche, Sensoren und Klimaanlage werden ausschließlich im Haus geändert. Neue Räume im Haus anlegen.",
-    "room": {
-      "data": {
-        "name": "Name",
-        "area": "Bereich (Home Assistant)",
-        "floor_area": "Wohnfläche",
-        "temperature_sensor": "Temperatursensor",
-        "humidity_sensor": "Feuchtesensor",
-        "cooling_entity": "Klimaanlage"
-      },
-      "data_description": {
-        "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
-        "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften.",
-        "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil.",
-        "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
-        "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung.",
-        "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
-      }
     }
   }
 }

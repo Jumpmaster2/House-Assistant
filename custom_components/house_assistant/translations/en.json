@@ -820,6 +820,10 @@
         },
         "data": {},
         "data_description": {}
+      },
+      "house_settings_note": {
+        "title": "Shared settings",
+        "description": "Set outdoor temperature and humidity, weather, wind sensor, language, notifications, working days, house dimensions and vacation sources only in House."
       }
     },
     "error": {
@@ -935,6 +939,26 @@
                 "draft_group_1": "e.g. kids' room + bathroom; a second combination e.g. kids' room + bedroom."
               }
             }
+          }
+        },
+        "basics": {
+          "title": "Room basics",
+          "description": "Change name, area, floor area, sensors and air conditioner only in House. Create new rooms in House.",
+          "data": {
+            "name": "Name",
+            "area": "Area",
+            "floor_area": "Floor area",
+            "temperature_sensor": "Temperature sensor",
+            "humidity_sensor": "Humidity sensor",
+            "cooling_entity": "Air conditioner"
+          },
+          "data_description": {
+            "name": "Name of the room, also used for the device and its entities.",
+            "area": "Optional. The device of the room is placed in this area; its floor counts for cross ventilation.",
+            "floor_area": "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split.",
+            "temperature_sensor": "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers).",
+            "humidity_sensor": "Relative humidity, needed for the ventilation recommendation.",
+            "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
           }
         }
       },
@@ -2295,28 +2319,6 @@
     "corrupt_storage": {
       "title": "Corrupt stored data: {module}",
       "description": "Corrupt stored data in {module} was discarded and replaced with defaults. The raw data was backed up in a separate store ending in .corrupt before saving. Check the settings and log. This warning clears on the next clean load."
-    }
-  },
-  "panel": {
-    "house_settings_note": "Set outdoor temperature and humidity, weather, wind sensor, language, notifications, working days, house dimensions and vacation sources only in House.",
-    "room_basics_note": "Change name, area, floor area, sensors and air conditioner only in House. Create new rooms in House.",
-    "room": {
-      "data": {
-        "name": "Name",
-        "area": "Area",
-        "floor_area": "Floor area",
-        "temperature_sensor": "Temperature sensor",
-        "humidity_sensor": "Humidity sensor",
-        "cooling_entity": "Air conditioner"
-      },
-      "data_description": {
-        "name": "Name of the room, also used for the device and its entities.",
-        "area": "Optional. The device of the room is placed in this area; its floor counts for cross ventilation.",
-        "floor_area": "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split.",
-        "temperature_sensor": "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers).",
-        "humidity_sensor": "Relative humidity, needed for the ventilation recommendation.",
-        "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
-      }
     }
   }
 }

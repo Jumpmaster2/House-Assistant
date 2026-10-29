@@ -22,6 +22,8 @@ COMPONENT = ROOT / "custom_components" / "house_assistant"
 TARGET = COMPONENT / "frontend" / "labels.js"
 CARD_TARGET = COMPONENT / "frontend" / "card-labels.js"
 LANGUAGES = ("de", "en")
+# These steps hold panel texts, not dialogs exported in LABELS.
+PANEL_STEPS = {("room", "basics"), ("options", "house_settings_note")}
 HEADER = (
     "// Generated from the translation files by scripts/build_labels.py, do not edit by hand.\n"
 )
@@ -70,6 +72,7 @@ def labels(translation: dict[str, Any]) -> dict[str, Any]:
             f"{flow}.{step_id}": _step(step)
             for flow, content in flows.items()
             for step_id, step in content.get("step", {}).items()
+            if (flow, step_id) not in PANEL_STEPS
         },
         "errors": {flow: content["error"] for flow, content in flows.items() if "error" in content},
         "choices": {
@@ -83,6 +86,16 @@ def labels(translation: dict[str, Any]) -> dict[str, Any]:
 
 def _add(fields: dict[str, list[str]], step: dict[str, Any]) -> None:
     fields.update({key: value for key, value in _fields(step).items() if key not in fields})
+
+
+def _panel_notes(translation: dict[str, Any]) -> dict[str, Any]:
+    """Keep the panel's text structure while using valid HA translation steps."""
+    room = translation["config_subentries"]["room"]["step"]["basics"]
+    return {
+        "house_settings_note": translation["options"]["step"]["house_settings_note"]["description"],
+        "room_basics_note": room["description"],
+        "room": {key: room[key] for key in ("data", "data_description")},
+    }
 
 
 def meter_labels(translation: dict[str, Any]) -> dict[str, Any]:
@@ -153,7 +166,7 @@ def shutter_labels(translation: dict[str, Any]) -> dict[str, Any]:
                 known[1] = help_text
     sensor = translation["entity"]["sensor"]
     return {
-        "notes": translation["panel"],
+        "notes": _panel_notes(translation),
         "LABELS": dict(sorted(fields.items())),
         "CHOICES": {
             key: translation["selector"][key]["options"] for key in sorted(SHUTTER_CHOICES)
@@ -193,7 +206,7 @@ def heating_labels(translation: dict[str, Any]) -> dict[str, Any]:
     entity = translation["entity"]
     limits = options["heating_ai_limits"]["sections"]
     return {
-        "notes": translation["panel"],
+        "notes": _panel_notes(translation),
         "fields": fields,
         "learned": learned,
         "sections": {
@@ -220,7 +233,7 @@ def house_labels(translation: dict[str, Any]) -> dict[str, Any]:
     room = translation["config_subentries"]["room"]
     window = translation["config_subentries"]["window"]
     room_fields: dict[str, list[str]] = {}
-    step = translation["panel"]["room"]
+    step = room["step"]["basics"]
     _add(room_fields, step)
     for sec in step.get("sections", {}).values():
         _add(room_fields, sec)
