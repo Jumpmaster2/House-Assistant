@@ -415,7 +415,7 @@ const SETTINGS = {
     { id: "vacation", icon: "mdi:bag-suitcase-outline", fields: ["vacation_temperature", "preheat_reserve"] },
   ],
   rules: [
-    { id: "emergency", icon: "mdi:alert-outline", fields: ["emergency_enabled", "emergency_delta", "emergency_duration", "emergency_window_quiet", "force_on_below"] },
+    { id: "emergency", icon: "mdi:alert-outline", fields: ["emergency_enabled", "emergency_delta", "emergency_duration", "emergency_window_quiet", "force_on_below", "sensor_stale_hours"] },
     {
       id: "ventilation",
       icon: "mdi:weather-windy",

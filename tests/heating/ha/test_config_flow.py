@@ -644,3 +644,47 @@ async def test_limits_preserve_unchanged_legacy_values(hass: HomeAssistant, base
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done(wait_background_tasks=True)
     assert heating_options(entry)["limits"] == unchanged
+
+
+@pytest.mark.parametrize("value", [0, 12, 72])
+async def test_rules_save_sensor_stale_hours(hass: HomeAssistant, base_states, value) -> None:
+    entry = make_entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    result = await open_options(hass, entry, "rules")
+    assert result["step_id"] == "heating_rules"
+    values = {
+        "emergency_enabled": True,
+        "emergency_delta": 1,
+        "emergency_duration": 45,
+        "emergency_window_quiet": 30,
+        "force_on_below": 1,
+        "sensor_stale_hours": value,
+    }
+    result = await hass.config_entries.options.async_configure(result["flow_id"], values)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert heating_options(entry)["sensor_stale_hours"] == value
+
+
+@pytest.mark.parametrize("value", [-1, 73, 1.5, "NaN", "Infinity", "-Infinity"])
+async def test_rules_reject_invalid_stale_hours(hass: HomeAssistant, base_states, value) -> None:
+    from homeassistant.data_entry_flow import InvalidData
+
+    entry = make_entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    result = await open_options(hass, entry, "rules")
+    values = {
+        "emergency_enabled": True,
+        "emergency_delta": 1,
+        "emergency_duration": 45,
+        "emergency_window_quiet": 30,
+        "force_on_below": 1,
+        "sensor_stale_hours": value,
+    }
+    with pytest.raises(InvalidData):
+        await hass.config_entries.options.async_configure(result["flow_id"], values)
+    assert heating_options(entry)["sensor_stale_hours"] == 12

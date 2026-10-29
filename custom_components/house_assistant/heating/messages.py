@@ -86,6 +86,10 @@ _TEXTS: dict[str, dict[str, str]] = {
         "de": "Gelernter Wert {name} von Hand geändert: {old} → {new} {unit}.",
         "en": "Learned value {name} changed by hand: {old} → {new} {unit}.",
     },
+    "sensor_stale": {
+        "de": "Temperatursensor {entity_id} meldet unverändert denselben Wert; die Heizung regelt weiter.",
+        "en": "Temperature sensor {entity_id} remains unchanged; heating continues to control.",
+    },
     "sensor_unavailable": {
         "de": "Temperatursensor {entity_id} liefert seit 15 Minuten keinen Wert; der Heizkreis bleibt aus, auch der Frostschutz greift nicht.",
         "en": "Temperature sensor {entity_id} has had no value for 15 minutes; the heating circuit stays off and frost protection cannot work either.",

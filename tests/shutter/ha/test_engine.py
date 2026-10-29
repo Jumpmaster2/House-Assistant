@@ -653,7 +653,7 @@ async def test_control_attributes(
 
 
 AUTUMN_AFTERNOON = "2026-10-16 15:00:00+02:00"
-ROOM = "climate.living_room"
+ROOM = "sensor.living_room_temperature"
 AIR_CONDITIONER = "climate.living_room_ac"
 HEATING_DAY = "binary_sensor.heating_day"
 
@@ -750,7 +750,7 @@ async def test_air_conditioner_without_action_cools_in_auto_mode(
         AIR_CONDITIONER, "auto", {"current_temperature": 25.0, "temperature": 23.0}
     )
     await _summer_noon(
-        hass, freezer, window={"room_entity": ROOM, "cooling_entity": AIR_CONDITIONER}
+        hass, freezer, room={"temperature_sensor": ROOM, "cooling_entity": AIR_CONDITIONER}
     )
     await advance(hass, freezer, 15 * 60)
     assert [c.data["position"] for c in calls["set_cover_position"]] == [10]
@@ -759,14 +759,17 @@ async def test_air_conditioner_without_action_cools_in_auto_mode(
 
 
 def _room(hass: HomeAssistant, current: float, setpoint: float = 21.0) -> None:
-    hass.states.async_set(ROOM, "heat", {"current_temperature": current, "temperature": setpoint})
+    hass.states.async_set(ROOM, str(current), {"unit_of_measurement": "°C"})
 
 
 async def test_sun_protection_waits_for_a_warm_room(
-    hass: HomeAssistant, base_states, calls, freezer: FrozenDateTimeFactory
+    hass: HomeAssistant, base_states, calls, freezer: FrozenDateTimeFactory, monkeypatch
 ) -> None:
+    monkeypatch.setattr(
+        "custom_components.house_assistant.shutter.engine.room_target", lambda hass, room_id: 21.0
+    )
     _room(hass, 21.5)
-    await _summer_noon(hass, freezer, window={"room_entity": ROOM})
+    await _summer_noon(hass, freezer, room={"temperature_sensor": ROOM})
     await advance(hass, freezer, 30 * 60)
     assert calls["set_cover_position"] == []
     # setpoint 21 °C + 2 K reached: lowered after the sun hold time
@@ -782,7 +785,7 @@ async def test_room_sensor_uses_the_fixed_threshold(
     hass: HomeAssistant, base_states, calls, freezer: FrozenDateTimeFactory
 ) -> None:
     hass.states.async_set("sensor.room", "23.5", {"unit_of_measurement": "°C"})
-    await _summer_noon(hass, freezer, window={"room_entity": "sensor.room"})
+    await _summer_noon(hass, freezer, room={"temperature_sensor": "sensor.room"})
     await advance(hass, freezer, 20 * 60)
     assert calls["set_cover_position"] == []
     hass.states.async_set("sensor.room", "24.0", {"unit_of_measurement": "°C"})
@@ -797,7 +800,7 @@ async def test_cooling_air_conditioner_counts_as_warm_room(
     _room(hass, 21.0)
     hass.states.async_set(AIR_CONDITIONER, "cool", {"hvac_action": "cooling"})
     await _summer_noon(
-        hass, freezer, window={"room_entity": ROOM, "cooling_entity": AIR_CONDITIONER}
+        hass, freezer, room={"temperature_sensor": ROOM, "cooling_entity": AIR_CONDITIONER}
     )
     await advance(hass, freezer, 15 * 60)
     assert [c.data["position"] for c in calls["set_cover_position"]] == [10]
@@ -817,10 +820,13 @@ async def test_heating_day_keeps_the_warmth_of_the_sun(
 
 
 async def test_heating_day_with_a_too_warm_room_still_protects(
-    hass: HomeAssistant, base_states, calls, freezer: FrozenDateTimeFactory
+    hass: HomeAssistant, base_states, calls, freezer: FrozenDateTimeFactory, monkeypatch
 ) -> None:
+    monkeypatch.setattr(
+        "custom_components.house_assistant.shutter.engine.room_target", lambda hass, room_id: 21.0
+    )
     hass.states.async_set(HEATING_DAY, "on")
     _room(hass, 23.5)
-    await _summer_noon(hass, freezer, heating_entity=HEATING_DAY, window={"room_entity": ROOM})
+    await _summer_noon(hass, freezer, heating_entity=HEATING_DAY, room={"temperature_sensor": ROOM})
     await advance(hass, freezer, 15 * 60)
     assert len(calls["set_cover_position"]) == 1

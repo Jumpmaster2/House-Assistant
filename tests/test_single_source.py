@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from custom_components.house_assistant import _move_vacation_sources
+from custom_components.house_assistant import _move_vacation_sources, _move_window_room_sources
 from custom_components.house_assistant.const import SHARED_KEYS
 from custom_components.house_assistant.core.house_ws import room_data, room_fields
 from custom_components.house_assistant.core.settings import house_schema, validate_house
@@ -119,7 +119,7 @@ def test_centralized_schemas_and_panels():
         assert not set(map(str, fields)) & set(SHARED_KEYS)
     assert not set(_fields_of(area_schema({}))) & BASICS
     assert set(map(str, room_fields())) >= BASICS
-    assert "wind_entity" in set(map(str, house_schema(hass, {}).schema))
+    assert {"wind_entity", "rain_entity"} <= set(map(str, house_schema(hass, {}).schema))
     from custom_components.house_assistant.shutter.config_flow import (
         SHUTTER_MENU,
         ShutterOptionsSteps,
@@ -135,6 +135,10 @@ def test_centralized_schemas_and_panels():
         assert "fields: []" not in text
         for fields in re.findall(r"fields: \[([^\]]*)\]", text):
             assert not set(re.findall(r'"([^"]+)"', fields)) & set(SHARED_KEYS)
+    house_settings = (root / "house.js").read_text().split("const SETTINGS = ")[1].split(";")[0]
+    assert "rain_entity" in house_settings
+    shutter = (root / "shutter.js").read_text().split("const WINDOW_CARDS = [")[1].split("\n];")[0]
+    assert not {"room_entity", "cooling_entity"} & set(re.findall(r'"([^"]+)"', shutter))
     text = (root / "heating.js").read_text().split("const AREA_GROUPS = [")[1].split("\n];")[0]
     assert not set(re.findall(r'"([^"]+)"', text)) & BASICS
     assert (
@@ -423,3 +427,66 @@ def test_diagnostics_redact_house_notification_services():
     result = asyncio.run(async_get_config_entry_diagnostics(None, entry))
     assert result["entry"]["options"]["core"]["notify_services"] == "**REDACTED**"
     assert result["entry"]["options"]["core"]["outdoor_temperature"] == "sensor.outdoor"
+
+
+@pytest.mark.parametrize(
+    "value,existing,room_id,expected",
+    [
+        ("sensor.temp", {}, "r", {"temperature_sensor": "sensor.temp"}),
+        ("climate.temp", {}, "r", {}),
+        ("sensor.temp", {}, None, {}),
+        (
+            "sensor.temp",
+            {"temperature_sensor": "sensor.existing"},
+            "r",
+            {"temperature_sensor": "sensor.existing"},
+        ),
+    ],
+)
+def test_window_source_migration(value, existing, room_id, expected):
+    room = SimpleNamespace(subentry_type="room", title="Living", data=existing)
+    window = SimpleNamespace(
+        subentry_type="window",
+        title="Window",
+        data={"room": room_id, "room_entity": value, "cooling_entity": "climate.ac"},
+    )
+    entry = SimpleNamespace(subentries={"r": room, "w": window})
+
+    def update(entry, subentry, *, data):
+        subentry.data = data
+
+    update_mock = Mock(side_effect=update)
+    hass = SimpleNamespace(config_entries=SimpleNamespace(async_update_subentry=update_mock))
+    _move_window_room_sources(hass, entry)
+    assert room.data == {**expected, **({"cooling_entity": "climate.ac"} if room_id else {})}
+    assert window.data == {"room": room_id}
+    count = update_mock.call_count
+    _move_window_room_sources(hass, entry)
+    assert update_mock.call_count == count
+
+
+def test_window_migration_preserves_existing_cooling_and_skips_clean_windows():
+    room = SimpleNamespace(
+        subentry_type="room", title="Living", data={"cooling_entity": "climate.existing"}
+    )
+    window = SimpleNamespace(
+        subentry_type="window", title="Window", data={"room": "r", "cooling_entity": "climate.old"}
+    )
+    clean = SimpleNamespace(subentry_type="window", title="Clean", data={"room": "r"})
+    entry = SimpleNamespace(subentries={"r": room, "w": window, "clean": clean})
+    update = Mock(side_effect=lambda entry, subentry, *, data: setattr(subentry, "data", data))
+    hass = SimpleNamespace(config_entries=SimpleNamespace(async_update_subentry=update))
+    _move_window_room_sources(hass, entry)
+    assert room.data["cooling_entity"] == "climate.existing"
+    assert update.call_count == 1
+    _move_window_room_sources(hass, entry)
+    assert update.call_count == 1
+
+
+@pytest.mark.parametrize("house", [None, "binary_sensor.house_rain"])
+def test_rain_migration_from_covers(house):
+    result = migrate(
+        {"core": {"rain_entity": house}, "shutter": {"rain_entity": "binary_sensor.rain"}}
+    )
+    assert result["core"]["rain_entity"] == (house or "binary_sensor.rain")
+    assert "rain_entity" not in result["shutter"]

@@ -7,15 +7,15 @@ from homeassistant.core import HomeAssistant
 
 from .conftest import OUTDOOR, SUMMER_NOON, VACATION, advance, engine_of, make_entry, setup_entry
 
-ROOM = "climate.living_room"
+ROOM = "sensor.living_room_temperature"
 
 
 async def _cool_room_at_summer_noon(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, outdoor: str = "25.0", **options
 ) -> None:
-    hass.states.async_set(ROOM, "heat", {"current_temperature": 20.0, "temperature": 21.0})
+    hass.states.async_set(ROOM, "20.0", {"unit_of_measurement": "°C"})
     freezer.move_to(SUMMER_NOON)
-    await setup_entry(hass, make_entry(window={"room_entity": ROOM}, **options))
+    await setup_entry(hass, make_entry(room={"temperature_sensor": ROOM}, **options))
     hass.states.async_set(OUTDOOR, outdoor)
     await hass.async_block_till_done()
 

@@ -54,6 +54,7 @@ SHARED_KEYS = (
     "outdoor_humidity",
     "weather",
     "wind_entity",
+    "rain_entity",
     "notify_services",
     "workday_entity",
     "weekend_days",

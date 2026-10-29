@@ -100,6 +100,7 @@ from .const import (
     CONF_RULE_DAYS,
     CONF_SEASON_END,
     CONF_SEASON_START,
+    CONF_SENSOR_STALE_HOURS,
     CONF_SHARED_AGREEMENT,
     CONF_SHARED_DAYS,
     CONF_SHORT_AIRING,
@@ -194,6 +195,7 @@ from .logic.learning import (
 from .logic.physics import absolute_humidity, clamp, in_season, parse_day_month
 from .logic.prompts import check_messages, nightly_messages, r, vent_check_messages
 from .logic.room_energy import RoomEnergyModel, room_energy_schema
+from .logic.sensor_stale import sensor_is_stale
 from .logic.start_values import (
     LEARNED_BOUNDS,
     apply_start_values,
@@ -265,6 +267,7 @@ TARGET_CHANGE_K = 0.5  # target change that makes the AI look again soon
 DECIDE_RETRY_S = 15 * 60  # pause after a failed heating day decision before the next try
 ISSUE_KEYS = (
     "sensor_unavailable",
+    "sensor_stale",
     "actuator_unavailable",
     "actuator_not_responding",
     "outdoor_unavailable",
@@ -1127,6 +1130,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         if issue_id in self._issues:
             return
         self._issues.add(issue_id)
+        placeholders = {"area": area.name if area else NAME, "entity_id": entity_id}
+        if key == "sensor_stale":
+            placeholders["hours"] = str(self.opt(CONF_SENSOR_STALE_HOURS))
         ir.async_create_issue(
             self.hass,
             DOMAIN,
@@ -1134,7 +1140,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
             translation_key=key,
-            translation_placeholders={"area": area.name if area else NAME, "entity_id": entity_id},
+            translation_placeholders=placeholders,
         )
         self._log(key, area, entity_id=entity_id)
 
@@ -1632,6 +1638,16 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 self._room_heat(area, minutes)
             sensor_id, switch_id = cfg[CONF_TEMP_SENSOR], cfg[CONF_SWITCH]
             self._track_outage("sensor_unavailable", area, sensor_id, area.temp is None, ts)
+            sensor = self._state(sensor_id)
+            hours = self.opt(CONF_SENSOR_STALE_HOURS)
+            if sensor_is_stale(
+                ts - sensor.last_changed.timestamp() if sensor else 0,
+                hours,
+                area.temp is not None and sensor is not None,
+            ):
+                self._raise_issue("sensor_stale", area, sensor_id)
+            else:
+                self._clear_issue(f"sensor_stale_{area.area_id}")
             self._track_outage(
                 "actuator_unavailable", area, switch_id, not area.switch_available, ts
             )

@@ -214,6 +214,7 @@ async def test_admin_matrix(user, allowed):
     [
         ("set_vacation", "core"),
         ("set_meter_reading", "meter"),
+        ("read_meter", "meter"),
         ("reset_learned", "heating"),
         ("import_parameters", "heating"),
         ("run_ai_check", "heating"),
@@ -330,3 +331,41 @@ def test_loaded_airing_parameters_repaired_idempotently():
     assert area.vent_params.airing_min_minutes == 5
     HeatingCoordinator._clamp_to_limits(coordinator)
     assert area.vent_params.airing_min_minutes == 5
+
+
+@pytest.mark.parametrize(
+    ("value", "valid"),
+    [
+        (0, True),
+        (12, True),
+        (72, True),
+        (-1, False),
+        (73, False),
+        (1.5, False),
+        (float("nan"), False),
+        (float("inf"), False),
+        (-float("inf"), False),
+    ],
+)
+def test_stale_hours_dialog_and_panel_agree(value, valid):
+    from custom_components.house_assistant.heating.config_flow import rules_schema
+
+    values = {
+        "emergency_enabled": True,
+        "emergency_delta": 1,
+        "emergency_duration": 45,
+        "emergency_window_quiet": 30,
+        "force_on_below": 1,
+        "sensor_stale_hours": value,
+    }
+    house = {"outdoor_temperature": "sensor.outdoor_temperature"}
+    if valid:
+        assert rules_schema({})(values)["sensor_stale_hours"] == value
+        assert (
+            apply_options({}, {"sensor_stale_hours": value}, house)["sensor_stale_hours"] == value
+        )
+    else:
+        with pytest.raises(vol.Invalid):
+            rules_schema({})(values)
+        with pytest.raises(PanelError, match="invalid_value:sensor_stale_hours"):
+            apply_options({}, {"sensor_stale_hours": value}, house)

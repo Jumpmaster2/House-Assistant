@@ -108,6 +108,7 @@ resume_cover:
           domain: cover
           multiple: true
 read_meter:
+  description: Administrators only; calls without a user (automations, scripts) are allowed.
   fields:
     entity_id:
       required: true

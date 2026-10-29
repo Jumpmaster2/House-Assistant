@@ -51,7 +51,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import TemperatureConverter
 
 from ..const import SIGNAL_VACATION
-from ..core.house import CONF_ROOM, CONF_TEMP_SENSOR, rooms
+from ..core.house import CONF_COOLING_ENTITY, CONF_ROOM, CONF_TEMP_SENSOR, rooms
 from ..core.links import SIGNAL_HEATING, room_target
 from ..core.links import heating_day as links_heating_day
 from ..core.store import StoreRecovery, module_store
@@ -64,7 +64,6 @@ from .const import (
     CONF_CATCH_UP_AFTER,
     CONF_CLOSED_POSITION,
     CONF_COMMAND_INTERVAL,
-    CONF_COOLING_ENTITY,
     CONF_COVER,
     CONF_DAY_CHANGE,
     CONF_EVENING_CLOSE,
@@ -117,7 +116,6 @@ from .const import (
     CONF_RAIN_ENTITY,
     CONF_RAIN_POSITION,
     CONF_RAIN_THRESHOLD,
-    CONF_ROOM_ENTITY,
     CONF_ROOM_MARGIN,
     CONF_ROOM_THRESHOLD,
     CONF_STARTUP_DELAY,
@@ -407,8 +405,9 @@ class ShutterEngine(DataUpdateCoordinator[None]):
         self, window_id: str, title: str, data: dict[str, Any], room: dict[str, Any] | None = None
     ) -> Window:
         conf = {**self._window_defaults, **data}
-        if room is not None and not conf.get(CONF_COOLING_ENTITY) and room.get(CONF_COOLING_ENTITY):
-            # the air conditioner of the room, unless the window has its own
+        conf.pop("room_entity", None)
+        conf.pop(CONF_COOLING_ENTITY, None)
+        if room and room.get(CONF_COOLING_ENTITY):
             conf[CONF_COOLING_ENTITY] = room[CONF_COOLING_ENTITY]
         morning_settings = None
         if conf[CONF_MORNING]:
@@ -727,14 +726,10 @@ class ShutterEngine(DataUpdateCoordinator[None]):
         heat_inputs = {
             str(w.conf.get(key))
             for w in self.windows.values()
-            for key in (CONF_ROOM_ENTITY, CONF_COOLING_ENTITY)
+            for key in (CONF_COOLING_ENTITY,)
             if w.conf.get(key)
         }
-        heat_inputs.update(
-            w.room_sensor
-            for w in self.windows.values()
-            if w.room_sensor and not w.conf.get(CONF_ROOM_ENTITY)
-        )
+        heat_inputs.update(w.room_sensor for w in self.windows.values() if w.room_sensor)
         # target of a thermostat, heating day, the heating started or stopped
         self._unsubs.append(
             async_dispatcher_connect(self.hass, SIGNAL_HEATING, self._on_heating_changed)
@@ -1022,10 +1017,8 @@ class ShutterEngine(DataUpdateCoordinator[None]):
         return changed
 
     def _room(self, win: Window) -> tuple[float | None, float | None]:
-        """Room temperature and setpoint (setpoint only from a thermostat). Without an
-        own room entity the room of the window: its sensor and the target of its
-        thermostat (in °C, here in the unit system like the thresholds)."""
-        if not win.conf.get(CONF_ROOM_ENTITY) and win.room_sensor:
+        """Room sensor and the target of its thermostat in the configured unit."""
+        if win.room_sensor:
             state = self._state(win.room_sensor)
             current = None if state is None or state.state in INVALID else as_float(state.state)
             target = room_target(self.hass, win.room_id)
@@ -1034,15 +1027,7 @@ class ShutterEngine(DataUpdateCoordinator[None]):
                     target, UnitOfTemperature.CELSIUS, self.temperature_unit
                 )
             return current, target
-        state = self._state(win.conf.get(CONF_ROOM_ENTITY))
-        if state is None or state.state in INVALID:
-            return None, None
-        if state.domain == "climate":
-            return (
-                as_float(state.attributes.get("current_temperature")),
-                as_float(state.attributes.get("temperature")),
-            )
-        return as_float(state.state), None
+        return None, None
 
     def room_warm(self, win: Window) -> bool | None:
         """Is the room too warm? None without a room entity or value."""
@@ -1055,7 +1040,7 @@ class ShutterEngine(DataUpdateCoordinator[None]):
         )
 
     def cooling(self, win: Window) -> bool:
-        """The air conditioner of the window cools."""
+        """The air conditioner of the room cools."""
         state = self._state(win.conf.get(CONF_COOLING_ENTITY))
         if state is None:
             return False
@@ -1147,7 +1132,7 @@ class ShutterEngine(DataUpdateCoordinator[None]):
             "night_threshold": self._night_threshold,
             "heat_need": self.heat_ok(win),
             "vacation_heat_protection": self.vacation_heat_protection,
-            "room_entity": win.conf.get(CONF_ROOM_ENTITY) or win.room_sensor,
+            "room_entity": win.room_sensor,
             "room_temperature": room,
             "room_setpoint": setpoint,
             "room_limit": (

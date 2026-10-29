@@ -185,3 +185,22 @@ def test_heating_settings_cards_have_labels(language: str) -> None:
     assert all(name.strip() for name in labels["limits"].values())
     for key in ("min", "max", "step"):
         assert labels["limit_columns"][key].strip(), (language, key)
+
+
+@pytest.mark.parametrize("language", ("de", "en"))
+def test_stale_sensor_setting_has_name_and_help(language: str) -> None:
+    translation = _load(f"translations/{language}.json")
+    step = translation["options"]["step"]["heating_rules"]
+    assert step["data"]["sensor_stale_hours"].strip()
+    assert step["data_description"]["sensor_stale_hours"].strip()
+    label = _builder().heating_labels(translation)["fields"]["sensor_stale_hours"]
+    assert label[0].strip() and label[1].strip()
+
+
+@pytest.mark.parametrize("language", ("de", "en"))
+def test_stale_issue_describes_room_sensor_and_hours(language: str) -> None:
+    issue = _load(f"translations/{language}.json")["issues"]["sensor_stale"]
+    placeholders = {"area": "Room A", "entity_id": "sensor.room_a", "hours": "12"}
+    assert "Room A" in issue["title"].format(**placeholders)
+    description = issue["description"].format(**placeholders)
+    assert "sensor.room_a" in description and "12" in description

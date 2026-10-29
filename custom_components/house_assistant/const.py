@@ -35,6 +35,7 @@ CONF_OUTDOOR_TEMP: Final = "outdoor_temperature"
 CONF_OUTDOOR_HUMIDITY: Final = "outdoor_humidity"
 CONF_WEATHER: Final = "weather"
 CONF_WIND_ENTITY: Final = "wind_entity"
+CONF_RAIN_ENTITY: Final = "rain_entity"
 CONF_LANGUAGE: Final = "language"
 CONF_NOTIFY: Final = "notify_services"
 CONF_WORKDAY: Final = "workday_entity"
@@ -54,6 +55,7 @@ SHARED_KEYS: Final = (
     CONF_OUTDOOR_HUMIDITY,
     CONF_WEATHER,
     CONF_WIND_ENTITY,
+    CONF_RAIN_ENTITY,
     CONF_LANGUAGE,
     CONF_NOTIFY,
     CONF_WORKDAY,

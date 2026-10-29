@@ -68,6 +68,7 @@ async def test_config(hass: HomeAssistant, base_states, hass_ws_client) -> None:
     for key in ("morning_trigger_entity", "morning_lux_threshold", "lux_threshold"):
         assert key in fields
     assert "language" not in fields
+    assert not {"room_entity", "cooling_entity", "rain_entity"} & set(fields)
     assert fields["override_trigger"]["select"]["options"] == ["movement", "command"]
     assert cfg["options"]["override_trigger"] == "movement"
 
@@ -88,6 +89,14 @@ async def test_save_options(hass: HomeAssistant, base_states, hass_ws_client) ->
     assert entry.options["shutter"]["evening_earliest"] == "17:30:00"
     assert "weather" not in entry.options["shutter"]
     assert entry.options["core"]["outdoor_temperature"] == OUTDOOR
+
+    msg = await _send(
+        client,
+        type="house_assistant/shutter/save_options",
+        options={"rain_entity": "binary_sensor.rain"},
+    )
+    assert not msg["success"]
+    assert "rain_entity" not in entry.options["shutter"]
 
     # same checks as the dialogs
     msg = await _send(
@@ -167,34 +176,20 @@ async def test_save_heat_need_entities(hass: HomeAssistant, base_states, hass_ws
     assert entry.options["shutter"]["heating_entity"] == "binary_sensor.heating_day"
     assert entry.options["shutter"]["night_threshold"] == 15
 
-    msg = await _send(
-        client,
-        type="house_assistant/shutter/save_subentry",
-        subentry_type=SUBENTRY_WINDOW,
-        subentry_id=WINDOW_ID,
-        data={"room_entity": "climate.living_room", "cooling_entity": "climate.living_room_ac"},
-    )
-    assert msg["success"], msg
-    assert "errors" not in msg["result"]
-    data = entry.subentries[WINDOW_ID].data
-    assert data["room_entity"] == "climate.living_room"
-    assert data["cooling_entity"] == "climate.living_room_ac"
-    assert data["cover"] == COVER
-
-    # cleared again
-    msg = await _send(
+    for key in ("room_entity", "cooling_entity"):
+        msg = await _send(
+            client,
+            type="house_assistant/shutter/save_subentry",
+            subentry_type=SUBENTRY_WINDOW,
+            subentry_id=WINDOW_ID,
+            data={key: "climate.living_room"},
+        )
+        assert msg["success"], msg
+        assert key not in entry.subentries[WINDOW_ID].data
+    await _send(
         client, type="house_assistant/shutter/save_options", options={"heating_entity": None}
     )
     assert "heating_entity" not in entry.options["shutter"]
-    msg = await _send(
-        client,
-        type="house_assistant/shutter/save_subentry",
-        subentry_type=SUBENTRY_WINDOW,
-        subentry_id=WINDOW_ID,
-        data={"cooling_entity": None},
-    )
-    assert "cooling_entity" not in entry.subentries[WINDOW_ID].data
-    assert entry.subentries[WINDOW_ID].data["room_entity"] == "climate.living_room"
 
 
 async def test_save_group(hass: HomeAssistant, base_states, hass_ws_client) -> None:

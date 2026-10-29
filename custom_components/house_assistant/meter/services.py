@@ -54,6 +54,7 @@ def meters_for(hass: HomeAssistant, entity_ids: list[str]) -> list[Meter]:
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
     async def read(call: ServiceCall) -> None:
+        await require_admin(hass, call)
         for meter in meters_for(hass, call.data[ATTR_ENTITY_ID]):
             meter.manager.start_reading(meter)
 
