@@ -37,8 +37,10 @@ from ..core.links import (
     rooms_on_at_setup,
 )
 from ..core.notify import async_notify
-from ..core.store import module_store
+from ..core.store import StoreRecovery, module_store
+from ..core.store_validation import boolean, number, optional, text, validate
 from .const import (
+    AI_TIMEOUT,
     CHECK_EVERY_MINUTES,
     CONF_AI_TASK,
     CONF_BRIGHTNESS,
@@ -107,6 +109,7 @@ from .logic.image import needs_processing, process, thumbnail
 from .logic.leak import CASE_AMOUNT, leak_cases
 from .logic.prompt import context_notes, effective_instructions
 from .logic.units import TYPE_HEAT, amount_unit, rate_unit
+from .validation import reading_value
 
 if TYPE_CHECKING:
     from . import MeterModule
@@ -164,26 +167,81 @@ class MeterState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> MeterState:
-        data = data or {}
+        data = data if isinstance(data, dict) else {}
+        values = {}
+        for key, spec in meter_state_schema().items():
+            if key not in data:
+                continue
+            try:
+                validate(data[key], spec)
+            except (ValueError, TypeError, OverflowError):
+                continue
+            values[key] = data[key]
+        if isinstance(data.get("history"), list):
+            history = []
+            for item in data["history"]:
+                try:
+                    validate(item, (_stored_datetime, number))
+                except (ValueError, TypeError):
+                    continue
+                history.append(item)
+            values["history"] = history[-HISTORY_KEEP:]
+        if isinstance(data.get("readings"), list) and all(
+            isinstance(v, str) for v in data["readings"]
+        ):
+            values["readings"] = data["readings"][-15:]
+        for key in ("value_time", "last_check"):
+            if values.get(key):
+                values[key] = dt_util.parse_datetime(values[key])
+        return cls(**values)
 
-        def when(key: str) -> datetime | None:
-            return dt_util.parse_datetime(data[key]) if data.get(key) else None
 
-        return cls(
-            value=data.get("value"),
-            value_time=when("value_time"),
-            rate=data.get("rate"),
-            status=data.get("status"),
-            last_check=when("last_check"),
-            readings=data.get("readings"),
-            automatic=data.get("automatic", True),
-            read_value=data.get("read_value"),
-            failures=int(data.get("failures") or 0),
-            streak_status=data.get("streak_status"),
-            streak=int(data.get("streak") or 0),
-            history=list(data.get("history") or []),
-            vacation=data.get("vacation"),
-        )
+def _stored_datetime(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    parsed = dt_util.parse_datetime(value)
+    return parsed is not None and parsed.tzinfo is not None
+
+
+def meter_state_schema() -> dict[str, Any]:
+    return {
+        "value": optional(number),
+        "rate": optional(number),
+        "read_value": optional(number),
+        "value_time": optional(_stored_datetime),
+        "last_check": optional(_stored_datetime),
+        "status": optional(text),
+        "streak_status": optional(text),
+        "automatic": boolean,
+        "failures": lambda v: type(v) is int,
+        "streak": lambda v: type(v) is int,
+        "readings": optional(lambda v: _readings_valid(v)),
+        "history": lambda v: _history_valid(v),
+        "vacation": optional(_vacation_valid),
+    }
+
+
+def _readings_valid(value: Any) -> bool:
+    validate(value, [text])
+    return len(value) <= 15
+
+
+def _history_valid(value: Any) -> bool:
+    validate(value, [(_stored_datetime, number)])
+    return len(value) <= HISTORY_KEEP
+
+
+def _vacation_valid(value: Any) -> bool:
+    validate(
+        value,
+        {
+            "since": _stored_datetime,
+            "time": optional(_stored_datetime),
+            "value": optional(number),
+            "alerts": [text],
+        },
+    )
+    return all(key in value for key in ("since", "time", "value", "alerts"))
 
 
 class Meter:
@@ -619,19 +677,20 @@ class Meter:
         de = self.manager.language.startswith("de")
         task_name = f"{self.title} ablesen" if de else f"Read {self.title}"
         try:
-            response = await self.hass.services.async_call(
-                "ai_task",
-                "generate_data",
-                {
-                    "task_name": task_name,
-                    "entity_id": entity_id,
-                    "instructions": instructions,
-                    "attachments": attachments,
-                },
-                blocking=True,
-                return_response=True,
-            )
-        except (HomeAssistantError, ValueError) as err:
+            async with asyncio.timeout(AI_TIMEOUT):
+                response = await self.hass.services.async_call(
+                    "ai_task",
+                    "generate_data",
+                    {
+                        "task_name": task_name,
+                        "entity_id": entity_id,
+                        "instructions": instructions,
+                        "attachments": attachments,
+                    },
+                    blocking=True,
+                    return_response=True,
+                )
+        except (HomeAssistantError, ValueError, TimeoutError) as err:
             LOGGER.warning("%s: AI task failed: %s", self.title, err)
             return rd.ERROR
         answer = response.get("data") if isinstance(response, dict) else None
@@ -793,6 +852,7 @@ class Meter:
 
     def set_reading(self, value: float) -> None:
         """Set the meter reading by hand (e.g. after a wrong reading)."""
+        value = reading_value(value)
         now = dt_util.utcnow()
         self.state.value = round(float(value), 6)
         self.state.value_time = now
@@ -865,12 +925,21 @@ class MeterManager:
     @property
     def language(self) -> str:
         """Language of the house for messages and AI hints, else the one of Home Assistant."""
-        return str(self.options.get(CONF_LANGUAGE) or self.hass.config.language or "en")
+        language = self.options.get(CONF_LANGUAGE)
+        if language in (None, "", "auto"):
+            language = self.hass.config.language
+        return str(language or "en")
 
     async def async_setup(self) -> None:
-        stored = await self._store.async_load() or {}
+        recovery = StoreRecovery(self.hass, self.entry, MODULE_METER)
+        stored = await recovery.load(self._store)
+        meters = recovery.mapping("meters", stored.get("meters", {}))
         for meter in self.meters.values():
-            meter.state = MeterState.from_dict(stored.get("meters", {}).get(meter.id))
+            raw = meters.get(meter.id, {})
+            recovery.record(meter.id, raw, meter_state_schema())
+            meter.state = MeterState.from_dict(raw)
+        await recovery.finish()
+        for meter in self.meters.values():
             await self.hass.async_add_executor_job(meter.load_image)
         self._unsub = async_track_time_interval(
             self.hass, self._async_tick, timedelta(minutes=CHECK_EVERY_MINUTES)

@@ -6,6 +6,8 @@ from dataclasses import asdict, dataclass, field, fields
 from enum import StrEnum
 from typing import Any
 
+from ...core.store_validation import checked, checked_fields, dataclass_schema
+
 FROST_HYSTERESIS = 0.5  # K above the frost limit before frost protection ends
 RECOVERED_MARGIN = 0.1  # K below the temperature before airing counts as recovered
 FORCE_ON_BELOW = 1.0  # K below target: heat regardless of predictions
@@ -56,6 +58,7 @@ class ControlParams:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None, **defaults: float) -> ControlParams:
+        data = checked_fields(data, dataclass_schema(cls))
         params = cls(**defaults)
         if data:
             for f in fields(cls):
@@ -126,6 +129,7 @@ class AreaRuntime:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> AreaRuntime:
+        data = checked(data, dataclass_schema(cls))
         runtime = cls()
         if data:
             for f in fields(cls):

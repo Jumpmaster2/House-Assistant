@@ -30,12 +30,11 @@ CONF_MODULES: Final = "modules"
 # Show the panel in the sidebar (it stays reachable from the integration page).
 CONF_SHOW_PANEL: Final = "show_panel"
 
-# Settings of the house the modules share, kept in the core section. A value set there
-# applies to every module; without one the value of a module applies (the former
-# integrations had them each, possibly different).
+# Shared settings belong exclusively to the house (core section).
 CONF_OUTDOOR_TEMP: Final = "outdoor_temperature"
 CONF_OUTDOOR_HUMIDITY: Final = "outdoor_humidity"
 CONF_WEATHER: Final = "weather"
+CONF_WIND_ENTITY: Final = "wind_entity"
 CONF_LANGUAGE: Final = "language"
 CONF_NOTIFY: Final = "notify_services"
 CONF_WORKDAY: Final = "workday_entity"
@@ -54,6 +53,7 @@ SHARED_KEYS: Final = (
     CONF_OUTDOOR_TEMP,
     CONF_OUTDOOR_HUMIDITY,
     CONF_WEATHER,
+    CONF_WIND_ENTITY,
     CONF_LANGUAGE,
     CONF_NOTIFY,
     CONF_WORKDAY,

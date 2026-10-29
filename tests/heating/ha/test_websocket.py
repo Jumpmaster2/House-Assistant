@@ -11,6 +11,19 @@ from custom_components.house_assistant.heating.const import DOMAIN
 
 from .conftest import AREA_DATA, heating, heating_options, make_entry, with_heating_options
 
+BASIC_FIELDS = {
+    "name",
+    "area",
+    "floor_area",
+    "temperature_sensor",
+    "humidity_sensor",
+    "cooling_entity",
+}
+
+
+def heating_data(data):
+    return {k: v for k, v in data.items() if k not in BASIC_FIELDS}
+
 
 async def _setup(hass: HomeAssistant, **kwargs):
     entry = make_entry(**kwargs)
@@ -52,7 +65,7 @@ async def test_config_payload(hass: HomeAssistant, base_states, hass_ws_client) 
     assert "vacation_entities" not in cfg["option_specs"]
     assert "return_entity" not in cfg["option_specs"]
     assert cfg["option_specs"]["vacation_temperature"]["selector"] == "number"
-    assert cfg["area_specs"]["temperature_sensor"]["domain"] == ["sensor"]
+    assert "temperature_sensor" not in cfg["area_specs"]
     # brief airing: next to the window delay, with the standard values
     short = cfg["area_specs"]["short_airing_min"]
     assert (short["selector"], short["min"], short["max"], short["step"]) == ("number", 0, 60, 0.5)
@@ -75,19 +88,19 @@ async def test_save_options(hass: HomeAssistant, base_states, hass_ws_client) ->
     msg = await _send(
         client,
         type=f"{DOMAIN}/heating/save_options",
-        options={"frost_temperature": "8.5", "preheat_reserve": 45.0, "weather": "weather.home"},
+        options={"frost_temperature": "8.5", "preheat_reserve": 45.0},
     )
     assert msg["success"], msg
     assert heating_options(entry)["frost_temperature"] == 8.5
     assert heating_options(entry)["preheat_reserve"] == 45
     assert isinstance(heating_options(entry)["preheat_reserve"], int)
-    assert heating_options(entry)["weather"] == "weather.home"
+    assert "weather" not in heating_options(entry)
 
     # a cleared optional entity is removed, a cleared value falls back to the default
     msg = await _send(
         client,
         type=f"{DOMAIN}/heating/save_options",
-        options={"weather": "", "outdoor_humidity": None, "frost_temperature": None},
+        options={"frost_temperature": None},
     )
     assert msg["success"], msg
     assert "weather" not in heating_options(entry)
@@ -96,9 +109,9 @@ async def test_save_options(hass: HomeAssistant, base_states, hass_ws_client) ->
 
     for options, error in (
         # no weather entity either (removed above): one of both is needed
-        ({"outdoor_temperature": ""}, "outdoor_required:outdoor_temperature"),
+        ({"outdoor_temperature": ""}, "house_settings_only:outdoor_temperature"),
         ({"frost_temperature": 99}, "invalid_value:frost_temperature"),
-        ({"weather": "sensor.not_weather"}, "invalid_value:weather"),
+        ({"weather": "sensor.not_weather"}, "house_settings_only:weather"),
         ({"season_start": "31.02."}, "invalid_day_month:season_start"),
         ({"check_interval": 10, "check_max_interval": 5}, "max_below_base:check_max_interval"),
         (
@@ -181,96 +194,51 @@ async def test_areas(hass: HomeAssistant, base_states, hass_ws_client) -> None:
     entry = await _setup(hass, areas=[AREA_DATA])
     client = await hass_ws_client(hass)
 
-    msg = await _send(
-        client,
-        type=f"{DOMAIN}/heating/save_area",
-        title=" Bath ",
-        data={
-            "temperature_sensor": "sensor.storage_temperature",
-            "humidity_sensor": "sensor.storage_humidity",
-            "window_sensors": [],
-            "heater_switch": "",
-            "ventilation_rh_threshold": "65",
-            "old_key": 1,
-        },
-    )
-    assert msg["success"], msg
-    sub_id = msg["result"]["subentry_id"]
+    msg = await _send(client, type=f"{DOMAIN}/heating/save_area", title="Bath", data={})
+    assert msg["error"]["message"] == "create_rooms_in_house"
+    sub_id = next(iter(entry.subentries))
     sub = entry.subentries[sub_id]
-    assert sub.title == "Bath"
-    assert sub.data["name"] == "Bath"
-    assert sub.data["ventilation_rh_threshold"] == 65.0
-    assert sub.data["dead_time"] == 30
-    assert "heater_switch" not in sub.data
-    assert "old_key" not in sub.data
-
+    basics = {k: v for k, v in sub.data.items() if k in BASIC_FIELDS}
+    for field in BASIC_FIELDS:
+        msg = await _send(
+            client,
+            type=f"{DOMAIN}/heating/save_area",
+            subentry_id=sub_id,
+            title=sub.title,
+            data={field: None},
+        )
+        assert msg["error"]["message"] == "room_basics_house_only"
+        assert entry.subentries[sub_id].data == sub.data
+    msg = await _send(
+        client, type=f"{DOMAIN}/heating/save_area", subentry_id=sub_id, title="Renamed", data={}
+    )
+    assert msg["error"]["message"] == "room_basics_house_only"
+    for data, error in [
+        ({"min_target": 22, "max_target": 20}, "min_above_max"),
+        ({"reference_temperature": "sensor.y"}, "reference_incomplete"),
+    ]:
+        msg = await _send(
+            client,
+            type=f"{DOMAIN}/heating/save_area",
+            subentry_id=sub_id,
+            title=sub.title,
+            data=data,
+        )
+        assert msg["error"]["message"] == error
     msg = await _send(
         client,
         type=f"{DOMAIN}/heating/save_area",
         subentry_id=sub_id,
-        title="Bathroom",
-        data={**sub.data, "default_target": 22.5},
-    )
-    assert msg["success"], msg
-    assert entry.subentries[sub_id].title == "Bathroom"
-    assert entry.subentries[sub_id].data["default_target"] == 22.5
-    # combinations of windows in other rooms; those of version 1.1.0 are taken over
-    data = dict(entry.subentries[sub_id].data)
-    assert data["draft_group_1"] == []
-    for key in ("draft_group_1", "draft_group_2", "draft_group_3", "draft_group_4"):
-        data.pop(key)
-    hass.config_entries.async_update_subentry(
-        entry,
-        entry.subentries[sub_id],
-        data={**data, "draft_window_sensors": ["binary_sensor.a", "binary_sensor.b"]},
-    )
-    msg = await _send(client, type=f"{DOMAIN}/heating/config")
-    shown = next(a for a in msg["result"]["areas"] if a["id"] == sub_id)["data"]
-    assert shown["draft_group_1"] == ["binary_sensor.a", "binary_sensor.b"]
-    assert "draft_window_sensors" not in shown
-    msg = await _send(
-        client,
-        type=f"{DOMAIN}/heating/save_area",
-        subentry_id=sub_id,
-        title="Bathroom",
-        data={**shown, "draft_group_2": ["binary_sensor.living_room_window"]},
+        title=sub.title,
+        data={"default_target": 22.5, "draft_group_2": ["binary_sensor.living_room_window"]},
     )
     assert msg["success"], msg
     saved = entry.subentries[sub_id].data
-    assert saved["draft_group_1"] == ["binary_sensor.a", "binary_sensor.b"]
+    assert saved["default_target"] == 22.5
     assert saved["draft_group_2"] == ["binary_sensor.living_room_window"]
-    assert "draft_window_sensors" not in saved
-
-    for title, data, error in (
-        ("", {"temperature_sensor": "sensor.x"}, "name_required"),
-        # a room without sensor serves the covers only: no circuit, no humidity
-        ("X", {"heater_switch": "switch.x"}, "temperature_required"),
-        ("X", {"humidity_sensor": "sensor.h"}, "temperature_required"),
-        (
-            "X",
-            {"temperature_sensor": "sensor.x", "min_target": 22, "max_target": 20},
-            "min_above_max",
-        ),
-        (
-            "X",
-            {"temperature_sensor": "sensor.x", "reference_temperature": "sensor.y"},
-            "reference_incomplete",
-        ),
-        ("X", {"temperature_sensor": "binary_sensor.x"}, "invalid_value:temperature_sensor"),
-        (" living ROOM", {"temperature_sensor": "sensor.x"}, "name_in_use"),
-        (
-            "X",
-            {"temperature_sensor": "sensor.x", "heater_switch": "input_boolean.heating_circuit_1"},
-            "switch_in_use",
-        ),
-    ):
-        msg = await _send(client, type=f"{DOMAIN}/heating/save_area", title=title, data=data)
-        assert not msg["success"], data
-        assert msg["error"]["message"] == error
-
+    assert {k: v for k, v in saved.items() if k in BASIC_FIELDS} == basics
     msg = await _send(client, type=f"{DOMAIN}/heating/delete_area", subentry_id=sub_id)
     assert msg["success"]
-    assert sub_id not in entry.subentries
     msg = await _send(client, type=f"{DOMAIN}/heating/delete_area", subentry_id=sub_id)
     assert not msg["success"]
 
@@ -283,12 +251,12 @@ async def test_area_change_reloads(hass: HomeAssistant, base_states, hass_ws_cli
         client,
         type=f"{DOMAIN}/heating/save_area",
         subentry_id=sub_id,
-        title="Lounge",
-        data={**entry.subentries[sub_id].data, "dead_time": 45},
+        title="Living room",
+        data={**heating_data(entry.subentries[sub_id].data), "dead_time": 45},
     )
     assert msg["success"], msg
     await hass.async_block_till_done(wait_background_tasks=True)
-    assert heating(entry).areas[sub_id].name == "Lounge"
+    assert heating(entry).areas[sub_id].name == "Living room"
     msg = await _send(client, type=f"{DOMAIN}/heating/config")
     assert msg["result"]["areas"][0]["entities"]["climate"].startswith("climate.")
 
@@ -312,7 +280,7 @@ async def test_airing_values_change_an_existing_room(
         subentry_id=sub_id,
         title="Living room",
         data={
-            **entry.subentries[sub_id].data,
+            **heating_data(entry.subentries[sub_id].data),
             "short_airing_min": 3.0,
             "short_recovery_percent": 20,
             "window_delay": 7,  # a start value: kept as it was
@@ -332,7 +300,7 @@ async def test_airing_values_change_an_existing_room(
         type=f"{DOMAIN}/heating/save_area",
         subentry_id=sub_id,
         title="Living room",
-        data={**entry.subentries[sub_id].data, "short_recovery_percent": 150},
+        data={**heating_data(entry.subentries[sub_id].data), "short_recovery_percent": 150},
     )
     assert msg["error"]["message"] == "invalid_value:short_recovery_percent"
 
@@ -378,7 +346,7 @@ async def test_learned_values(hass: HomeAssistant, base_states, hass_ws_client) 
         type=f"{DOMAIN}/heating/save_area",
         subentry_id=sub_id,
         title="Living room",
-        data={**entry.subentries[sub_id].data, "dead_time": 60, "puffer": 1.5},
+        data={**heating_data(entry.subentries[sub_id].data), "dead_time": 60, "puffer": 1.5},
         learned={"dead_time": 50, "puffer": 0.4, "window_delay": 5, "recovery_time": 30},
     )
     assert msg["success"], msg
@@ -395,7 +363,7 @@ async def test_learned_values(hass: HomeAssistant, base_states, hass_ws_client) 
         type=f"{DOMAIN}/heating/save_area",
         subentry_id=sub_id,
         title="Living room",
-        data=dict(entry.subentries[sub_id].data),
+        data=heating_data(entry.subentries[sub_id].data),
         learned={"dead_time": 1},
     )
     assert msg["error"]["message"] == "invalid_value:dead_time"
@@ -405,7 +373,7 @@ async def test_learned_values(hass: HomeAssistant, base_states, hass_ws_client) 
         type=f"{DOMAIN}/heating/save_area",
         subentry_id=sub_id,
         title="Living room",
-        data=dict(entry.subentries[sub_id].data),
+        data=heating_data(entry.subentries[sub_id].data),
         learned={"heat_rate": 1},
     )
     assert msg["error"]["message"] == "unknown_option:heat_rate"
@@ -484,3 +452,31 @@ async def test_save_prompt_blocks(hass: HomeAssistant, base_states, hass_ws_clie
         msg = await _send(client, type=f"{DOMAIN}/heating/save_options", options=options)
         assert not msg["success"], options
         assert msg["error"]["message"] == error
+
+
+async def test_panel_preserves_unchanged_legacy_limits(
+    hass: HomeAssistant, base_states, hass_ws_client
+):
+    from custom_components.house_assistant.heating.logic.ai_schema import default_limits
+
+    limits = default_limits()
+    limits["window_delay_min"] = {"min": 1, "max": 30, "step": 2}
+    limits["recovery_bias_min"] = {"min": -30, "max": 90, "step": 10}
+    entry = await _setup(hass, limits=limits)
+    client = await hass_ws_client(hass)
+    msg = await _send(client, type=f"{DOMAIN}/heating/config")
+    assert msg["result"]["options"]["limits"] == limits
+    msg = await _send(
+        client,
+        type=f"{DOMAIN}/heating/save_options",
+        options={"limits": {"window_delay_min": {"max": 31}}},
+    )
+    assert not msg["success"]
+    assert msg["error"]["message"] == "invalid_value:window_delay_min"
+    assert heating_options(entry)["limits"] == limits
+    changed = {**limits, "hysteresis_on": {"min": 0, "max": 0.6, "step": 0}}
+    msg = await _send(client, type=f"{DOMAIN}/heating/save_options", options={"limits": changed})
+    assert msg["success"], msg
+    assert msg["result"]["options"]["limits"] == changed
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert heating_options(entry)["limits"] == changed

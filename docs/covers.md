@@ -44,7 +44,7 @@ Das Modul arbeitet ereignisgesteuert: Es reagiert nur auf Zustandswechsel der ei
 
 * **Pro Fenster einschalten:** Der Wetterschutz wirkt nur auf Fenster, bei denen **Wetterschutz für dieses Fenster** eingeschaltet ist (Standard aus). Ohne den Schalter fahren oder begrenzen Wind, Regen und Frost das Rollo nie, auch wenn Positionen eingetragen sind (sie bleiben erhalten).
 * **Automatik aus = kein Wetterschutz:** Ist die Automatik aus (global oder für das Fenster), fährt auch der Wetterschutz nicht; ein laufender Schutz endet für diese Fenster ohne Fahrt. Wird die Automatik wieder eingeschaltet, während der Schutz noch läuft, fahren die Rollos auf ihre Schutzposition.
-* **Wind und Regen:** global ein Windsensor mit Schwelle (in der Einheit des Sensors) und ein Regensensor (an/aus oder eine Menge über einer Schwelle). Pro Fenster eine **Position bei Wind** und **bei Regen**, leer = nicht betroffen (z. B. Raffstores bei Wind auf 100 %, ein Dachfenster bei Regen auf 0 %). Eine **eigene Windschwelle** am Fenster ersetzt für dieses Fenster die globale Schwelle (z. B. ein Balkonrollo schon ab 50 km/h, die übrigen erst ab 75 km/h); sie hat eine eigene Freigabezeit, und der Binärsensor Windschutz ist an, solange irgendein Fenster geschützt wird (Attribut `windows`). Der Schutz beginnt sofort und fährt die betroffenen Rollos einmal auf ihre Position, **auch bei Übersteuerung** (nicht im Neustart-Schutz, danach nachgeholt). Wer ein Rollo während des Schutzes von Hand verfährt, behält diese Position: Ein Neustart des Moduls fährt bereits geschützte Rollos nicht erneut. Ein Rollo, das schon **weiter zu** ist als seine Schutzposition, gilt als geschützt und wird nicht hochgefahren (Option **Weiter geschlossen gilt als geschützt**, Standard an; nicht bei 100 %, Raffstores einfahren läuft immer). Wind geht vor Regen. Ein offenes Fenster verhindert nur Schließfahrten; sie werden nachgeholt, sobald es zu ist.
+* **Wind und Regen:** der Windschutz nutzt den Sensor des Hauses mit der Schwelle des Rollo-Moduls (in der Einheit des Sensors), der Regenschutz einen Regensensor (an/aus oder eine Menge über einer Schwelle). Pro Fenster eine **Position bei Wind** und **bei Regen**, leer = nicht betroffen (z. B. Raffstores bei Wind auf 100 %, ein Dachfenster bei Regen auf 0 %). Eine **eigene Windschwelle** am Fenster ersetzt für dieses Fenster die globale Schwelle (z. B. ein Balkonrollo schon ab 50 km/h, die übrigen erst ab 75 km/h); sie hat eine eigene Freigabezeit, und der Binärsensor Windschutz ist an, solange irgendein Fenster geschützt wird (Attribut `windows`). Der Schutz beginnt sofort und fährt die betroffenen Rollos einmal auf ihre Position, **auch bei Übersteuerung** (nicht im Neustart-Schutz, danach nachgeholt). Wer ein Rollo während des Schutzes von Hand verfährt, behält diese Position: Ein Neustart des Moduls fährt bereits geschützte Rollos nicht erneut. Ein Rollo, das schon **weiter zu** ist als seine Schutzposition, gilt als geschützt und wird nicht hochgefahren (Option **Weiter geschlossen gilt als geschützt**, Standard an; nicht bei 100 %, Raffstores einfahren läuft immer). Wind geht vor Regen. Ein offenes Fenster verhindert nur Schließfahrten; sie werden nachgeholt, sobald es zu ist.
 * **Solange der Schutz läuft,** ruhen alle anderen Regeln für das Fenster (Status „Wetterschutz“). Er endet erst, wenn der Wert die **Freigabezeit** (Standard 15 min) lang wieder im sicheren Bereich war. Ein nicht verfügbarer Sensor beendet nie einen Schutz. Danach entscheidet die Automatik neu (Sonnenschutz, Abendlauf); die alte Position wird nicht wiederhergestellt.
 * **Frost:** Fenster mit einer **tiefsten Position bei Frost** (z. B. 5 %) schließen bei einer Außentemperatur bis zur Frostschwelle (Standard 1 °C) nur bis dorthin, damit das Rollo nicht anfriert. Das gilt für alle automatischen Fahrten und Dienste, nicht für den Wind- und Regenschutz.
 * **Anzeige:** Solange Wind- oder Regenschutz läuft, zeigen die Übersicht im Panel und die Karte den aktuellen Wert des auslösenden Sensors (z. B. „Windschutz 62 km/h“). Die Binärsensoren Wind- und Regenschutz nennen den Sensor im Attribut `sensor`.
@@ -97,7 +97,7 @@ Die Werte werden genauso geprüft wie in den Dialogen (gleiche Bereiche, Einheit
 
 ## Einstellungen
 
-Außentemperatur, Wetter, Sprache der Meldungen, Benachrichtigungsdienste, Werktag-Sensor und Wochenendtage stehen in den **Einstellungen des Hauses** (siehe [README](../README.md#einstellungen-des-hauses)); die gleichnamigen Felder der Rollos gelten nur, solange dort nichts eingetragen ist.
+Außentemperatur, Wetter, Sprache der Meldungen, Benachrichtigungsdienste, Werktag-Sensor und Wochenendtage stehen in den **Einstellungen des Hauses** (siehe [README](../README.md#einstellungen-des-hauses)). Es gibt keine eigenen gemeinsamen Einstellungen im Rollo-Modul.
 
 | Option (*Einstellungen > Rollos*) | Standard | Bedeutung |
 |---|---|---|
@@ -113,9 +113,9 @@ Außentemperatur, Wetter, Sprache der Meldungen, Benachrichtigungsdienste, Werkt
 | Urlaub morgens ab, Zufallszeitraum | 07:00, 60 min | |
 | Öffnungsposition von, bis | 60 %, 100 % | |
 | Urlaub abends ab, Zufallszeitraum | 19:00, 90 min | |
-| Hitzeschutz im Urlaub | an | Sonnenschutz ohne Raum, Klimaanlage und Heizbedarf |
+| Hitzeschutz im Urlaub (Haus > Urlaub) | an | Sonnenschutz ohne Raum, Klimaanlage und Heizbedarf |
 | Übersteuerung beginnt | nur bei echter Fahrt | oder bei jedem Befehl von Hand, auch ohne Fahrt |
-| Windsensor, Windschutz ab | , 50 | Einheit des Sensors (z. B. km/h) |
+| Windschutz ab | 50 | Einheit des Sensors (z. B. km/h) |
 | Regensensor, Regenschutz über | , 0 | an/aus oder eine Menge (z. B. mm/h) |
 | Frost ab (höchstens) | 1 °C | Außentemperatur, nur für Fenster mit Frostposition |
 | Freigabe nach | 15 min | Wetterschutz endet erst nach dieser Zeit im sicheren Bereich |

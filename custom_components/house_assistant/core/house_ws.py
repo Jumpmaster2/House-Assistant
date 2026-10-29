@@ -20,7 +20,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.selector import Selector
+from homeassistant.helpers.selector import AreaSelector, Selector, TextSelector
 from homeassistant.util import dt as dt_util
 
 from ..const import (
@@ -28,16 +28,14 @@ from ..const import (
     CONF_SHOW_PANEL,
     CONF_VACATION_WINDOW_ALERT,
     DOMAIN,
-    MODULE_HEATING,
     MODULE_ORDER,
-    MODULE_SHUTTER,
     OPT_CORE,
     SHARED_KEYS,
     SUBENTRY_GROUP,
     SUBENTRY_ROOM,
     SUBENTRY_WINDOW,
 )
-from ..heating.config_flow import area_schema, other_areas, validate_area
+from ..heating.config_flow import other_areas, validate_area
 from ..runtime import enabled_modules, module_options
 from ..shutter.config_flow import window_basics_fields
 from ..shutter.websocket import WINDOW_WALL_FIELDS
@@ -56,11 +54,12 @@ from .house import (
     windows,
 )
 from .logic.geometry import Plan
-from .schema import PanelError, coerce, spec
+from .schema import PanelError, coerce, entity, number, spec
 from .settings import (
     HOUSE_FORM,
     VACATION_FORM,
     VACATION_OPTIONS,
+    _sensor,
     house_schema,
     vacation_schema,
     validate_house,
@@ -83,7 +82,14 @@ def _flat(schema: vol.Schema) -> dict[Any, Any]:
 
 def room_fields() -> dict[Any, Any]:
     """Name, area, sensors and air conditioner of a room (the heating has the rest)."""
-    return _flat(area_schema({}, heating=False, covers=True))
+    return {
+        vol.Required(CONF_NAME): TextSelector(),
+        vol.Optional("area"): AreaSelector(),
+        vol.Optional("floor_area"): number(1, 200, 0.5, "m²"),
+        vol.Optional("temperature_sensor"): _sensor("temperature", ["°C", "°F", "K"]),
+        vol.Optional("humidity_sensor"): _sensor("humidity", ["%"]),
+        vol.Optional("cooling_entity"): entity(["climate"]),
+    }
 
 
 def window_fields(entry: ConfigEntry) -> dict[Any, Any]:
@@ -373,8 +379,7 @@ def ws_save_settings(
     except PanelError as err:
         _error(connection, msg["id"], err)
         return
-    own = [module_options(entry, key) for key in (MODULE_HEATING, MODULE_SHUTTER)]
-    for key, error in validate_house(hass, settings, modules, [v for v in own if v]).items():
+    for key, error in validate_house(hass, settings, modules).items():
         _error(connection, msg["id"], PanelError(error, key))
         return
     core = {k: v for k, v in core.items() if k not in HOUSE_FORM}

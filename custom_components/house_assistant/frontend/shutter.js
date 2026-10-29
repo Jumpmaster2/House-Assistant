@@ -6,7 +6,7 @@
 import { SHUTTER } from "./labels.js";
 import { SECTION_TABS } from "./shared/style.js";
 import { defineElement } from "./shared/define.js";
-import { HOUSE_NOTE, fromHouse, houseValues } from "./shared/house.js";
+
 
 const { CHOICES, ERRORS, LABELS, NEXT_ACTION, STATUS } = SHUTTER;
 const WS = "house_assistant/shutter";
@@ -339,11 +339,10 @@ const TABS = [
 // Global settings: cards per tab
 const SETTINGS = {
   general: [
-    { id: "sensors", icon: "mdi:thermometer", fields: ["outdoor_temperature", "weather", "language", "notify_services", "workday_entity", "weekend_days"] },
     { id: "override", icon: "mdi:hand-back-right-outline", fields: ["override_trigger"] },
     { id: "summer", icon: "mdi:white-balance-sunny", fields: ["summer_threshold", "night_threshold", "heating_entity", "use_heating_day", "day_change_time", "forecast_type"] },
     { id: "startup", icon: "mdi:restart", fields: ["startup_delay", "catch_up_after"] },
-    { id: "protection", icon: "mdi:weather-windy", fields: ["wind_entity", "wind_threshold", "rain_entity", "rain_threshold", "frost_threshold", "protection_release"] },
+    { id: "protection", icon: "mdi:weather-windy", fields: ["wind_threshold", "rain_entity", "rain_threshold", "frost_threshold", "protection_release"] },
     { id: "advanced", icon: "mdi:cog-outline", fields: ["window_closed_delay", "command_interval", "verify_after"] },
   ],
   evening: [
@@ -738,8 +737,10 @@ class HouseAssistantShutterView extends HTMLElement {
         return banner + this._windowsTab();
       case "groups":
         return banner + this._groupsTab();
-      default:
-        return banner + `<div class="grid">${(SETTINGS[this._tab] || []).map((card) => this._settingsCard(card)).join("")}</div>`;
+      default: {
+        const note = this._tab === "general" ? `<p class="desc">${esc((SHUTTER.notes[this.lang] || SHUTTER.notes.en).house_settings_note)}</p>` : "";
+        return banner + note + `<div class="grid">${(SETTINGS[this._tab] || []).map((card) => this._settingsCard(card)).join("")}</div>`;
+      }
     }
   }
 
@@ -780,7 +781,7 @@ class HouseAssistantShutterView extends HTMLElement {
   _liveIds() {
     const cfg = this._cfg;
     const eff = this._eff();
-    const ids = [...Object.values(cfg.entities || {}), "sun.sun", eff.outdoor_temperature, cfg.options.wind_entity, cfg.options.rain_entity, ...(eff.vacation_entities || [])];
+    const ids = [...Object.values(cfg.entities || {}), "sun.sun", eff.outdoor_temperature, eff.wind_entity, cfg.options.rain_entity, ...(eff.vacation_entities || [])];
     for (const win of this._windows) {
       ids.push(...Object.values(win.entities || {}), win.data.cover, ...(win.data.window_sensors || []), ...(win.data.tilt_sensors || []));
     }
@@ -1255,7 +1256,7 @@ class HouseAssistantShutterView extends HTMLElement {
   // compass of the house card (values being edited)
   _housePreview() {
     const values = {};
-    for (const key of ["house_azimuth", "house_width", "house_depth"]) values[key] = this._value("house", key);
+    Object.assign(values, this._cfg.house || {});
     const house = this._house(values);
     const layers = house ? { ...this._houseLayers(house), labels: true } : {};
     const walls = house
@@ -1348,8 +1349,8 @@ class HouseAssistantShutterView extends HTMLElement {
     const [title, desc] = ui.cards[card.id] || [card.id, ""];
     const dirty = !!this._drafts[card.id];
     const errors = this._errors[card.id] || {};
-    const own = card.fields.filter((key) => !fromHouse(this._cfg.house, key));
-    const fields = this._houseNote(card.fields) + own.map((key) => this._field(card.id, key, this._value(card.id, key), errors[key])).join("");
+    const own = card.fields;
+    const fields = own.map((key) => this._field(card.id, key, this._value(card.id, key), errors[key])).join("");
     const preview = card.preview ? `<div class="compass-wrap small" data-house-preview>${this._housePreview()}</div>` : "";
     return `<div class="card" data-card="${card.id}">
       <h2><ha-icon icon="${card.icon}"></ha-icon>${esc(title)}</h2>${desc ? `<p class="desc">${esc(desc)}</p>` : ""}
@@ -1357,16 +1358,6 @@ class HouseAssistantShutterView extends HTMLElement {
       ${own.length ? `<div class="actions"><span class="msg ${Object.keys(errors).length ? "bad" : ""}">${Object.keys(errors).length ? esc(this._errorSummary(errors, own)) : ""}</span>
         ${dirty ? `<button class="btn" data-cancel="${card.id}">${esc(ui.cancel)}</button>` : ""}
         <button class="btn primary" data-save="${card.id}" ${dirty ? "" : "disabled"}>${esc(ui.save)}</button></div>` : ""}</div>`;
-  }
-
-  // values of the card the house sets: one note instead of the fields
-  _houseNote(keys) {
-    const values = houseValues(this._cfg.house, keys, (key) => this.label(key));
-    if (!values.length) return "";
-    const [title, help] = HOUSE_NOTE[this.lang] || HOUSE_NOTE.en;
-    return `<div class="field house-note"><span class="lbl">${esc(title)}</span>
-      ${values.map(([name, value]) => `<span><span class="muted">${esc(name)}:</span> ${esc(value)}</span>`).join("")}
-      <small>${esc(help)}</small></div>`;
   }
 
   // options in effect: a setting of the house wins

@@ -422,3 +422,25 @@ async def test_no_second_picture_by_default(hass: HomeAssistant, base, ai, light
     assert "two pictures" not in ai.calls[0]["instructions"]
     assert "last readings" not in ai.calls[0]["instructions"]
     assert len(lights) == 2
+
+
+async def test_manual_invalid_values_keep_history(hass: HomeAssistant, base):
+    import pytest
+    from homeassistant.exceptions import ServiceValidationError
+
+    entry = await setup_entry(hass)
+    meter = _manual(entry)
+    meter.set_reading(12)
+    history = list(meter.state.history)
+    for value in (float("nan"), float("inf"), -float("inf"), "nan", -1):
+        with pytest.raises(ServiceValidationError):
+            await hass.services.async_call(
+                DOMAIN, "set_meter_reading", {"entity_id": READING, "value": value}, blocking=True
+            )
+        assert meter.state.value == 12
+        assert meter.state.history == history
+    for value in (0, 12.5):
+        await hass.services.async_call(
+            DOMAIN, "set_meter_reading", {"entity_id": READING, "value": value}, blocking=True
+        )
+        assert meter.state.value == value

@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from ...core.store_validation import checked, dataclass_schema
 from .physics import clamp
 
 
@@ -163,6 +164,7 @@ class DayAreaStats:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> DayAreaStats:
+        data = checked(data, dataclass_schema(cls))
         stats = cls()
         if data:
             for key in (

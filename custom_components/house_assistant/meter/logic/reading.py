@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from ...core.logic.numbers import finite_float
+
 # Result of one picture: a number as text, or one of these markers
 UNREADABLE = "unreadable"
 ERROR = "error"
@@ -56,10 +58,10 @@ def _single(text: str) -> str | None:
     """A number text or UNREADABLE for one line of the answer, None when it is neither."""
     # markdown emphasis and code marks around the result
     text = text.replace("*", "").strip().strip("`_").strip().replace(",", ".")
-    if _NUMBER.match(text):
+    if is_number(text):
         return text
     if match := _LABELLED.match(text):
-        return match.group(1)
+        return match.group(1) if is_number(match.group(1)) else None
     if text.lower().rstrip(".") in ("unlesbar", "unreadable"):
         return UNREADABLE
     return None
@@ -83,7 +85,13 @@ def normalize(answer: object) -> str:
 
 
 def is_number(value: str) -> bool:
-    return bool(_NUMBER.match(value))
+    if not _NUMBER.match(value):
+        return False
+    try:
+        finite_float(value)
+    except (ValueError, OverflowError):
+        return False
+    return True
 
 
 def consensus(readings: list[str]) -> float | None:

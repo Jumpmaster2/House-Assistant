@@ -11,7 +11,6 @@
 import { HEATING as LABELS } from "./labels.js";
 import { SECTION_TABS } from "./shared/style.js";
 import { defineElement } from "./shared/define.js";
-import { HOUSE_NOTE, fromHouse, houseValues } from "./shared/house.js";
 
 const DOMAIN = "house_assistant";
 const WS = `${DOMAIN}/heating`;
@@ -411,7 +410,7 @@ const TABS = [
 // Settings cards per tab (types and ranges come from the option specs)
 const SETTINGS = {
   general: [
-    { id: "sensors", icon: "mdi:thermometer", fields: ["outdoor_temperature", "outdoor_humidity", "weather", "pv_power", "pv_forecast", "forecast_trust", "heat_meter"] },
+    { id: "sensors", icon: "mdi:thermometer", fields: ["pv_power", "pv_forecast", "forecast_trust", "heat_meter"] },
     { id: "season", icon: "mdi:calendar-range", fields: ["season_start", "season_end", "frost_temperature"] },
     { id: "vacation", icon: "mdi:bag-suitcase-outline", fields: ["vacation_temperature", "preheat_reserve"] },
   ],
@@ -472,14 +471,12 @@ const SETTINGS = {
 // Groups of the room editor as in the dialog: [section, fields, collapsed].
 // The start values only when an area is created; an existing one shows its learned values.
 const AREA_GROUPS = [
-  ["sensors", ["temperature_sensor", "humidity_sensor"], false],
   ["heating", ["heater_switch", "default_target", "min_target", "max_target", "min_on_time", "min_off_time", "heating_type"], false],
   ["start_values", ["window_delay", "recovery_time", "dead_time", "puffer"], true],
   ["airing", ["short_airing_min", "short_recovery_percent"], true],
   ["learned_values", ["window_delay", "recovery_time", "dead_time", "puffer"], false],
   ["ventilation", ["ventilation_rh_threshold", "reference_temperature", "reference_humidity", "ventilation_block_entity"], true],
   ["draft", ["draft_group_1", "draft_group_2", "draft_group_3", "draft_group_4"], true],
-  ["sun_protection", ["cooling_entity"], true],
 ];
 
 // Learned values per area: [entity key, icon, digits if the frontend cannot format]
@@ -755,7 +752,8 @@ class HouseAssistantHeatingView extends HTMLElement {
     if (this._tab === "overview") return this._overview();
     if (this._tab === "areas") return this._areasTab();
     if (this._tab === "learned") return this._learnedTab();
-    return (SETTINGS[this._tab] || []).map((card) => this._settingsCard(card)).join("");
+    const note = this._tab === "general" ? `<p class="desc">${esc(this.labels.notes.house_settings_note)}</p>` : "";
+    return note + (SETTINGS[this._tab] || []).map((card) => this._settingsCard(card)).join("");
   }
 
   _safeDatalists() {
@@ -1092,7 +1090,7 @@ class HouseAssistantHeatingView extends HTMLElement {
       ${this._cfg.areas.length
         ? `<div class="table-wrap"><table><thead><tr><th class="c-icon"></th><th class="c-name">${esc(ui.columns.name)}</th><th class="hide-narrow">${esc(ui.columns.circuit)}</th><th class="c-temp"><span class="hide-narrow">${esc(ui.columns.temp)}</span><span class="show-narrow">${esc(ui.columns.tempShort)}</span></th><th class="c-state">${esc(ui.columns.status)}</th><th class="c-edit hide-narrow"></th></tr></thead><tbody>${rows}</tbody></table></div>`
         : `<div class="muted">${esc(ui.noItems)}</div>`}
-      <div class="actions"><button class="btn primary" data-new="area"><ha-icon icon="mdi:plus"></ha-icon>${esc(ui.add)}</button></div>
+      <p class="desc">${esc(this.labels.notes.room_basics_note)}</p>
     </div>`;
   }
 
@@ -1223,11 +1221,18 @@ class HouseAssistantHeatingView extends HTMLElement {
       if (!collapsed) return `<h3>${esc(name)}</h3>${body}`;
       return `<details data-section="${sec}" ${e.open.has(sec) ? "open" : ""}><summary>${esc(name)}</summary>${body}</details>`;
     }).join("");
+    const basics = Object.entries(this.labels.notes.room.data)
+      .map(([key, label]) => {
+        const value = key === "name" ? e.title : e.data[key];
+        if (value == null || value === "") return "";
+        return `<div><span class="muted">${esc(label)}:</span> ${esc(key === "floor_area" ? `${value} m²` : value)}</div>`;
+      }).join("");
     const running = !e.id || this._cfg.theta !== null;
     return `<div class="card" data-card="edit">
       <h2><button class="icon-btn" data-action="close-edit"><ha-icon icon="mdi:arrow-left"></ha-icon></button>
         <ha-icon icon="${e.data.heater_switch ? "mdi:home-thermometer-outline" : "mdi:weather-windy"}"></ha-icon>${esc(title)}</h2>
-      <div class="fields">${this._field("edit", "name", specs.name, e.title)}${this._field("edit", "area", specs.area, e.data.area)}</div>
+      <div class="fields">${basics}</div>
+      <p class="desc">${esc(this.labels.notes.room_basics_note)}</p>
       ${groups}
       ${running ? "" : `<p class="desc">${esc(ui.notRunning)}</p>`}
       <div class="actions"><span class="msg"></span>
@@ -1264,21 +1269,10 @@ class HouseAssistantHeatingView extends HTMLElement {
     if (card.special === "prompts") return this._promptsCard(card);
     if (card.special === "theta") return this._thetaCard(card);
     const specs = this._cfg.option_specs;
-    const own = card.fields.filter((key) => !fromHouse(this._cfg.house, key));
+    const own = card.fields;
     const fields = own.map((key) => this._field(card.id, key, specs[key], this._value(card.id, key))).join("");
-    const note = this._houseNote(card.fields);
     const actions = own.length ? this._actions(card.id) : "";
-    return `<div class="card" data-card="${card.id}">${this._head(card)}<div class="fields">${note}${fields}</div>${actions}</div>`;
-  }
-
-  // values of the card the house sets: one note instead of the fields
-  _houseNote(keys) {
-    const values = houseValues(this._cfg.house, keys, (key) => this.label(key));
-    if (!values.length) return "";
-    const [title, help] = HOUSE_NOTE[this.lang] || HOUSE_NOTE.en;
-    return `<div class="field house-note"><span class="lbl">${esc(title)}</span>
-      ${values.map(([name, value]) => `<span><span class="muted">${esc(name)}:</span> ${esc(value)}</span>`).join("")}
-      <small>${esc(help)}</small></div>`;
+    return `<div class="card" data-card="${card.id}">${this._head(card)}<div class="fields">${fields}</div>${actions}</div>`;
   }
 
   // options in effect: a setting of the house wins
@@ -1792,7 +1786,7 @@ class HouseAssistantHeatingView extends HTMLElement {
 
   async _saveArea(button) {
     const e = this._edit;
-    const msg = { type: `${WS}/save_area`, title: e.title || "", data: { ...e.data } };
+    const msg = { type: `${WS}/save_area`, title: e.title || "", data: Object.fromEntries(Object.entries(e.data).filter(([key]) => key in this._cfg.area_specs)) };
     if (e.id) {
       msg.subentry_id = e.id;
       // only the learned values changed here, the others keep learning undisturbed

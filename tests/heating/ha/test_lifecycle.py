@@ -306,3 +306,35 @@ async def test_new_api_key_restarts_only_the_heating(
     assert heating(entry) is not before and heating(entry).ai_configured
     # a restart is no switch-off: the circuit keeps heating
     assert hass.states.get(CIRCUIT).state == "on"
+
+
+async def test_startup_does_not_rewrite_usable_legacy_limits(hass: HomeAssistant, base_states):
+    from custom_components.house_assistant.const import SHARED_KEYS
+    from custom_components.house_assistant.heating.logic.ai_schema import default_limits
+
+    limits = default_limits()
+    limits["window_delay_min"] = {"min": 1, "max": 30, "step": 2}
+    limits["recovery_bias_min"] = {"min": -30, "max": 90, "step": 10}
+    entry = make_entry(limits=limits)
+    # Already migrated shared settings isolate the limits startup correction.
+    options = dict(entry.options)
+    section = dict(options["heating"])
+    options["core"] = {
+        **options["core"],
+        **{k: section.pop(k) for k in SHARED_KEYS if k in section},
+    }
+    options["heating"] = section
+    entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(entry, options=options)
+    with patch.object(
+        hass.config_entries, "async_update_entry", wraps=hass.config_entries.async_update_entry
+    ) as update:
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert heating_options(entry)["limits"] == limits
+        assert heating(entry).limits == limits
+        assert not any("options" in call.kwargs for call in update.call_args_list)
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert heating_options(entry)["limits"] == limits
+        assert not any("options" in call.kwargs for call in update.call_args_list)

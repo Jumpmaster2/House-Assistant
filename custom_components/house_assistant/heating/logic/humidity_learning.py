@@ -30,6 +30,14 @@ import math
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from ...core.store_validation import (
+    checked,
+    dataclass_schema,
+    number,
+    optional,
+    required_mapping,
+    text,
+)
 from .learning import Ewma
 from .physics import absolute_humidity, clamp
 
@@ -111,6 +119,7 @@ class DayStats:
 
     @classmethod
     def from_dict(cls, data: Any) -> DayStats:
+        data = checked(data, dataclass_schema(cls))
         day = cls()
         if isinstance(data, dict):
             day.date = str(data.get("date", ""))
@@ -375,6 +384,7 @@ class HumidityProfile:
 
     @classmethod
     def from_dict(cls, data: Any) -> HumidityProfile:
+        data = checked(data, humidity_schema())
         profile = cls()
         if not isinstance(data, dict):
             return profile
@@ -414,3 +424,15 @@ class HumidityProfile:
             if isinstance(value, dict) and all(_num(value.get(k)) is not None for k in needed):
                 setattr(profile, key, value)
         return profile
+
+
+def humidity_schema() -> dict[str, Any]:
+    schema = dataclass_schema(HumidityProfile)
+    schema["floor"] = [(text, number)]
+    schema["hour"] = optional((number, number))
+    for key, required in {
+        "airing": ("ts", "ah", "rh", "min_ah", "min_rh"),
+        "pending": ("closed", "drop", "min_ah"),
+    }.items():
+        schema[key] = optional(required_mapping({k: number for k in required}, *required))
+    return schema

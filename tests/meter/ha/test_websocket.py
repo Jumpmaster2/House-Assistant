@@ -170,3 +170,24 @@ async def test_rejected_pictures(hass: HomeAssistant, base, hass_ws_client) -> N
     assert pictures[0]["image"] == "Yg=="
     msg = await _send(client, type=f"{DOMAIN}/meter/rejected", subentry_id="nope")
     assert not msg["success"]
+
+
+async def test_manual_nonfinite_values(hass: HomeAssistant, base, hass_ws_client):
+    entry = await setup_entry(hass)
+    meter = next(iter(meters(entry).values()))
+    meter.set_reading(12)
+    history = list(meter.state.history)
+    client = await hass_ws_client(hass)
+    for value in ("nan", "Infinity", "-Infinity", -1):
+        msg = await _send(
+            client, type=f"{DOMAIN}/meter/set_reading", subentry_id=meter.id, value=value
+        )
+        assert not msg["success"]
+        assert meter.state.value == 12
+        assert meter.state.history == history
+    for value in (0, 12.5):
+        msg = await _send(
+            client, type=f"{DOMAIN}/meter/set_reading", subentry_id=meter.id, value=value
+        )
+        assert msg["success"]
+        assert meter.state.value == value

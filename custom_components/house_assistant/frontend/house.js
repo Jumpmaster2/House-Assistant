@@ -146,7 +146,7 @@ const TABS = [
   ["vacation", "mdi:airplane"],
   ["general", "mdi:cog-outline"],
 ];
-const SETTINGS = ["outdoor_temperature", "outdoor_humidity", "weather", "language", "notify_services", "workday_entity", "weekend_days", "house_azimuth", "house_width", "house_depth", "draft_reach"];
+const SETTINGS = ["outdoor_temperature", "outdoor_humidity", "weather", "wind_entity", "language", "notify_services", "workday_entity", "weekend_days", "house_azimuth", "house_width", "house_depth", "draft_reach"];
 
 // settings of the vacation of the house and the vacation options of heating and covers
 const VACATION = ["vacation_entities", "return_entity", "vacation_window_alert"];
@@ -161,7 +161,7 @@ const toInput = (iso) => {
 };
 const fromInput = (value) => (value ? new Date(value).toISOString() : null);
 
-const ROOM_FIELDS = ["area", "temperature_sensor", "humidity_sensor", "cooling_entity"];
+const ROOM_FIELDS = ["floor_area", "area", "temperature_sensor", "humidity_sensor", "cooling_entity"];
 const WINDOW_FIELDS = ["room", "size", "cover", "window_sensors", "tilt_sensors", "group", "wall", "wall_position"];
 
 const esc = (value) =>

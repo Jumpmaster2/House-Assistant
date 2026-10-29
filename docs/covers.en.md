@@ -44,7 +44,7 @@ The module is event driven: it reacts only to state changes of the entities conf
 
 * **Switch on per window:** the weather protection only acts on windows with **Weather protection for this window** switched on (default off). Without the switch wind, rain and frost never move or limit the cover, even with positions entered (they are kept).
 * **Automatic off = no weather protection:** with the automatic off (global or for the window), the weather protection does not move either; a running protection ends for these windows without a movement. If the automatic is switched on again while the protection still runs, the covers move to their protection position.
-* **Wind and rain:** globally a wind sensor with a threshold (in the unit of the sensor) and a rain sensor (on/off or an amount above a threshold). Per window a **position on wind** and **on rain**, empty = not affected (e.g. venetian blinds to 100 % on wind, a roof window to 0 % on rain). An **own wind threshold** on the window replaces the global one for this window (e.g. a balcony cover from 50 km/h, the others from 75 km/h); it has its own release time, and the binary sensor wind protection is on as long as any window is protected (attribute `windows`). The protection starts at once and moves the covers concerned once to their position, **also with an override** (not during restart protection, caught up afterwards). Someone moving a cover by hand during the protection keeps that position: a restart of the module does not move protected covers again. A cover already **further closed** than its protection position counts as protected and is not raised (option **Further closed counts as protected**, default on; not for 100 %, retracting venetian blinds always runs). Wind comes before rain. An open window only prevents closing movements; they are caught up once it is closed.
+* **Wind and rain:** wind protection uses the sensor of the house with the threshold of the covers module (in the unit of the sensor), rain protection a rain sensor (on/off or an amount above a threshold). Per window a **position on wind** and **on rain**, empty = not affected (e.g. venetian blinds to 100 % on wind, a roof window to 0 % on rain). An **own wind threshold** on the window replaces the global one for this window (e.g. a balcony cover from 50 km/h, the others from 75 km/h); it has its own release time, and the binary sensor wind protection is on as long as any window is protected (attribute `windows`). The protection starts at once and moves the covers concerned once to their position, **also with an override** (not during restart protection, caught up afterwards). Someone moving a cover by hand during the protection keeps that position: a restart of the module does not move protected covers again. A cover already **further closed** than its protection position counts as protected and is not raised (option **Further closed counts as protected**, default on; not for 100 %, retracting venetian blinds always runs). Wind comes before rain. An open window only prevents closing movements; they are caught up once it is closed.
 * **While the protection runs,** every other rule rests for the window (status "weather protection"). It only ends once the value was back in the safe range for the **release time** (default 15 min). An unavailable sensor never ends a protection. Afterwards the automatic decides anew (sun protection, evening run); the old position is not restored.
 * **Frost:** windows with a **lowest position on frost** (e.g. 5 %) close only down to it at an outdoor temperature up to the frost threshold (default 1 °C), so the cover does not freeze to the sill. This applies to all automatic movements and services, not to the wind and rain protection.
 * **Display:** while wind or rain protection runs, the overview in the panel and the card show the current value of the triggering sensor (e.g. "wind protection 62 km/h"). The binary sensors wind and rain protection name the sensor in the attribute `sensor`.
@@ -97,7 +97,7 @@ Values are checked the same way as in the dialogs (same ranges, units and rules)
 
 ## Settings
 
-Outdoor temperature, weather, language of the messages, notification services, workday sensor and weekend days are **settings of the house** (see [README](../README.en.md#settings-of-the-house)); the fields of the same name of the covers apply only while nothing is set there.
+Outdoor temperature, weather, language of the messages, notification services, workday sensor and weekend days are **settings of the house** (see [README](../README.en.md#settings-of-the-house)). Covers have no shared settings of their own.
 
 | Option (*Settings > Covers*) | Default | Meaning |
 |---|---|---|
@@ -113,9 +113,9 @@ Outdoor temperature, weather, language of the messages, notification services, w
 | Vacation morning from, random window | 07:00, 60 min | |
 | Opening position from, to | 60 %, 100 % | |
 | Vacation evening from, random window | 19:00, 90 min | |
-| Heat protection on vacation | on | sun protection without room, air conditioner and heating need |
+| Heat protection on vacation (House > Vacation) | on | sun protection without room, air conditioner and heating need |
 | Override starts | only on a real movement | or on every command by hand, also without a movement |
-| Wind sensor, wind protection from | , 50 | unit of the sensor (e.g. km/h) |
+| Wind protection from | 50 | unit of the sensor (e.g. km/h) |
 | Rain sensor, rain protection above | , 0 | on/off or an amount (e.g. mm/h) |
 | Frost from (at most) | 1 °C | outdoor temperature, only for windows with a frost position |
 | Release after | 15 min | weather protection ends only after this time in the safe range |

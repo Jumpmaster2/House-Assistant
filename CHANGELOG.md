@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.0.0b17 (2026-10-29)
+
+### Added
+
+- A repair notice appears when stored data of a module was damaged. The damaged records are replaced by their defaults, the discarded raw data is saved once in a separate store (`house_assistant.<entry>.<module>.corrupt`, removed together with the integration), and the rest of the module keeps working.
+
+### Changed
+
+- A meter reading by AI stops after 180 seconds. A timeout counts as a failed reading like any other error of the AI task and releases the meter for the next reading.
+
+### Fixed
+
+- If the house or a module fails to start, everything started before is stopped again in reverse order before the error is passed on. Before, listeners and timers of the parts that had started stayed active and a second attempt started them twice. A failure while cleaning up no longer hides the original error.
+- Damaged stored data (for example a text where a number belongs) no longer stops a module from starting: the stored state is checked before use and only the damaged record (one meter, room, window or the vacation) falls back to its defaults. Valid stored data is loaded exactly as before.
+
+## 1.0.0b16 (2026-10-29)
+
+### Changed
+
+- `house_assistant.set_meter_reading` and `house_assistant.set_vacation` require an administrator, like the paid and changing services of the heating. Calls without a user (automations, scripts) stay allowed.
+- New limits for the AI parameters are checked the same way in the dialog and in the panel: they must lie inside the fixed range of the parameter, the step must not exceed its span, and a step of 0 freezes the parameter. Limits stored before, even outside that range, stay valid until you change them.
+
+### Fixed
+
+- A manual meter reading, an answer of the meter AI and every number entered in a dialog or the panel must be a finite number. `NaN` and infinite values are rejected before anything is stored.
+- An answer of the heating AI with the JSON constants `NaN` or `Infinity` is rejected as invalid. A non-finite value as text in a change (value, confidence, limit) rejects only that change; the other valid changes of the same answer still apply.
+- The minimum airing duration may not be larger than the maximum, in the dialog, in the panel and for changes by the AI. A contradictory pair stored before is set to equal values at startup.
+
+## 1.0.0b15 (2026-10-29)
+
+### Added
+
+- The wind sensor is now set under House > Settings and supplies wind protection of the covers. Wind thresholds and the rain sensor remain in the covers module.
+- Floor area (1–200 m²) can now be edited in the House panel alongside the other room basics.
+
+### Changed
+
+- Outdoor sources, weather, language, notifications, working days, house dimensions and vacation sources are configured only in House. At startup legacy module values move to House and leave the modules: existing house values win; otherwise heating takes precedence over covers on conflicts, which are logged. Vacation sources are combined.
+- A house language of "auto" allows an explicit legacy module language to migrate once, preserving the former choice. Afterwards "auto" always uses the Home Assistant language, with no module fallback.
+- Create rooms in House and edit their name, HA area, floor area, sensors and air conditioner there. The native creation dialog asks only for the name; reconfiguring a room shows only heating fields. The heating panel displays room basics read-only and directs changes to House.
+
+### Fixed
+
+- Empty house settings no longer revive stale module values. Module save commands reject shared settings and room basics instead of storing duplicates.
+- Vacation options are saved only in their module sections; old copies in the house section are removed at startup.
+
 ## 1.0.0b14 (2026-10-28)
 
 ### Fixed

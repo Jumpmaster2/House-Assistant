@@ -9,9 +9,11 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 
+from ..core.auth import require_admin
 from ..core.entry import running_module
 from .const import DOMAIN, MODULE_METER
 from .meter import Meter
+from .validation import reading_value
 
 SERVICE_READ = "read_meter"
 SERVICE_SET_READING = "set_meter_reading"
@@ -19,7 +21,7 @@ ATTR_VALUE = "value"
 
 READ_SCHEMA = vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_ids})
 SET_SCHEMA = vol.Schema(
-    {vol.Required(ATTR_ENTITY_ID): cv.entity_ids, vol.Required(ATTR_VALUE): vol.Coerce(float)}
+    {vol.Required(ATTR_ENTITY_ID): cv.entity_ids, vol.Required(ATTR_VALUE): reading_value}
 )
 
 
@@ -56,8 +58,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
             meter.manager.start_reading(meter)
 
     async def set_reading(call: ServiceCall) -> None:
-        if call.data[ATTR_VALUE] < 0:
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="negative")
+        await require_admin(hass, call)
         for meter in meters_for(hass, call.data[ATTR_ENTITY_ID]):
             meter.set_reading(call.data[ATTR_VALUE])
 

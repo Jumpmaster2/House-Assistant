@@ -33,6 +33,7 @@ from .const import (
 )
 from .logic.prompt import build_instructions, default_hints
 from .logic.units import METER_TYPES, rate_unit
+from .validation import reading_value
 
 PREFIX = f"{DOMAIN}/{MODULE_METER}"
 
@@ -259,7 +260,7 @@ def ws_delete_meter(
     {
         vol.Required("type"): f"{PREFIX}/set_reading",
         vol.Required("subentry_id"): str,
-        vol.Required("value"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        vol.Required("value"): reading_value,
     }
 )
 @websocket_api.require_admin

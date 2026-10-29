@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from ...core.store_validation import checked, dataclass_schema
+
 CHARS_PER_TOKEN = 3.5
 # Overheating after heating, in Kelvin hours per day, above which a check counts as
 # not stable: the interval must not keep growing while heat is wasted.
@@ -98,6 +100,7 @@ class Budget:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> Budget:
+        data = checked(data, dataclass_schema(cls))
         budget = cls()
         if data:
             budget.month = str(data.get("month", ""))

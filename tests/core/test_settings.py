@@ -40,7 +40,7 @@ def _modules(entry: MockConfigEntry) -> dict[str, Any]:
     return entry.runtime_data.modules
 
 
-async def test_house_value_wins_else_the_module_value(hass: HomeAssistant) -> None:
+async def test_house_values_are_exclusive(hass: HomeAssistant) -> None:
     entry = _entry(
         {"outdoor_temperature": "sensor.house_outdoor", "language": "de"},
         {"outdoor_temperature": "sensor.heating_outdoor"},
@@ -54,7 +54,7 @@ async def test_house_value_wins_else_the_module_value(hass: HomeAssistant) -> No
     assert modules["shutter"].engine.language == "de"
     assert modules["meter"].manager.language == "de"
 
-    # without a value of the house each module keeps its own; "auto" leaves the choice
+    # Empty house values never revive legacy module values; auto uses HA language.
     hass.config_entries.async_update_entry(
         entry,
         options={
@@ -63,11 +63,11 @@ async def test_house_value_wins_else_the_module_value(hass: HomeAssistant) -> No
         },
     )
     await hass.async_block_till_done(wait_background_tasks=True)
-    assert shared_options(entry) == {}
+    assert shared_options(entry) == {"language": "auto"}
     modules = _modules(entry)
-    assert modules["heating"].coordinator.opt("outdoor_temperature") == "sensor.heating_outdoor"
-    assert modules["shutter"].engine.opt("outdoor_temperature") == "sensor.cover_outdoor"
-    assert modules["shutter"].engine.language == "en"
+    assert modules["heating"].coordinator.opt("outdoor_temperature") is None
+    assert modules["shutter"].engine.opt("outdoor_temperature") is None
+    assert modules["shutter"].engine.language == hass.config.language.split("-")[0]
 
 
 async def test_house_step_of_the_options(hass: HomeAssistant) -> None:

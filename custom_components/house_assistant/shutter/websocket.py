@@ -18,13 +18,14 @@ from homeassistant.helpers.selector import (
     TimeSelector,
 )
 
+from ..const import SHARED_KEYS
 from ..core.entry import house_entry, running_module, update_section
 from ..core.house import CONF_ROOM, CONF_SIZE, rooms, window_errors, window_size, windows
+from ..core.settings import validate_house
 from ..runtime import module_options, shared_options
 from .config_flow import (
     _advanced_schema,
     _evening_schema,
-    _general_schema,
     _group_schema,
     _notify_services,
     _number,
@@ -37,7 +38,6 @@ from .config_flow import (
     _validate_evening,
     _validate_group,
     _validate_vacation,
-    validate_general,
     validate_morning,
     window_basics_fields,
     window_conditions_fields,
@@ -120,11 +120,6 @@ WINDOW_ENTITIES = {
 
 # Settings only the panel has: the house in the sun compass (shown when all
 # three are set) and the wall of a group or window.
-HOUSE_FIELDS: dict[Any, Any] = {
-    vol.Optional(CONF_HOUSE_AZIMUTH): _number(0, 360, 1, "°"),
-    vol.Optional(CONF_HOUSE_WIDTH): _number(1, 500, 0.1, "m"),
-    vol.Optional(CONF_HOUSE_DEPTH): _number(1, 500, 0.1, "m"),
-}
 WALL_FIELD: dict[Any, Any] = {
     vol.Optional(CONF_WALL): SelectSelector(
         SelectSelectorConfig(options=list(WALLS), mode=SelectSelectorMode.DROPDOWN)
@@ -146,7 +141,8 @@ OPTION_KEYS = {
     CONF_HOUSE_AZIMUTH,
     CONF_HOUSE_WIDTH,
     CONF_HOUSE_DEPTH,
-}
+} - set(SHARED_KEYS)
+
 WINDOW_KEYS = {
     *WINDOW_DEFAULTS,
     CONF_NAME,
@@ -228,7 +224,6 @@ def _check(
 def _option_fields(hass: HomeAssistant, values: dict[str, Any]) -> dict[Any, Any]:
     fields: dict[Any, Any] = {}
     for schema in (
-        _general_schema(hass, values),
         _override_schema(values),
         _summer_schema(values, temperature_unit(hass)),
         _evening_schema(values),
@@ -238,7 +233,6 @@ def _option_fields(hass: HomeAssistant, values: dict[str, Any]) -> dict[Any, Any
         _advanced_schema(values),
     ):
         fields.update(schema.schema)
-    fields.update(HOUSE_FIELDS)
     return fields
 
 
@@ -364,6 +358,9 @@ def ws_save_options(
     if entry is None:
         connection.send_error(msg["id"], "not_found", "House Assistant is not set up")
         return
+    if shared := sorted(set(msg["options"]) & set(SHARED_KEYS)):
+        connection.send_error(msg["id"], "invalid", f"house_settings_only:{shared[0]}")
+        return
     if unknown := sorted(set(msg["options"]) - OPTION_KEYS):
         connection.send_error(msg["id"], "invalid", f"unknown option {', '.join(unknown)}")
         return
@@ -371,8 +368,7 @@ def ws_save_options(
     checked, errors = _check(_option_fields(hass, values), values)
     if not errors:
         errors = {
-            # the outdoor temperature or weather of the house counts as well
-            **validate_general(hass, {**checked, **shared_options(entry)}),
+            **validate_house(hass, shared_options(entry), [MODULE_SHUTTER]),
             **_validate_evening(checked),
             **_validate_vacation(checked),
         }

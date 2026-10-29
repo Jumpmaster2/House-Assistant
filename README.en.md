@@ -10,7 +10,7 @@ Custom integration for Home Assistant that brings heating, covers and meter read
 
 Every module can be switched on and off on its own. No function of the former integrations is dropped; their users move with a script, without losing history or learned values ([docs/transfer.md](docs/transfer.md#english)).
 
-> Status: version 1.0.0b1 (beta). Please keep an eye on the logbook during the first weeks.
+> Status: version 1.0.0b17 (beta). Please keep an eye on the logbook during the first weeks.
 
 ## Working together
 
@@ -25,6 +25,12 @@ Every module can be switched on and off on its own. No function of the former in
 * **Settings of the house:** outdoor values, weather, language, notifications and working days apply to every module.
 * **One panel** with sections for house, heating, covers and meters.
 * **No reload:** a change restarts only the module concerned; hold times of the covers and a running meter reading stay untouched.
+
+## Startup and stored data
+
+If the house or a module fails to start, already started parts stop in reverse order. The original error and module name appear in the log; a retry starts cleanly.
+
+Stored data is checked per record. Valid data stays unchanged; damaged records fall back to defaults. Before the next save, a timestamped snapshot is written to `.storage/house_assistant.<entry_id>.<module>.corrupt`. Only new corruption replaces it, and removing the integration deletes it. Nonfinite numbers are represented as `__nonfinite_float__`; malformed JSON files are preserved byte for byte as `file_hex`. A repair warning identifies the module and clears on the next clean load. Each meter AI call has a 180-second limit; a timeout counts as a failed reading.
 
 ## Installation
 
@@ -67,13 +73,14 @@ In the panel under **House**:
 | Option | Meaning |
 |---|---|
 | Outdoor temperature, outdoor humidity, weather | for heating and covers; without an outdoor sensor the current temperature of the weather entity applies |
+| Wind sensor | shared sensor for wind protection; wind thresholds remain in covers |
 | Language of messages | logbook, last reason, notifications of every module; automatic = the language of Home Assistant |
 | Notification services | `notify.*` only; messages of the covers and of the vacation |
 | Workday sensor, weekend days | morning opening of the covers |
 | Front faces, length, depth | the house in the sun compass of the covers; with length and depth the heating detects draft through rooms |
 | Draft reach | how far a room may be from the line between two open windows of other rooms (default 2 m) |
 
-A value set here applies to every module. Without one the value in the settings of the module applies (the former integrations had the values each for themselves).
+Shared settings and room basics are edited only in House. Legacy module values migrate to House at startup: house values take precedence; otherwise heating wins over covers on conflicts. Vacation sources are combined. Empty house values then remain unset.
 
 ## Vacation
 
@@ -154,3 +161,5 @@ The texts of the panel (`frontend/labels.js`) and of the cards (`frontend/card-l
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+Meter corrections (`set_meter_reading`) and vacation planning (`set_vacation`) require administrator rights. Automations and scripts without a user remain allowed. Meter readings must be finite and nonnegative. Dialogs and the panel enforce the same AI limits and minimum ≤ maximum airing duration; only unusable stored limits are repaired at startup; usable legacy limits outside the fixed parameter range remain valid. Step 0 freezes a parameter.

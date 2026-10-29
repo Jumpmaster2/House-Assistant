@@ -10,7 +10,7 @@ Custom Integration für Home Assistant, die Heizung, Rollos und Zählerablesung 
 
 Jedes Modul lässt sich einzeln ein- und ausschalten. Keine Funktion der bisherigen Integrationen fällt weg; wer sie nutzt, zieht mit einem Skript um, ohne Verlauf und Lernwerte zu verlieren ([docs/transfer.md](docs/transfer.md)).
 
-> Status: Version 1.0.0b1 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
+> Status: Version 1.0.0b17 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
 
 ## Zusammenspiel
 
@@ -25,6 +25,12 @@ Jedes Modul lässt sich einzeln ein- und ausschalten. Keine Funktion der bisheri
 * **Einstellungen des Hauses:** Außenwerte, Wetter, Sprache, Benachrichtigungen und Arbeitstage gelten für alle Module.
 * **Ein Panel** mit Bereichen für Haus, Heizung, Rollos und Zähler.
 * **Kein Neuladen:** Eine Änderung startet nur das betroffene Modul neu; Haltezeiten der Rollos und eine laufende Zählerablesung bleiben unberührt.
+
+## Start und gespeicherte Daten
+
+Schlägt der Start des Hauses oder eines Moduls fehl, werden bereits gestartete Teile in umgekehrter Reihenfolge gestoppt. Der ursprüngliche Fehler steht mit dem Modulnamen im Protokoll; ein erneuter Start beginnt sauber.
+
+Beschädigte Speicherdaten werden getrennt je Datensatz geprüft. Gültige Daten bleiben unverändert, betroffene Datensätze erhalten Standardwerte. Vor dem nächsten Speichern liegt eine Sicherung mit Zeitpunkt unter `.storage/house_assistant.<entry_id>.<module>.corrupt`. Sie wird nur bei neuer Beschädigung ersetzt und beim Entfernen der Integration gelöscht. Nichtendliche Zahlen sind dort als `__nonfinite_float__` markiert; beschädigte JSON-Dateien werden bytegetreu als `file_hex` gesichert. Eine Reparatur-Warnung nennt das Modul und verschwindet beim nächsten fehlerfreien Laden. Der Zähler wartet je KI-Aufruf höchstens 180 Sekunden; danach zählt die Ablesung als fehlgeschlagen.
 
 ## Installation
 
@@ -57,7 +63,7 @@ Wer die bisherigen Integrationen nutzt: House Assistant installieren, aber **nic
 
 Im Panel unter **Haus**:
 
-* **Räume:** Name, Home-Assistant-Bereich (das Gerät des Raums kommt dorthin, er liefert die Etage), Temperatur- und Feuchtesensor, Klimaanlage. Mit Temperatursensor bekommt ein Raum Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat (Bereich Heizung). Der Raum-Editor zeigt den Plan des Hauses mit den Querlüft- und Luftzug-Kombinationen des Raums, jede mit eigenem Schalter.
+* **Räume:** Name, Wohnfläche, Home-Assistant-Bereich (das Gerät des Raums kommt dorthin, er liefert die Etage), Temperatur- und Feuchtesensor, Klimaanlage. Mit Temperatursensor bekommt ein Raum Heizung und Lüftungsempfehlung, mit Heizkreis auch ein Thermostat (Bereich Heizung). Der Raum-Editor zeigt den Plan des Hauses mit den Querlüft- und Luftzug-Kombinationen des Raums, jede mit eigenem Schalter.
 * **Fenster:** Name, Raum, Größe (klein, mittel, groß, Tür), Fensterkontakte (auch Fenstergriffe), Kipp-Kontakte, Himmelsrichtung, Wand und Position an der Wand, Rollo. Mindestens ein Kontakt oder ein Rollo. Mit Rollo stehen die weiteren Einstellungen im Bereich Rollos.
 * **Urlaub:** Schalter, Abreise und Rückkehr, Quellen und Meldungen (siehe unten).
 * **Allgemein:** die Einstellungen des Hauses, die Module und ob das Panel in der Seitenleiste steht.
@@ -67,13 +73,14 @@ Im Panel unter **Haus**:
 | Option | Bedeutung |
 |---|---|
 | Außentemperatur, Außenfeuchte, Wetter | für Heizung und Rollos; ohne Außensensor gilt die aktuelle Temperatur der Wetter-Entität |
+| Windsensor | gemeinsamer Sensor für den Windschutz; Windgrenzen bleiben bei den Rollos |
 | Sprache der Meldungen | Logbuch, letzter Grund, Benachrichtigungen aller Module; Automatisch = die Sprache von Home Assistant |
 | Benachrichtigungsdienste | nur `notify.*`; Meldungen der Rollos und des Urlaubs |
 | Werktag-Sensor, Wochenendtage | Morgenöffnung der Rollos |
 | Vorderseite zeigt nach, Länge, Tiefe | Haus im Sonnenkompass der Rollos; mit Länge und Tiefe erkennt die Heizung Luftzug durch Räume |
 | Luftzug-Reichweite | wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf (Standard 2 m) |
 
-Ein hier eingetragener Wert gilt für alle Module. Ohne Wert gilt der in den Einstellungen des Moduls (die bisherigen Integrationen hatten die Werte jede für sich).
+Gemeinsame Einstellungen und Raum-Grunddaten werden nur im Haus geändert. Alte Modulwerte werden beim Start ins Haus übernommen: Hauswerte haben Vorrang, sonst gewinnt bei Abweichungen die Heizung vor den Rollos. Urlaubsquellen werden vereinigt. Leere Hauswerte bleiben danach ungesetzt.
 
 ## Urlaub
 
@@ -154,3 +161,5 @@ Die Texte des Panels (`frontend/labels.js`) und der Karten (`frontend/card-label
 ## Lizenz
 
 MIT, siehe [LICENSE](LICENSE).
+
+Zählerkorrektur (`set_meter_reading`) und Urlaubsplanung (`set_vacation`) erfordern Administratorrechte. Automationen und Skripte ohne Benutzer bleiben erlaubt. Zählerstände müssen endlich und nichtnegativ sein. Dialog und Panel prüfen KI-Grenzen identisch sowie minimale ≤ maximale Lüftungsdauer; nur unbrauchbare gespeicherte Grenzen werden beim Start korrigiert; brauchbare Altgrenzen außerhalb des festen Parameterbereichs bleiben gültig. Schritt 0 friert einen Parameter ein.

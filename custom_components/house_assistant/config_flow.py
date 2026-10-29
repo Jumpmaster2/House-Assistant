@@ -207,8 +207,7 @@ class HouseAssistantOptionsFlow(HeatingOptionsSteps, ShutterOptionsSteps, Option
         errors: dict[str, str] = {}
         if user_input is not None:
             modules = enabled_modules(entry)
-            own = [module_options(entry, key) for key in (MODULE_HEATING, MODULE_SHUTTER)]
-            errors = validate_house(self.hass, user_input, modules, [v for v in own if v])
+            errors = validate_house(self.hass, user_input, modules)
             if not errors:
                 return self.async_create_entry(
                     data={**entry.options, OPT_CORE: _replaced(core, HOUSE_FORM, user_input)}
@@ -229,7 +228,11 @@ class HouseAssistantOptionsFlow(HeatingOptionsSteps, ShutterOptionsSteps, Option
         modules = [m for m in enabled_modules(entry) if m in (MODULE_HEATING, MODULE_SHUTTER)]
         if user_input is not None:
             options = dict(entry.options)
-            options[OPT_CORE] = _replaced(core, VACATION_FORM, user_input)
+            options[OPT_CORE] = _replaced(
+                {k: v for k, v in core.items() if k not in {o[1] for o in VACATION_OPTIONS}},
+                VACATION_FORM,
+                {k: v for k, v in user_input.items() if k in VACATION_FORM},
+            )
             for module, key, _default in VACATION_OPTIONS:
                 if module in modules and key in user_input:
                     options[module] = {**module_options(entry, module), key: user_input[key]}

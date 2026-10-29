@@ -17,6 +17,7 @@ from homeassistant.data_entry_flow import section
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import EntitySelector, Selector, TimeSelector
 
+from ..const import SHARED_KEYS
 from ..core.entry import house_entry, update_section
 from ..runtime import module_options, shared_options
 from .config_flow import (
@@ -51,6 +52,8 @@ from .const import (
     CONF_SEASON_START,
     CONF_VENT_CHECK_INTERVAL,
     CONF_VENT_CHECK_MAX_INTERVAL,
+    CONF_VENT_MAX_MINUTES,
+    CONF_VENT_MIN_MINUTES,
     CONF_WEATHER,
     DEFAULTS,
     DOMAIN,
@@ -59,7 +62,7 @@ from .const import (
     MODULE_HEATING,
     SUBENTRY_ROOM,
 )
-from .logic.ai_schema import ALL_PARAMS, VENT_PARAMS, default_limits
+from .logic.ai_schema import ALL_PARAMS, VENT_PARAMS, normalize_limits, validate_limit
 from .logic.draft import LEGACY_MODE, LEGACY_WINDOWS, draft_groups
 from .logic.physics import parse_day_month
 from .logic.prompts import PromptError, clean_prompts, prompt_defaults
@@ -182,24 +185,16 @@ class PanelError(Exception):
 
 
 def _limits(value: Any, current: Any) -> dict[str, dict[str, float]]:
-    limits = default_limits()
-    for key, item in (current or {}).items():
-        if key in limits and isinstance(item, dict):
-            limits[key].update(item)
+    limits = normalize_limits(current)
     if not isinstance(value, dict):
         raise PanelError("invalid_value", CONF_LIMITS)
     for key, item in value.items():
         if key not in ALL_PARAMS or not isinstance(item, dict):
             raise PanelError("invalid_value", CONF_LIMITS)
         try:
-            new = {k: float(item.get(k, limits[key][k])) for k in ("min", "max", "step")}
-        except (TypeError, ValueError) as err:
-            raise PanelError("invalid_value", key) from err
-        if new["min"] > new["max"]:
-            raise PanelError("min_above_max", key)
-        if new["step"] < 0:
-            raise PanelError("invalid_value", key)
-        limits[key] = new
+            limits[key] = validate_limit(key, {**limits[key], **item}, limits[key])
+        except ValueError as err:
+            raise PanelError(str(err), key) from err
     return limits
 
 
@@ -208,6 +203,8 @@ def apply_options(
 ) -> dict[str, Any]:
     """New options from the changed values of one card; raises PanelError. ``house``: the
     settings of the house, its outdoor sensor or weather counts as well."""
+    if shared := set(changes) & set(SHARED_KEYS):
+        raise PanelError("house_settings_only", sorted(shared)[0])
     fields = option_fields()
     updates: dict[str, Any] = {}
     removed: set[str] = set()
@@ -239,7 +236,7 @@ def apply_options(
     options = {k: v for k, v in current.items() if k not in removed}
     options.update(updates)
     merged = {**DEFAULTS, **options}
-    sources = {**merged, **(house or {})}
+    sources = house or {}
     if not sources.get(CONF_OUTDOOR_TEMP) and not sources.get(CONF_WEATHER):
         raise PanelError("outdoor_required", CONF_OUTDOOR_TEMP)
     for key in (CONF_SEASON_START, CONF_SEASON_END):
@@ -251,11 +248,16 @@ def apply_options(
         raise PanelError("max_below_base", CONF_CHECK_MAX_INTERVAL)
     if float(merged[CONF_VENT_CHECK_MAX_INTERVAL]) < float(merged[CONF_VENT_CHECK_INTERVAL]):
         raise PanelError("max_below_base", CONF_VENT_CHECK_MAX_INTERVAL)
+    if float(merged[CONF_VENT_MIN_MINUTES]) > float(merged[CONF_VENT_MAX_MINUTES]):
+        raise PanelError("airing_min_above_max", CONF_VENT_MIN_MINUTES)
     return options
 
 
 def area_data(
-    title: str, data: dict[str, Any], others: Sequence[ConfigSubentry] = ()
+    title: str,
+    data: dict[str, Any],
+    others: Sequence[ConfigSubentry] = (),
+    current: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validated data of a room; raises PanelError. ``others`` are the other rooms of
     the entry (names and switches must differ)."""
@@ -272,7 +274,7 @@ def area_data(
             raise PanelError("invalid_value", key) from err
         if coerced is not None:
             values[key] = coerced
-    values = {**AREA_DEFAULTS, CONF_AREA_NAME: title, **values}
+    values = {**AREA_DEFAULTS, **(current or {}), CONF_AREA_NAME: title, **values}
     errors = validate_area(values, others)
     if error := errors.get(CONF_AREA_NAME):
         raise PanelError(error)
@@ -537,9 +539,28 @@ def ws_save_area(
     if sub_id and (subentry is None or subentry.subentry_type != SUBENTRY_ROOM):
         connection.send_error(msg["id"], "not_found", "room not found")
         return
+    basics = {
+        "name",
+        "area",
+        "floor_area",
+        "temperature_sensor",
+        "humidity_sensor",
+        "cooling_entity",
+    }
+    if subentry is None:
+        connection.send_error(msg["id"], "invalid", "create_rooms_in_house")
+        return
+    if basics & set(msg["data"]) or msg["title"] != subentry.title:
+        connection.send_error(msg["id"], "invalid", "room_basics_house_only")
+        return
     coordinator = running_coordinator(entry)
     try:
-        data = area_data(msg["title"], msg["data"], other_areas(entry, sub_id))
+        data = area_data(
+            subentry.title,
+            msg["data"],
+            other_areas(entry, sub_id),
+            {k: v for k, v in subentry.data.items() if k in basics},
+        )
         learned = (
             _learned(coordinator, msg["learned"])
             if subentry is not None and coordinator is not None and "learned" in msg

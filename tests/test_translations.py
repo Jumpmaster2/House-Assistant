@@ -7,9 +7,40 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 COMPONENT = ROOT / "custom_components" / "house_assistant"
 SCRIPT = ROOT / "scripts" / "build_labels.py"
+TRANSLATIONS = ("strings.json", "translations/en.json", "translations/de.json")
+ALLOWED_TOP_LEVEL_KEYS = {
+    "title",
+    "config",
+    "options",
+    "selector",
+    "services",
+    "entity",
+    "device",
+    "exceptions",
+    "issues",
+    "config_subentries",
+    "application_credentials",
+    "system_health",
+    "device_automation",
+    "triggers",
+    "conditions",
+}
+ALLOWED_STEP_KEYS = {
+    "title",
+    "description",
+    "data",
+    "data_description",
+    "sections",
+    "menu_options",
+    "menu_option_descriptions",
+    "submit",
+    "report_issue_url",
+}
 
 
 def _load(name: str) -> dict[str, Any]:
@@ -32,6 +63,22 @@ def test_strings_equal_english() -> None:
 
 def test_languages_have_the_same_keys() -> None:
     assert _paths(_load("translations/de.json")) == _paths(_load("translations/en.json"))
+
+
+@pytest.mark.parametrize("name", TRANSLATIONS)
+def test_translation_top_level_keys(name: str) -> None:
+    assert not (set(_load(name)) - ALLOWED_TOP_LEVEL_KEYS)
+
+
+@pytest.mark.parametrize("name", TRANSLATIONS)
+def test_translation_step_keys(name: str) -> None:
+    translation = _load(name)
+    flows = {"config": translation["config"], "options": translation["options"]}
+    flows.update(translation["config_subentries"])
+    for flow, content in flows.items():
+        for step_id, step in content.get("step", {}).items():
+            unknown = set(step) - ALLOWED_STEP_KEYS
+            assert not unknown, (name, flow, step_id, unknown)
 
 
 def test_labels_js_is_up_to_date() -> None:

@@ -160,7 +160,16 @@ def heating_options(entry: ConfigEntry) -> dict[str, Any]:
 
 def with_heating_options(entry: ConfigEntry, **changes: Any) -> dict[str, Any]:
     """All options of the entry with changed heating options."""
-    return {**entry.options, MODULE_HEATING: {**entry.options[MODULE_HEATING], **changes}}
+    from custom_components.house_assistant.const import SHARED_KEYS
+
+    return {
+        **entry.options,
+        "core": {**entry.options["core"], **{k: v for k, v in changes.items() if k in SHARED_KEYS}},
+        MODULE_HEATING: {
+            **entry.options[MODULE_HEATING],
+            **{k: v for k, v in changes.items() if k not in SHARED_KEYS},
+        },
+    }
 
 
 async def open_options(hass: HomeAssistant, entry: ConfigEntry, step: str) -> dict:

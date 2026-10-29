@@ -116,6 +116,7 @@ read_meter:
           integration: house_assistant
           multiple: true
 set_meter_reading:
+  description: Administrators only; calls without a user (automations, scripts) are allowed.
   fields:
     entity_id:
       required: true
@@ -134,6 +135,7 @@ set_meter_reading:
           mode: box
 
 set_vacation:
+  description: Administrators only; calls without a user (automations, scripts) are allowed.
   fields:
     departure:
       required: false

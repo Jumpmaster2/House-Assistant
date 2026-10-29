@@ -142,7 +142,7 @@ name: Bedroom                          # optional
 
 Temperature sensors may report in °C, °F or K; without a unit the unit system of Home Assistant applies. Internally everything is in °C, and every temperature in the settings of the heating (targets, frost protection, `theta`) is entered in °C. The thermostats show values in the unit system of Home Assistant.
 
-Outdoor temperature, outdoor humidity, weather and vacation are **settings of the house** (see [README](../README.en.md#settings-of-the-house)); the fields of the same name of the heating apply only while nothing is set there.
+Outdoor temperature, outdoor humidity, weather and vacation are **settings of the house** (see [README](../README.en.md#settings-of-the-house)). The heating module has no sources of its own.
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -153,7 +153,7 @@ Outdoor temperature, outdoor humidity, weather and vacation are **settings of th
 | Frost protection | 7 °C | always applies |
 | Vacation temperature | 18 °C | for every room |
 | Preheating reserve | 30 min | |
-| Ventilation advice rests | on | on vacation |
+| Ventilation advice rests (House > Vacation) | on | on vacation |
 | Starting value `theta` | 16 °C | heating day rule; only at setup, afterwards the learned value is edited |
 | API key, model | Claude Opus 5.5 | changeable, own model name possible |
 | Nightly run | 03:00 | |
@@ -164,7 +164,7 @@ Order in the options menu (*Settings > Heating*): general, vacation, emergency r
 * **Emergency rule:** on, 1 K below target (expected after the lead time, at least the switch-on hysteresis), 45 min, window 30 min unchanged.
 * **Ventilation:** minimum advantage of absolute humidity 0.8 g/m³, outside at most 4 K warmer, minimum cooling advantage 1 K, cooling in the heating period only from 1 K above target, optionally cooling only from a fixed room temperature (e.g. 23.5 °C, all year, default off), night 20:00 to 08:00 (times, to the minute). All thresholds are starting values for the AI ventilation check (on, base interval 6 h, maximum interval 72 h).
 * **AI:** model, effort (default low), nightly run, review interval 4 h, maximum interval 48 h, budget, prices in USD per million tokens (Anthropic bills in US dollars; nothing is converted) (input, output, cache write, cache read; preset with the list price of the model), maximum output tokens.
-* **AI limits:** minimum, maximum, largest change per review for every parameter.
+* **AI limits:** minimum, maximum, largest change per review for every parameter. New inputs must stay within the fixed parameter range; the step may be from 0 to the span of that range. Step 0 freezes the parameter. Existing usable limits outside the fixed range remain valid and can be saved unchanged; the fixed range applies when editing them. Startup repairs only unusable limits, without narrowing existing ranges.
 * **Heating day decision:** learned `theta` (changeable), evaluation thresholds, learning steps, conditions of the phase changes.
 
 Change the API key in the panel under **Heating > AI** or with **Reconfigure**.

@@ -58,6 +58,10 @@ export const LABELS = {
      "draft_reach": [
       "Luftzug-Reichweite",
       "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
+     ],
+     "wind_entity": [
+      "Windsensor",
+      "Optional. Gemeinsamer Windsensor für den Windschutz der Rollos; Einheit wie die Windgrenzen im Rollo-Modul."
      ]
     },
     "sections": {}
@@ -319,6 +323,10 @@ export const LABELS = {
      "draft_reach": [
       "Luftzug-Reichweite",
       "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
+     ],
+     "wind_entity": [
+      "Windsensor",
+      "Optional. Gemeinsamer Windsensor für den Windschutz der Rollos; Einheit wie die Windgrenzen im Rollo-Modul."
      ]
     },
     "sections": {}
@@ -366,36 +374,6 @@ export const LABELS = {
    "options.shutter": {
     "title": "Rollos",
     "fields": {},
-    "sections": {}
-   },
-   "options.shutter_general": {
-    "title": "Allgemein",
-    "fields": {
-     "outdoor_temperature": [
-      "Außentemperatur-Sensor",
-      "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-     ],
-     "weather": [
-      "Wetter-Entität",
-      "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-     ],
-     "language": [
-      "Sprache der Meldungen",
-      "Logbuch, letzter Grund und Push-Nachrichten. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-     ],
-     "notify_services": [
-      "Benachrichtigungsdienste",
-      "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-     ],
-     "workday_entity": [
-      "Werktag-Sensor",
-      "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-     ],
-     "weekend_days": [
-      "Wochenendtage",
-      "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-     ]
-    },
     "sections": {}
    },
    "options.shutter_override": {
@@ -497,10 +475,6 @@ export const LABELS = {
    "options.shutter_protection": {
     "title": "Wetterschutz",
     "fields": {
-     "wind_entity": [
-      "Windsensor",
-      "Windgeschwindigkeit oder Böen, z. B. von einer Wetterstation."
-     ],
      "wind_threshold": [
       "Windschutz ab",
       "In der Einheit des Windsensors (z. B. km/h oder m/s)."
@@ -564,18 +538,6 @@ export const LABELS = {
    "options.heating_general": {
     "title": "Allgemein",
     "fields": {
-     "outdoor_temperature": [
-      "Außentemperatursensor",
-      "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-     ],
-     "outdoor_humidity": [
-      "Außenfeuchtesensor",
-      "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-     ],
-     "weather": [
-      "Wetter-Entität",
-      "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-     ],
      "pv_power": [
       "PV-Leistungssensor",
       "Optional. PV-Leistung (W oder kW) als Indikator für Sonne. Daraus wird der Sonneneinfluss je Bereich gelernt."
@@ -1306,188 +1268,14 @@ export const LABELS = {
      "name": [
       "Name",
       "Name des Raums, auch für das Gerät und seine Entitäten."
-     ],
-     "area": [
-      "Bereich (Home Assistant)",
-      "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
-     ],
-     "floor_area": [
-      "Wohnfläche",
-      "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
      ]
     },
-    "sections": {
-     "sensors": {
-      "name": "Sensoren",
-      "description": "",
-      "fields": {
-       "temperature_sensor": [
-        "Temperatursensor",
-        "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos)."
-       ],
-       "humidity_sensor": [
-        "Feuchtesensor",
-        "Relative Luftfeuchte, nötig für die Lüftungsempfehlung."
-       ]
-      }
-     },
-     "heating": {
-      "name": "Heizkreis",
-      "description": "",
-      "fields": {
-       "heater_switch": [
-        "Heizkreis-Schalter",
-        "Schalter des Stellantriebs (z. B. ein Relais). Leer lassen für einen Raum nur mit Lüftungsempfehlung."
-       ],
-       "default_target": [
-        "Start-Sollwert",
-        "Sollwert, bis du ihn an der Thermostatkarte änderst."
-       ],
-       "min_target": [
-        "Kleinster Sollwert",
-        "Kleinster Wert der Thermostatkarte."
-       ],
-       "max_target": [
-        "Größter Sollwert",
-        "Größter Wert der Thermostatkarte."
-       ],
-       "min_on_time": [
-        "Mindest-Einschaltzeit",
-        "Wird immer eingehalten (schont den Stellantrieb). Wird nicht gelernt."
-       ],
-       "min_off_time": [
-        "Mindest-Ausschaltzeit",
-        "Wird immer eingehalten. Wird nicht gelernt."
-       ],
-       "heating_type": [
-        "Heizungsart",
-        "Wie der Kreis heizt. Ein Fußboden speichert Wärme über Stunden, Heizkörper reagieren in Minuten; die KI beurteilt die gelernten Werte entsprechend."
-       ]
-      }
-     },
-     "start_values": {
-      "name": "Startwerte (werden gelernt)",
-      "description": "Nur beim Anlegen des Raums. Danach werden die gelernten Werte bearbeitet.",
-      "fields": {
-       "window_delay": [
-        "Fensterverzögerung (Startwert)",
-        "So lange offen pausiert die Heizung. Die KI darf den Wert anpassen."
-       ],
-       "recovery_time": [
-        "Erholungszeit nach Lüften (Startwert)",
-        "Nach dem Schließen wird so lange gewartet, weil Estrich und Wände den Raum oft selbst aufheizen. Wird danach gelernt."
-       ],
-       "dead_time": [
-        "Totzeit bis der Raum wärmer wird (Startwert)",
-        "Zeit vom Einschalten, bis der Raum wärmer wird; bei Fußbodenheizung oft 30-90 min, bei Heizkörpern 5-20 min. Wird danach gelernt."
-       ],
-       "puffer": [
-        "Reserve über Sollwert (Startwert)",
-        "Heiztag-Regel: wie weit ein Raum beim Nachtlauf über dem Sollwert liegen muss, um einen Tag ohne Heizen zu überstehen (z. B. 0,7 K). Wird danach gelernt."
-       ]
-      }
-     },
-     "airing": {
-      "name": "Lüften",
-      "description": "Kurzes Lüften und die Wartezeit danach. Jederzeit änderbar, auch bei bestehenden Räumen.",
-      "fields": {
-       "short_airing_min": [
-        "Kurz lüften ab",
-        "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause."
-       ],
-       "short_recovery_percent": [
-        "Wartezeit nach kurzem Lüften",
-        "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
-       ]
-      }
-     },
-     "ventilation": {
-      "name": "Lüftung",
-      "description": "",
-      "fields": {
-       "ventilation_rh_threshold": [
-        "Feuchte-Schwelle",
-        "Startwert der relativen Feuchte, ab der Lüften empfohlen wird (z. B. 65 % für Bäder); die KI-Lüftungsprüfung passt ihn an den Raum an."
-       ],
-       "reference_temperature": [
-        "Referenz-Temperatur statt außen",
-        "Optional, für Räume, die über einen anderen Raum gelüftet werden."
-       ],
-       "reference_humidity": [
-        "Referenz-Feuchte statt außen",
-        "Zusammen mit der Referenz-Temperatur nötig."
-       ],
-       "ventilation_block_entity": [
-        "Lüftungs-Sperr-Entität",
-        "Optional. Solange sie sperrt, wird kein Lüften empfohlen: eine Abdeckung (cover), solange sie geschlossen ist (z. B. Beschattung unten), eine Klima-Entität oder ein Warmwasserbereiter, solange nicht aus (z. B. Klimaanlage läuft), ein Schalter, Binärsensor, Ventilator o. Ä., solange an."
-       ]
-      }
-     },
-     "draft": {
-      "name": "Luftzug aus anderen Räumen",
-      "description": "Fenster anderer Räume, deren gemeinsames Öffnen auch diesen Raum auskühlt (Querlüftung). Je Kombination die Fenster wählen, die zusammen offen sein müssen. Sobald alle Fenster einer Kombination offen sind, verhält sich der Raum wie bei einem eigenen offenen Fenster: Die Heizung pausiert nach der Fensterverzögerung und wartet danach die Erholungszeit ab. Eine Kombination mit nur einem Fenster löst schon allein aus.",
-      "fields": {
-       "draft_group_1": [
-        "Kombination 1",
-        "z. B. Kinderzimmer + Bad; eine zweite Kombination z. B. Kinderzimmer + Schlafzimmer."
-       ],
-       "draft_group_2": [
-        "Kombination 2",
-        ""
-       ],
-       "draft_group_3": [
-        "Kombination 3",
-        ""
-       ],
-       "draft_group_4": [
-        "Kombination 4",
-        ""
-       ]
-      }
-     },
-     "sun_protection": {
-      "name": "Sonnenschutz",
-      "description": "Vorgaben für die Rollos der Fenster dieses Raums. Raumtemperatur und Sollwert kommen vom Temperatursensor und vom Thermostat des Raums, solange ein Fenster keine eigene Raumtemperatur hat.",
-      "fields": {
-       "cooling_entity": [
-        "Klimaanlage",
-        "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
-       ]
-      }
-     }
-    }
+    "sections": {}
    },
    "room.reconfigure": {
     "title": "Raum",
-    "fields": {
-     "name": [
-      "Name",
-      "Name des Raums, auch für das Gerät und seine Entitäten."
-     ],
-     "area": [
-      "Bereich (Home Assistant)",
-      "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
-     ],
-     "floor_area": [
-      "Wohnfläche",
-      "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
-     ]
-    },
+    "fields": {},
     "sections": {
-     "sensors": {
-      "name": "Sensoren",
-      "description": "",
-      "fields": {
-       "temperature_sensor": [
-        "Temperatursensor",
-        "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos)."
-       ],
-       "humidity_sensor": [
-        "Feuchtesensor",
-        "Relative Luftfeuchte, nötig für die Lüftungsempfehlung."
-       ]
-      }
-     },
      "heating": {
       "name": "Heizkreis",
       "description": "",
@@ -1585,16 +1373,6 @@ export const LABELS = {
        "draft_group_4": [
         "Kombination 4",
         ""
-       ]
-      }
-     },
-     "sun_protection": {
-      "name": "Sonnenschutz",
-      "description": "Vorgaben für die Rollos der Fenster dieses Raums. Raumtemperatur und Sollwert kommen vom Temperatursensor und vom Thermostat des Raums, solange ein Fenster keine eigene Raumtemperatur hat.",
-      "fields": {
-       "cooling_entity": [
-        "Klimaanlage",
-        "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
        ]
       }
      }
@@ -2503,7 +2281,12 @@ export const LABELS = {
     "invalid_auth": "Anthropic hat den API-Key abgelehnt. Prüfe ihn unter console.anthropic.com > API Keys und füge ihn ohne Leerzeichen ein. Ohne Key läuft die lokale Regelung weiter.",
     "cannot_connect": "Anthropic ist nicht erreichbar. Prüfe Internetverbindung, Proxy und Firewall. Der Key wurde nicht gespeichert.",
     "max_below_base": "Das maximale Intervall muss mindestens so groß sein wie das Prüfintervall (z. B. alle 4 h prüfen, höchstens alle 48 h).",
-    "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen."
+    "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
+    "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
+    "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
+    "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+    "airing_min_above_max": "Die minimale Lüftungsdauer darf die maximale Dauer nicht überschreiten.",
+    "invalid_value": "Ungültiger Wert. Neue KI-Grenzen müssen im festen Bereich des Parameters liegen; der Schritt muss zwischen 0 und der Spanne liegen (0 = Parameter eingefroren)."
    },
    "options": {
     "latest_before_earliest": "Die späteste Zeit liegt vor der frühesten. Bitte die späteste Zeit nach hinten oder die früheste nach vorne verschieben.",
@@ -2520,16 +2303,24 @@ export const LABELS = {
     "invalid_auth": "Anthropic hat den API-Key abgelehnt. Prüfe ihn unter console.anthropic.com > API Keys und füge ihn ohne Leerzeichen ein. Ohne Key läuft die lokale Regelung weiter.",
     "cannot_connect": "Anthropic ist nicht erreichbar. Prüfe Internetverbindung, Proxy und Firewall. Der Key wurde nicht gespeichert.",
     "max_below_base": "Das maximale Intervall muss mindestens so groß sein wie das Prüfintervall (z. B. alle 4 h prüfen, höchstens alle 48 h).",
-    "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen."
+    "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
+    "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
+    "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
+    "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+    "airing_min_above_max": "Die minimale Lüftungsdauer darf die maximale Dauer nicht überschreiten.",
+    "invalid_value": "Ungültiger Wert. Neue KI-Grenzen müssen im festen Bereich des Parameters liegen; der Schritt muss zwischen 0 und der Spanne liegen (0 = Parameter eingefroren)."
    },
    "room": {
     "name_required": "Bitte einen Namen angeben.",
     "name_in_use": "Ein anderer Raum heißt schon so. Bitte einen eindeutigen Namen wählen (Export und Import finden Räume über den Namen).",
     "switch_in_use": "Dieser Schalter steuert bereits einen anderen Raum. Jeder Heizkreis gehört zu genau einem Raum: wähle einen anderen Schalter oder entferne ihn zuerst aus dem anderen Raum.",
-    "min_above_max": "Der kleinste Sollwert muss kleiner sein als der größte. Bitte einen der beiden Werte ändern (beide in °C).",
+    "min_above_max": "Die kleinste Solltemperatur darf die größte nicht überschreiten.",
     "target_out_of_range": "Der Start-Sollwert muss zwischen dem kleinsten und dem größten Sollwert liegen. Bitte ihn oder die Grenzen anpassen.",
     "reference_incomplete": "Referenztemperatur und Referenzfeuchte gehen nur zusammen: beide Sensoren wählen oder keinen.",
-    "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor."
+    "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor.",
+    "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
+    "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
+    "create_rooms_in_house": "Neue Räume im Haus anlegen."
    },
    "group": {
     "latest_before_earliest": "Die späteste Zeit liegt vor der frühesten. Bitte die späteste Zeit nach hinten oder die früheste nach vorne verschieben.",
@@ -2778,6 +2569,10 @@ export const LABELS = {
      "draft_reach": [
       "Draft reach",
       "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m)."
+     ],
+     "wind_entity": [
+      "Wind sensor",
+      "Optional. Shared wind sensor for cover protection; use the same unit as the wind thresholds in the covers module."
      ]
     },
     "sections": {}
@@ -3039,6 +2834,10 @@ export const LABELS = {
      "draft_reach": [
       "Draft reach",
       "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m)."
+     ],
+     "wind_entity": [
+      "Wind sensor",
+      "Optional. Shared wind sensor for cover protection; use the same unit as the wind thresholds in the covers module."
      ]
     },
     "sections": {}
@@ -3086,36 +2885,6 @@ export const LABELS = {
    "options.shutter": {
     "title": "Covers",
     "fields": {},
-    "sections": {}
-   },
-   "options.shutter_general": {
-    "title": "General",
-    "fields": {
-     "outdoor_temperature": [
-      "Outdoor temperature sensor",
-      "For the summer day and the temperature condition of every window. Without a sensor the current temperature of the weather entity is used (at least one of both). Only while nothing is set under Settings > House."
-     ],
-     "weather": [
-      "Weather entity",
-      "Its daily forecast decides at the day change whether today is a summer day. Only while nothing is set under Settings > House."
-     ],
-     "language": [
-      "Language of messages",
-      "Logbook, last reason and push messages. Only while nothing is set under Settings > House."
-     ],
-     "notify_services": [
-      "Notification services",
-      "Get a message when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone). Only while nothing is set under Settings > House."
-     ],
-     "workday_entity": [
-      "Workday sensor",
-      "Optional, for the morning opening by time (e.g. Workday integration, knows public holidays). Without a sensor the weekend days decide. Only while nothing is set under Settings > House."
-     ],
-     "weekend_days": [
-      "Weekend days",
-      "Only without a workday sensor: on these days the weekend time of the morning opening applies. Only while nothing is set under Settings > House."
-     ]
-    },
     "sections": {}
    },
    "options.shutter_override": {
@@ -3217,10 +2986,6 @@ export const LABELS = {
    "options.shutter_protection": {
     "title": "Weather protection",
     "fields": {
-     "wind_entity": [
-      "Wind sensor",
-      "Wind speed or gusts, e.g. from a weather station."
-     ],
      "wind_threshold": [
       "Wind protection from",
       "In the unit of the wind sensor (e.g. km/h or m/s)."
@@ -3284,18 +3049,6 @@ export const LABELS = {
    "options.heating_general": {
     "title": "General",
     "fields": {
-     "outdoor_temperature": [
-      "Outdoor temperature sensor",
-      "Sensor for the outdoor temperature (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used. Only while nothing is set under Settings > House."
-     ],
-     "outdoor_humidity": [
-      "Outdoor humidity sensor",
-      "Optional. Needed for the ventilation recommendation; without it the humidity of the weather entity is used. Only while nothing is set under Settings > House."
-     ],
-     "weather": [
-      "Weather entity",
-      "Optional but recommended. Its forecast is used for the nightly heating day decision and the expected sun. Without an outdoor sensor its current temperature is the outdoor temperature. Only while nothing is set under Settings > House."
-     ],
      "pv_power": [
       "PV power sensor",
       "Optional. PV power (W or kW) as an indicator for sunshine. The solar gain per room is learned from it."
@@ -4026,188 +3779,14 @@ export const LABELS = {
      "name": [
       "Name",
       "Name of the room, also used for the device and its entities."
-     ],
-     "area": [
-      "Area",
-      "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
-     ],
-     "floor_area": [
-      "Floor area",
-      "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split."
      ]
     },
-    "sections": {
-     "sensors": {
-      "name": "Sensors",
-      "description": "",
-      "fields": {
-       "temperature_sensor": [
-        "Temperature sensor",
-        "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers)."
-       ],
-       "humidity_sensor": [
-        "Humidity sensor",
-        "Relative humidity, needed for the ventilation recommendation."
-       ]
-      }
-     },
-     "heating": {
-      "name": "Heating circuit",
-      "description": "",
-      "fields": {
-       "heater_switch": [
-        "Heating circuit switch",
-        "Switch of the actuator (e.g. a relay). Leave empty for a room with ventilation recommendation only."
-       ],
-       "default_target": [
-        "Initial target temperature",
-        "Target until you change it on the thermostat card."
-       ],
-       "min_target": [
-        "Minimum target",
-        "Lowest value of the thermostat card."
-       ],
-       "max_target": [
-        "Maximum target",
-        "Highest value of the thermostat card."
-       ],
-       "min_on_time": [
-        "Minimum on time",
-        "Always respected (protects the actuator). Not learned."
-       ],
-       "min_off_time": [
-        "Minimum off time",
-        "Always respected. Not learned."
-       ],
-       "heating_type": [
-        "Heating type",
-        "How the circuit heats. A floor stores heat for hours, radiators react within minutes; the AI judges the learned values with this in mind."
-       ]
-      }
-     },
-     "start_values": {
-      "name": "Start values (learned later)",
-      "description": "Only when the room is created. Afterwards the learned values are edited.",
-      "fields": {
-       "window_delay": [
-        "Window delay (start value)",
-        "Window open this long pauses heating. The AI may adjust it."
-       ],
-       "recovery_time": [
-        "Recovery time after airing (start value)",
-        "After closing, heating waits this long because floor and walls often reheat the room. Learned afterwards."
-       ],
-       "dead_time": [
-        "Dead time until the room warms (start value)",
-        "Time from switching on until the room gets warmer; underfloor heating often 30-90 min, radiators 5-20 min. Learned afterwards."
-       ],
-       "puffer": [
-        "Margin above target (start value)",
-        "Heating day rule: how far above the target a room must be at the nightly run to manage a day without heating (e.g. 0.7 K). Learned afterwards."
-       ]
-      }
-     },
-     "airing": {
-      "name": "Airing",
-      "description": "Brief airing and the wait after it. Can be changed at any time, also for existing rooms.",
-      "fields": {
-       "short_airing_min": [
-        "Brief airing from",
-        "Airing at least this long but shorter than the window delay counts as brief airing: heating then waits. 0 = every airing counts. From the window delay on, the normal pause applies."
-       ],
-       "short_recovery_percent": [
-        "Wait after brief airing",
-        "Share of the learned recovery time that heating waits after a brief airing (50 % = half the wait). Fixed, not learned. 0 = no wait."
-       ]
-      }
-     },
-     "ventilation": {
-      "name": "Ventilation",
-      "description": "",
-      "fields": {
-       "ventilation_rh_threshold": [
-        "Humidity threshold",
-        "Start value of the relative humidity from which ventilating is recommended (e.g. 65 % for bathrooms); the AI ventilation check adjusts it to the room."
-       ],
-       "reference_temperature": [
-        "Reference temperature instead of outdoor",
-        "Optional, for rooms aired via another room."
-       ],
-       "reference_humidity": [
-        "Reference humidity instead of outdoor",
-        "Required together with the reference temperature."
-       ],
-       "ventilation_block_entity": [
-        "Ventilation block entity",
-        "Optional. While it blocks, no ventilation is recommended: a cover while closed (e.g. sun protection down), a climate entity or water heater while not off (e.g. air conditioner running), a switch, binary sensor, fan or similar while on."
-       ]
-      }
-     },
-     "draft": {
-      "name": "Draft from other rooms",
-      "description": "Windows of other rooms whose opening together also cools this room (cross ventilation). Per combination choose the windows that must be open together. As soon as every window of one combination is open, the room behaves as with its own window open: heating pauses after the window delay and waits the recovery time. A combination with a single window triggers on its own.",
-      "fields": {
-       "draft_group_1": [
-        "Combination 1",
-        "e.g. kids' room + bathroom; a second combination e.g. kids' room + bedroom."
-       ],
-       "draft_group_2": [
-        "Combination 2",
-        ""
-       ],
-       "draft_group_3": [
-        "Combination 3",
-        ""
-       ],
-       "draft_group_4": [
-        "Combination 4",
-        ""
-       ]
-      }
-     },
-     "sun_protection": {
-      "name": "Sun protection",
-      "description": "Defaults for the covers of the windows of this room. Room temperature and target come from the temperature sensor and the thermostat of the room unless a window has its own room temperature.",
-      "fields": {
-       "cooling_entity": [
-        "Air conditioner",
-        "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
-       ]
-      }
-     }
-    }
+    "sections": {}
    },
    "room.reconfigure": {
     "title": "Room",
-    "fields": {
-     "name": [
-      "Name",
-      "Name of the room, also used for the device and its entities."
-     ],
-     "area": [
-      "Area",
-      "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
-     ],
-     "floor_area": [
-      "Floor area",
-      "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split."
-     ]
-    },
+    "fields": {},
     "sections": {
-     "sensors": {
-      "name": "Sensors",
-      "description": "",
-      "fields": {
-       "temperature_sensor": [
-        "Temperature sensor",
-        "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers)."
-       ],
-       "humidity_sensor": [
-        "Humidity sensor",
-        "Relative humidity, needed for the ventilation recommendation."
-       ]
-      }
-     },
      "heating": {
       "name": "Heating circuit",
       "description": "",
@@ -4305,16 +3884,6 @@ export const LABELS = {
        "draft_group_4": [
         "Combination 4",
         ""
-       ]
-      }
-     },
-     "sun_protection": {
-      "name": "Sun protection",
-      "description": "Defaults for the covers of the windows of this room. Room temperature and target come from the temperature sensor and the thermostat of the room unless a window has its own room temperature.",
-      "fields": {
-       "cooling_entity": [
-        "Air conditioner",
-        "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
        ]
       }
      }
@@ -5223,7 +4792,12 @@ export const LABELS = {
     "invalid_auth": "Anthropic rejected the API key. Check it at console.anthropic.com under API keys and paste it without spaces. Without a key the local control keeps running.",
     "cannot_connect": "Anthropic cannot be reached. Check the internet connection, proxy and firewall. The key was not saved.",
     "max_below_base": "The maximum interval must be at least the check interval (e.g. check every 4 h, at most every 48 h).",
-    "outdoor_required": "Choose an outdoor temperature sensor or a weather entity."
+    "outdoor_required": "Choose an outdoor temperature sensor or a weather entity.",
+    "house_settings_only": "Change this setting only in House.",
+    "room_basics_house_only": "Change room basics only in House.",
+    "create_rooms_in_house": "Create new rooms in House.",
+    "airing_min_above_max": "The minimum airing duration must not exceed the maximum duration.",
+    "invalid_value": "Invalid value. New AI limits must stay within the fixed parameter range; the step must be between 0 and its span (0 = parameter frozen)."
    },
    "options": {
     "latest_before_earliest": "The latest time is before the earliest one. Move the latest time later or the earliest earlier.",
@@ -5240,16 +4814,24 @@ export const LABELS = {
     "invalid_auth": "Anthropic rejected the API key. Check it at console.anthropic.com under API keys and paste it without spaces. Without a key the local control keeps running.",
     "cannot_connect": "Anthropic cannot be reached. Check the internet connection, proxy and firewall. The key was not saved.",
     "max_below_base": "The maximum interval must be at least the check interval (e.g. check every 4 h, at most every 48 h).",
-    "outdoor_required": "Choose an outdoor temperature sensor or a weather entity."
+    "outdoor_required": "Choose an outdoor temperature sensor or a weather entity.",
+    "house_settings_only": "Change this setting only in House.",
+    "room_basics_house_only": "Change room basics only in House.",
+    "create_rooms_in_house": "Create new rooms in House.",
+    "airing_min_above_max": "The minimum airing duration must not exceed the maximum duration.",
+    "invalid_value": "Invalid value. New AI limits must stay within the fixed parameter range; the step must be between 0 and its span (0 = parameter frozen)."
    },
    "room": {
     "name_required": "Please enter a name.",
     "name_in_use": "Another room already has this name. Please choose a unique name (export and import find rooms by name).",
     "switch_in_use": "This switch already controls another room. Each circuit can belong to one room only: choose another switch, or remove it from the other room first.",
-    "min_above_max": "The smallest target must be below the largest target. Please change one of the two values (both in °C).",
+    "min_above_max": "The smallest target must not exceed the largest target.",
     "target_out_of_range": "The start target must lie between the smallest and the largest target. Please adjust it or the limits.",
     "reference_incomplete": "Reference temperature and reference humidity only work together: choose both sensors or neither.",
-    "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room."
+    "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room.",
+    "house_settings_only": "Change this setting only in House.",
+    "room_basics_house_only": "Change room basics only in House.",
+    "create_rooms_in_house": "Create new rooms in House."
    },
    "group": {
     "latest_before_earliest": "The latest time is before the earliest one. Move the latest time later or the earliest earlier.",
@@ -5465,90 +5047,6 @@ export const HOUSE = {
      "Feuchtesensor",
      "Relative Luftfeuchte, nötig für die Lüftungsempfehlung."
     ],
-    "heater_switch": [
-     "Heizkreis-Schalter",
-     "Schalter des Stellantriebs (z. B. ein Relais). Leer lassen für einen Raum nur mit Lüftungsempfehlung."
-    ],
-    "default_target": [
-     "Start-Sollwert",
-     "Sollwert, bis du ihn an der Thermostatkarte änderst."
-    ],
-    "min_target": [
-     "Kleinster Sollwert",
-     "Kleinster Wert der Thermostatkarte."
-    ],
-    "max_target": [
-     "Größter Sollwert",
-     "Größter Wert der Thermostatkarte."
-    ],
-    "min_on_time": [
-     "Mindest-Einschaltzeit",
-     "Wird immer eingehalten (schont den Stellantrieb). Wird nicht gelernt."
-    ],
-    "min_off_time": [
-     "Mindest-Ausschaltzeit",
-     "Wird immer eingehalten. Wird nicht gelernt."
-    ],
-    "heating_type": [
-     "Heizungsart",
-     "Wie der Kreis heizt. Ein Fußboden speichert Wärme über Stunden, Heizkörper reagieren in Minuten; die KI beurteilt die gelernten Werte entsprechend."
-    ],
-    "window_delay": [
-     "Fensterverzögerung (Startwert)",
-     "So lange offen pausiert die Heizung. Die KI darf den Wert anpassen."
-    ],
-    "recovery_time": [
-     "Erholungszeit nach Lüften (Startwert)",
-     "Nach dem Schließen wird so lange gewartet, weil Estrich und Wände den Raum oft selbst aufheizen. Wird danach gelernt."
-    ],
-    "dead_time": [
-     "Totzeit bis der Raum wärmer wird (Startwert)",
-     "Zeit vom Einschalten, bis der Raum wärmer wird; bei Fußbodenheizung oft 30-90 min, bei Heizkörpern 5-20 min. Wird danach gelernt."
-    ],
-    "puffer": [
-     "Reserve über Sollwert (Startwert)",
-     "Heiztag-Regel: wie weit ein Raum beim Nachtlauf über dem Sollwert liegen muss, um einen Tag ohne Heizen zu überstehen (z. B. 0,7 K). Wird danach gelernt."
-    ],
-    "short_airing_min": [
-     "Kurz lüften ab",
-     "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause."
-    ],
-    "short_recovery_percent": [
-     "Wartezeit nach kurzem Lüften",
-     "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
-    ],
-    "ventilation_rh_threshold": [
-     "Feuchte-Schwelle",
-     "Startwert der relativen Feuchte, ab der Lüften empfohlen wird (z. B. 65 % für Bäder); die KI-Lüftungsprüfung passt ihn an den Raum an."
-    ],
-    "reference_temperature": [
-     "Referenz-Temperatur statt außen",
-     "Optional, für Räume, die über einen anderen Raum gelüftet werden."
-    ],
-    "reference_humidity": [
-     "Referenz-Feuchte statt außen",
-     "Zusammen mit der Referenz-Temperatur nötig."
-    ],
-    "ventilation_block_entity": [
-     "Lüftungs-Sperr-Entität",
-     "Optional. Solange sie sperrt, wird kein Lüften empfohlen: eine Abdeckung (cover), solange sie geschlossen ist (z. B. Beschattung unten), eine Klima-Entität oder ein Warmwasserbereiter, solange nicht aus (z. B. Klimaanlage läuft), ein Schalter, Binärsensor, Ventilator o. Ä., solange an."
-    ],
-    "draft_group_1": [
-     "Kombination 1",
-     "z. B. Kinderzimmer + Bad; eine zweite Kombination z. B. Kinderzimmer + Schlafzimmer."
-    ],
-    "draft_group_2": [
-     "Kombination 2",
-     ""
-    ],
-    "draft_group_3": [
-     "Kombination 3",
-     ""
-    ],
-    "draft_group_4": [
-     "Kombination 4",
-     ""
-    ],
     "cooling_entity": [
      "Klimaanlage",
      "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
@@ -5629,6 +5127,10 @@ export const HOUSE = {
      "Luftzug-Reichweite",
      "Wie weit ein Raum von der Linie zwischen zwei offenen Fenstern anderer Räume entfernt sein darf, um ihren Luftzug abzubekommen (Standard 2 m)."
     ],
+    "wind_entity": [
+     "Windsensor",
+     "Optional. Gemeinsamer Windsensor für den Windschutz der Rollos; Einheit wie die Windgrenzen im Rollo-Modul."
+    ],
     "modules": [
      "Module",
      "Die Teile des Hauses, die House Assistant steuern soll. Ein abgeschaltetes Modul behält seine Einstellungen."
@@ -5690,6 +5192,9 @@ export const HOUSE = {
    "target_out_of_range": "Der Start-Sollwert muss zwischen dem kleinsten und dem größten Sollwert liegen. Bitte ihn oder die Grenzen anpassen.",
    "reference_incomplete": "Referenztemperatur und Referenzfeuchte gehen nur zusammen: beide Sensoren wählen oder keinen.",
    "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor.",
+   "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
+   "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
+   "create_rooms_in_house": "Neue Räume im Haus anlegen.",
    "latest_before_earliest": "Die späteste Zeit liegt vor der frühesten. Bitte die späteste Zeit nach hinten oder die früheste nach vorne verschieben.",
    "night_end_after_evening": "Das Ende der Nacht muss vor dem frühesten Abendbeginn liegen, z. B. 03:30 bei Abendbeginn ab 17:00.",
    "azimuth_equal": "Azimut von und bis müssen verschieden sein.",
@@ -5733,90 +5238,6 @@ export const HOUSE = {
     "humidity_sensor": [
      "Humidity sensor",
      "Relative humidity, needed for the ventilation recommendation."
-    ],
-    "heater_switch": [
-     "Heating circuit switch",
-     "Switch of the actuator (e.g. a relay). Leave empty for a room with ventilation recommendation only."
-    ],
-    "default_target": [
-     "Initial target temperature",
-     "Target until you change it on the thermostat card."
-    ],
-    "min_target": [
-     "Minimum target",
-     "Lowest value of the thermostat card."
-    ],
-    "max_target": [
-     "Maximum target",
-     "Highest value of the thermostat card."
-    ],
-    "min_on_time": [
-     "Minimum on time",
-     "Always respected (protects the actuator). Not learned."
-    ],
-    "min_off_time": [
-     "Minimum off time",
-     "Always respected. Not learned."
-    ],
-    "heating_type": [
-     "Heating type",
-     "How the circuit heats. A floor stores heat for hours, radiators react within minutes; the AI judges the learned values with this in mind."
-    ],
-    "window_delay": [
-     "Window delay (start value)",
-     "Window open this long pauses heating. The AI may adjust it."
-    ],
-    "recovery_time": [
-     "Recovery time after airing (start value)",
-     "After closing, heating waits this long because floor and walls often reheat the room. Learned afterwards."
-    ],
-    "dead_time": [
-     "Dead time until the room warms (start value)",
-     "Time from switching on until the room gets warmer; underfloor heating often 30-90 min, radiators 5-20 min. Learned afterwards."
-    ],
-    "puffer": [
-     "Margin above target (start value)",
-     "Heating day rule: how far above the target a room must be at the nightly run to manage a day without heating (e.g. 0.7 K). Learned afterwards."
-    ],
-    "short_airing_min": [
-     "Brief airing from",
-     "Airing at least this long but shorter than the window delay counts as brief airing: heating then waits. 0 = every airing counts. From the window delay on, the normal pause applies."
-    ],
-    "short_recovery_percent": [
-     "Wait after brief airing",
-     "Share of the learned recovery time that heating waits after a brief airing (50 % = half the wait). Fixed, not learned. 0 = no wait."
-    ],
-    "ventilation_rh_threshold": [
-     "Humidity threshold",
-     "Start value of the relative humidity from which ventilating is recommended (e.g. 65 % for bathrooms); the AI ventilation check adjusts it to the room."
-    ],
-    "reference_temperature": [
-     "Reference temperature instead of outdoor",
-     "Optional, for rooms aired via another room."
-    ],
-    "reference_humidity": [
-     "Reference humidity instead of outdoor",
-     "Required together with the reference temperature."
-    ],
-    "ventilation_block_entity": [
-     "Ventilation block entity",
-     "Optional. While it blocks, no ventilation is recommended: a cover while closed (e.g. sun protection down), a climate entity or water heater while not off (e.g. air conditioner running), a switch, binary sensor, fan or similar while on."
-    ],
-    "draft_group_1": [
-     "Combination 1",
-     "e.g. kids' room + bathroom; a second combination e.g. kids' room + bedroom."
-    ],
-    "draft_group_2": [
-     "Combination 2",
-     ""
-    ],
-    "draft_group_3": [
-     "Combination 3",
-     ""
-    ],
-    "draft_group_4": [
-     "Combination 4",
-     ""
     ],
     "cooling_entity": [
      "Air conditioner",
@@ -5898,6 +5319,10 @@ export const HOUSE = {
      "Draft reach",
      "How far a room may be from the line between two open windows of other rooms to still get their draft (default 2 m)."
     ],
+    "wind_entity": [
+     "Wind sensor",
+     "Optional. Shared wind sensor for cover protection; use the same unit as the wind thresholds in the covers module."
+    ],
     "modules": [
      "Modules",
      "The parts of the house House Assistant takes care of. A module switched off keeps its settings."
@@ -5959,6 +5384,9 @@ export const HOUSE = {
    "target_out_of_range": "The start target must lie between the smallest and the largest target. Please adjust it or the limits.",
    "reference_incomplete": "Reference temperature and reference humidity only work together: choose both sensors or neither.",
    "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room.",
+   "house_settings_only": "Change this setting only in House.",
+   "room_basics_house_only": "Change room basics only in House.",
+   "create_rooms_in_house": "Create new rooms in House.",
    "latest_before_earliest": "The latest time is before the earliest one. Move the latest time later or the earliest earlier.",
    "night_end_after_evening": "The end of the night must be before the earliest evening start, e.g. 03:30 with an evening from 17:00.",
    "azimuth_equal": "Azimuth from and to must differ.",
@@ -5983,19 +5411,29 @@ export const HOUSE = {
 };
 export const HEATING = {
  "de": {
+  "notes": {
+   "house_settings_note": "Außentemperatur und -feuchte, Wetter, Windsensor, Sprache, Benachrichtigungen, Werktage, Hausmaße und Urlaubsquellen werden nur im Haus eingestellt.",
+   "room_basics_note": "Name, Bereich, Wohnfläche, Sensoren und Klimaanlage werden ausschließlich im Haus geändert. Neue Räume im Haus anlegen.",
+   "room": {
+    "data": {
+     "name": "Name",
+     "area": "Bereich (Home Assistant)",
+     "floor_area": "Wohnfläche",
+     "temperature_sensor": "Temperatursensor",
+     "humidity_sensor": "Feuchtesensor",
+     "cooling_entity": "Klimaanlage"
+    },
+    "data_description": {
+     "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
+     "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften.",
+     "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil.",
+     "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
+     "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung.",
+     "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
+    }
+   }
+  },
   "fields": {
-   "outdoor_temperature": [
-    "Außentemperatursensor",
-    "Sensor für die Außentemperatur (z. B. ein Helfer, der mehrere Sensoren zusammenfasst). Ohne ihn gilt die aktuelle Temperatur der Wetter-Entität. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-   ],
-   "outdoor_humidity": [
-    "Außenfeuchtesensor",
-    "Optional. Für die Lüftungsempfehlung; ohne Sensor wird die Luftfeuchte der Wetter-Entität genutzt. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-   ],
-   "weather": [
-    "Wetter-Entität",
-    "Optional, aber empfohlen. Die Vorhersage wird für die nächtliche Heiztag-Entscheidung und die Sonnenprognose genutzt. Ohne Außensensor gilt ihre aktuelle Temperatur als Außentemperatur. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-   ],
    "pv_power": [
     "PV-Leistungssensor",
     "Optional. PV-Leistung (W oder kW) als Indikator für Sonne. Daraus wird der Sonneneinfluss je Bereich gelernt."
@@ -6240,26 +5678,6 @@ export const HEATING = {
     "Anthropic API-Key",
     "Optional. Ohne Key läuft nur die lokale Regelung. Der Key wird nur in Home Assistant gespeichert und nie protokolliert."
    ],
-   "name": [
-    "Name",
-    "Name des Raums, auch für das Gerät und seine Entitäten."
-   ],
-   "area": [
-    "Bereich (Home Assistant)",
-    "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften."
-   ],
-   "floor_area": [
-    "Wohnfläche",
-    "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil."
-   ],
-   "temperature_sensor": [
-    "Temperatursensor",
-    "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos)."
-   ],
-   "humidity_sensor": [
-    "Feuchtesensor",
-    "Relative Luftfeuchte, nötig für die Lüftungsempfehlung."
-   ],
    "heater_switch": [
     "Heizkreis-Schalter",
     "Schalter des Stellantriebs (z. B. ein Relais). Leer lassen für einen Raum nur mit Lüftungsempfehlung."
@@ -6289,28 +5707,20 @@ export const HEATING = {
     "Wie der Kreis heizt. Ein Fußboden speichert Wärme über Stunden, Heizkörper reagieren in Minuten; die KI beurteilt die gelernten Werte entsprechend."
    ],
    "window_delay": [
-    "Fensterverzögerung (Startwert)",
+    "Fensterverzögerung",
     "So lange offen pausiert die Heizung. Die KI darf den Wert anpassen."
    ],
    "recovery_time": [
-    "Erholungszeit nach Lüften (Startwert)",
-    "Nach dem Schließen wird so lange gewartet, weil Estrich und Wände den Raum oft selbst aufheizen. Wird danach gelernt."
+    "Erholungszeit nach Lüften",
+    "Gelernte Wartezeit nach dem Schließen der Fenster."
    ],
    "dead_time": [
-    "Totzeit bis der Raum wärmer wird (Startwert)",
-    "Zeit vom Einschalten, bis der Raum wärmer wird; bei Fußbodenheizung oft 30-90 min, bei Heizkörpern 5-20 min. Wird danach gelernt."
+    "Totzeit bis der Raum wärmer wird",
+    "Gelernte Zeit, bis der Raum nach dem Einschalten wärmer wird."
    ],
    "puffer": [
-    "Reserve über Sollwert (Startwert)",
-    "Heiztag-Regel: wie weit ein Raum beim Nachtlauf über dem Sollwert liegen muss, um einen Tag ohne Heizen zu überstehen (z. B. 0,7 K). Wird danach gelernt."
-   ],
-   "short_airing_min": [
-    "Kurz lüften ab",
-    "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause."
-   ],
-   "short_recovery_percent": [
-    "Wartezeit nach kurzem Lüften",
-    "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
+    "Reserve über Sollwert",
+    "Heiztag-Regel: nötiger Abstand über dem Sollwert beim Nachtlauf (gelernt)."
    ],
    "ventilation_rh_threshold": [
     "Feuchte-Schwelle",
@@ -6343,10 +5753,6 @@ export const HEATING = {
    "draft_group_4": [
     "Kombination 4",
     ""
-   ],
-   "cooling_entity": [
-    "Klimaanlage",
-    "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
    ]
   },
   "learned": {
@@ -6368,21 +5774,13 @@ export const HEATING = {
    ]
   },
   "sections": {
-   "sensors": [
-    "Sensoren",
-    ""
-   ],
    "heating": [
     "Heizkreis",
     ""
    ],
-   "start_values": [
-    "Startwerte (werden gelernt)",
-    "Nur beim Anlegen des Raums. Danach werden die gelernten Werte bearbeitet."
-   ],
-   "airing": [
-    "Lüften",
-    "Kurzes Lüften und die Wartezeit danach. Jederzeit änderbar, auch bei bestehenden Räumen."
+   "learned_values": [
+    "Gelernte Werte",
+    "Werte, mit denen gerade geregelt wird. Eine Änderung ersetzt den gelernten bzw. von der KI angepassten Wert; danach wird von hier aus weiter gelernt."
    ],
    "ventilation": [
     "Lüftung",
@@ -6391,14 +5789,6 @@ export const HEATING = {
    "draft": [
     "Luftzug aus anderen Räumen",
     "Fenster anderer Räume, deren gemeinsames Öffnen auch diesen Raum auskühlt (Querlüftung). Je Kombination die Fenster wählen, die zusammen offen sein müssen. Sobald alle Fenster einer Kombination offen sind, verhält sich der Raum wie bei einem eigenen offenen Fenster: Die Heizung pausiert nach der Fensterverzögerung und wartet danach die Erholungszeit ab. Eine Kombination mit nur einem Fenster löst schon allein aus."
-   ],
-   "sun_protection": [
-    "Sonnenschutz",
-    "Vorgaben für die Rollos der Fenster dieses Raums. Raumtemperatur und Sollwert kommen vom Temperatursensor und vom Thermostat des Raums, solange ein Fenster keine eigene Raumtemperatur hat."
-   ],
-   "learned_values": [
-    "Gelernte Werte",
-    "Werte, mit denen gerade geregelt wird. Eine Änderung ersetzt den gelernten bzw. von der KI angepassten Wert; danach wird von hier aus weiter gelernt."
    ]
   },
   "limits": {
@@ -6447,16 +5837,24 @@ export const HEATING = {
    "invalid_auth": "Anthropic hat den API-Key abgelehnt. Prüfe ihn unter console.anthropic.com > API Keys und füge ihn ohne Leerzeichen ein. Ohne Key läuft die lokale Regelung weiter.",
    "cannot_connect": "Anthropic ist nicht erreichbar. Prüfe Internetverbindung, Proxy und Firewall. Der Key wurde nicht gespeichert.",
    "max_below_base": "Das maximale Intervall muss mindestens so groß sein wie das Prüfintervall (z. B. alle 4 h prüfen, höchstens alle 48 h).",
-   "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen."
+   "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
+   "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
+   "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
+   "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+   "airing_min_above_max": "Die minimale Lüftungsdauer darf die maximale Dauer nicht überschreiten.",
+   "invalid_value": "Ungültiger Wert. Neue KI-Grenzen müssen im festen Bereich des Parameters liegen; der Schritt muss zwischen 0 und der Spanne liegen (0 = Parameter eingefroren)."
   },
   "area_errors": {
    "name_required": "Bitte einen Namen angeben.",
    "name_in_use": "Ein anderer Raum heißt schon so. Bitte einen eindeutigen Namen wählen (Export und Import finden Räume über den Namen).",
    "switch_in_use": "Dieser Schalter steuert bereits einen anderen Raum. Jeder Heizkreis gehört zu genau einem Raum: wähle einen anderen Schalter oder entferne ihn zuerst aus dem anderen Raum.",
-   "min_above_max": "Der kleinste Sollwert muss kleiner sein als der größte. Bitte einen der beiden Werte ändern (beide in °C).",
+   "min_above_max": "Die kleinste Solltemperatur darf die größte nicht überschreiten.",
    "target_out_of_range": "Der Start-Sollwert muss zwischen dem kleinsten und dem größten Sollwert liegen. Bitte ihn oder die Grenzen anpassen.",
    "reference_incomplete": "Referenztemperatur und Referenzfeuchte gehen nur zusammen: beide Sensoren wählen oder keinen.",
-   "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor."
+   "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor.",
+   "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
+   "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
+   "create_rooms_in_house": "Neue Räume im Haus anlegen."
   },
   "states": {
    "status": {
@@ -6509,19 +5907,29 @@ export const HEATING = {
   }
  },
  "en": {
+  "notes": {
+   "house_settings_note": "Set outdoor temperature and humidity, weather, wind sensor, language, notifications, working days, house dimensions and vacation sources only in House.",
+   "room_basics_note": "Change name, area, floor area, sensors and air conditioner only in House. Create new rooms in House.",
+   "room": {
+    "data": {
+     "name": "Name",
+     "area": "Area",
+     "floor_area": "Floor area",
+     "temperature_sensor": "Temperature sensor",
+     "humidity_sensor": "Humidity sensor",
+     "cooling_entity": "Air conditioner"
+    },
+    "data_description": {
+     "name": "Name of the room, also used for the device and its entities.",
+     "area": "Optional. The device of the room is placed in this area; its floor counts for cross ventilation.",
+     "floor_area": "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split.",
+     "temperature_sensor": "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers).",
+     "humidity_sensor": "Relative humidity, needed for the ventilation recommendation.",
+     "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
+    }
+   }
+  },
   "fields": {
-   "outdoor_temperature": [
-    "Outdoor temperature sensor",
-    "Sensor for the outdoor temperature (e.g. a helper combining several sensors). Without it the current temperature of the weather entity is used. Only while nothing is set under Settings > House."
-   ],
-   "outdoor_humidity": [
-    "Outdoor humidity sensor",
-    "Optional. Needed for the ventilation recommendation; without it the humidity of the weather entity is used. Only while nothing is set under Settings > House."
-   ],
-   "weather": [
-    "Weather entity",
-    "Optional but recommended. Its forecast is used for the nightly heating day decision and the expected sun. Without an outdoor sensor its current temperature is the outdoor temperature. Only while nothing is set under Settings > House."
-   ],
    "pv_power": [
     "PV power sensor",
     "Optional. PV power (W or kW) as an indicator for sunshine. The solar gain per room is learned from it."
@@ -6766,26 +6174,6 @@ export const HEATING = {
     "Anthropic API key",
     "Optional. Without a key the local control runs alone. The key is only stored in Home Assistant and never logged."
    ],
-   "name": [
-    "Name",
-    "Name of the room, also used for the device and its entities."
-   ],
-   "area": [
-    "Area",
-    "Optional. The device of the room is placed in this area; its floor counts for cross ventilation."
-   ],
-   "floor_area": [
-    "Floor area",
-    "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split."
-   ],
-   "temperature_sensor": [
-    "Temperature sensor",
-    "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers)."
-   ],
-   "humidity_sensor": [
-    "Humidity sensor",
-    "Relative humidity, needed for the ventilation recommendation."
-   ],
    "heater_switch": [
     "Heating circuit switch",
     "Switch of the actuator (e.g. a relay). Leave empty for a room with ventilation recommendation only."
@@ -6815,28 +6203,20 @@ export const HEATING = {
     "How the circuit heats. A floor stores heat for hours, radiators react within minutes; the AI judges the learned values with this in mind."
    ],
    "window_delay": [
-    "Window delay (start value)",
+    "Window delay",
     "Window open this long pauses heating. The AI may adjust it."
    ],
    "recovery_time": [
-    "Recovery time after airing (start value)",
-    "After closing, heating waits this long because floor and walls often reheat the room. Learned afterwards."
+    "Recovery time after airing",
+    "Learned wait after the windows are closed."
    ],
    "dead_time": [
-    "Dead time until the room warms (start value)",
-    "Time from switching on until the room gets warmer; underfloor heating often 30-90 min, radiators 5-20 min. Learned afterwards."
+    "Dead time until the room warms",
+    "Learned time until the room warms up after switching on."
    ],
    "puffer": [
-    "Margin above target (start value)",
-    "Heating day rule: how far above the target a room must be at the nightly run to manage a day without heating (e.g. 0.7 K). Learned afterwards."
-   ],
-   "short_airing_min": [
-    "Brief airing from",
-    "Airing at least this long but shorter than the window delay counts as brief airing: heating then waits. 0 = every airing counts. From the window delay on, the normal pause applies."
-   ],
-   "short_recovery_percent": [
-    "Wait after brief airing",
-    "Share of the learned recovery time that heating waits after a brief airing (50 % = half the wait). Fixed, not learned. 0 = no wait."
+    "Margin above target",
+    "Heating day rule: needed margin above the target at the nightly run (learned)."
    ],
    "ventilation_rh_threshold": [
     "Humidity threshold",
@@ -6869,10 +6249,6 @@ export const HEATING = {
    "draft_group_4": [
     "Combination 4",
     ""
-   ],
-   "cooling_entity": [
-    "Air conditioner",
-    "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
    ]
   },
   "learned": {
@@ -6894,21 +6270,13 @@ export const HEATING = {
    ]
   },
   "sections": {
-   "sensors": [
-    "Sensors",
-    ""
-   ],
    "heating": [
     "Heating circuit",
     ""
    ],
-   "start_values": [
-    "Start values (learned later)",
-    "Only when the room is created. Afterwards the learned values are edited."
-   ],
-   "airing": [
-    "Airing",
-    "Brief airing and the wait after it. Can be changed at any time, also for existing rooms."
+   "learned_values": [
+    "Learned values",
+    "Values the control currently uses. A change replaces the learned or AI-adjusted value; learning continues from there."
    ],
    "ventilation": [
     "Ventilation",
@@ -6917,14 +6285,6 @@ export const HEATING = {
    "draft": [
     "Draft from other rooms",
     "Windows of other rooms whose opening together also cools this room (cross ventilation). Per combination choose the windows that must be open together. As soon as every window of one combination is open, the room behaves as with its own window open: heating pauses after the window delay and waits the recovery time. A combination with a single window triggers on its own."
-   ],
-   "sun_protection": [
-    "Sun protection",
-    "Defaults for the covers of the windows of this room. Room temperature and target come from the temperature sensor and the thermostat of the room unless a window has its own room temperature."
-   ],
-   "learned_values": [
-    "Learned values",
-    "Values the control currently uses. A change replaces the learned or AI-adjusted value; learning continues from there."
    ]
   },
   "limits": {
@@ -6973,16 +6333,24 @@ export const HEATING = {
    "invalid_auth": "Anthropic rejected the API key. Check it at console.anthropic.com under API keys and paste it without spaces. Without a key the local control keeps running.",
    "cannot_connect": "Anthropic cannot be reached. Check the internet connection, proxy and firewall. The key was not saved.",
    "max_below_base": "The maximum interval must be at least the check interval (e.g. check every 4 h, at most every 48 h).",
-   "outdoor_required": "Choose an outdoor temperature sensor or a weather entity."
+   "outdoor_required": "Choose an outdoor temperature sensor or a weather entity.",
+   "house_settings_only": "Change this setting only in House.",
+   "room_basics_house_only": "Change room basics only in House.",
+   "create_rooms_in_house": "Create new rooms in House.",
+   "airing_min_above_max": "The minimum airing duration must not exceed the maximum duration.",
+   "invalid_value": "Invalid value. New AI limits must stay within the fixed parameter range; the step must be between 0 and its span (0 = parameter frozen)."
   },
   "area_errors": {
    "name_required": "Please enter a name.",
    "name_in_use": "Another room already has this name. Please choose a unique name (export and import find rooms by name).",
    "switch_in_use": "This switch already controls another room. Each circuit can belong to one room only: choose another switch, or remove it from the other room first.",
-   "min_above_max": "The smallest target must be below the largest target. Please change one of the two values (both in °C).",
+   "min_above_max": "The smallest target must not exceed the largest target.",
    "target_out_of_range": "The start target must lie between the smallest and the largest target. Please adjust it or the limits.",
    "reference_incomplete": "Reference temperature and reference humidity only work together: choose both sensors or neither.",
-   "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room."
+   "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room.",
+   "house_settings_only": "Change this setting only in House.",
+   "room_basics_house_only": "Change room basics only in House.",
+   "create_rooms_in_house": "Create new rooms in House."
   },
   "states": {
    "status": {
@@ -7036,6 +6404,52 @@ export const HEATING = {
  }
 };
 export const SHUTTER = {
+ "notes": {
+  "de": {
+   "house_settings_note": "Außentemperatur und -feuchte, Wetter, Windsensor, Sprache, Benachrichtigungen, Werktage, Hausmaße und Urlaubsquellen werden nur im Haus eingestellt.",
+   "room_basics_note": "Name, Bereich, Wohnfläche, Sensoren und Klimaanlage werden ausschließlich im Haus geändert. Neue Räume im Haus anlegen.",
+   "room": {
+    "data": {
+     "name": "Name",
+     "area": "Bereich (Home Assistant)",
+     "floor_area": "Wohnfläche",
+     "temperature_sensor": "Temperatursensor",
+     "humidity_sensor": "Feuchtesensor",
+     "cooling_entity": "Klimaanlage"
+    },
+    "data_description": {
+     "name": "Name des Raums, auch für das Gerät und seine Entitäten.",
+     "area": "Optional. Das Gerät des Raums kommt in diesen Bereich; seine Etage zählt für das Querlüften.",
+     "floor_area": "Wohnfläche des Raums, für die Verbrauchsverteilung. Ohne Fläche nimmt der Raum nicht an der Verteilung des Wärmezählers teil.",
+     "temperature_sensor": "Raumtemperatur. Ohne Sensor hat der Raum keine Heizung und keine Lüftungsempfehlung (z. B. ein Raum nur für Rollos).",
+     "humidity_sensor": "Relative Luftfeuchte, nötig für die Lüftungsempfehlung.",
+     "cooling_entity": "Optional: Solange diese Klimaanlage kühlt, gilt der Raum als zu warm. Der Sonnenschutz entlastet dann die Klimaanlage. Gilt für alle Fenster des Raums ohne eigene Klimaanlage."
+    }
+   }
+  },
+  "en": {
+   "house_settings_note": "Set outdoor temperature and humidity, weather, wind sensor, language, notifications, working days, house dimensions and vacation sources only in House.",
+   "room_basics_note": "Change name, area, floor area, sensors and air conditioner only in House. Create new rooms in House.",
+   "room": {
+    "data": {
+     "name": "Name",
+     "area": "Area",
+     "floor_area": "Floor area",
+     "temperature_sensor": "Temperature sensor",
+     "humidity_sensor": "Humidity sensor",
+     "cooling_entity": "Air conditioner"
+    },
+    "data_description": {
+     "name": "Name of the room, also used for the device and its entities.",
+     "area": "Optional. The device of the room is placed in this area; its floor counts for cross ventilation.",
+     "floor_area": "Floor area of the room, for the split of the heat meter over the rooms. Without it the room takes no part in the split.",
+     "temperature_sensor": "Room temperature. Without a sensor the room has no heating and no ventilation advice (e.g. a room only for covers).",
+     "humidity_sensor": "Relative humidity, needed for the ventilation recommendation.",
+     "cooling_entity": "Optional: while this air conditioner cools, the room counts as too warm. Sun protection then takes load off the air conditioner. Applies to every window of the room without its own air conditioner."
+    }
+   }
+  }
+ },
  "LABELS": {
   "de": {
    "auto_up": [
@@ -7150,10 +6564,6 @@ export const SHUTTER = {
     "Heizbedarf",
     "Optional, z. B. ein input_boolean „Heizperiode“ oder der Heiztag einer Heizungssteuerung. Solange sie an ist, ist Sonnenwärme erwünscht: Sonnenschutz nur, wenn der Raum eines Fensters trotzdem zu warm ist. Fenster ohne Raumtemperatur werden dann nicht abgesenkt."
    ],
-   "language": [
-    "Sprache der Meldungen",
-    "Logbuch, letzter Grund und Push-Nachrichten. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-   ],
    "lockout_protection": [
     "Aussperrschutz (Tür)",
     "Solange der Kontakt offen meldet, fährt nichts unter die Lüftungsposition, auch nicht mit Fenster-Ausnahme oder Wetterschutz."
@@ -7258,10 +6668,6 @@ export const SHUTTER = {
     "Bei offenem Fenster benachrichtigen",
     "Einmal am Tag, wenn ein offenes Fenster den Sonnenschutz verhindert hat."
    ],
-   "notify_services": [
-    "Benachrichtigungsdienste",
-    "Erhalten eine Nachricht, wenn ein offenes Fenster den Sonnenschutz verhindert (nur notify-Dienste, z. B. notify.mobile_app_handy). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-   ],
    "open_block_entity": [
     "Öffnungssperre",
     "Kein automatisches Öffnen (Auto-Hoch, Lüften, Urlaub morgens, Morgenöffnung), außer die Entität hat einen der Freigabe-Zustände (z. B. ein Fernseher)."
@@ -7269,10 +6675,6 @@ export const SHUTTER = {
    "open_block_free_states": [
     "Freigabe-Zustände",
     "Zustände der Öffnungssperre, in denen trotzdem geöffnet wird (z. B. off, standby)."
-   ],
-   "outdoor_temperature": [
-    "Außentemperatur-Sensor",
-    "Für den Sommertag und die Temperaturbedingung jedes Fensters. Ohne Sensor wird die aktuelle Temperatur der Wetter-Entität verwendet (mindestens eins von beiden). Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ],
    "override_duration": [
     "Dauer",
@@ -7430,21 +6832,9 @@ export const SHUTTER = {
     "Position prüfen nach",
     "Hat ein Rollo sein Ziel bis dahin nicht erreicht, wird der Befehl einmal wiederholt, danach kommt eine Meldung. 0 = aus."
    ],
-   "weather": [
-    "Wetter-Entität",
-    "Ihre Tagesvorhersage entscheidet beim Tageswechsel, ob heute ein Sommertag ist. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-   ],
    "weather_protection": [
     "Wetterschutz für dieses Fenster",
     "Aus = Wind, Regen und Frost fahren oder begrenzen dieses Rollo nie, egal was unten eingetragen ist. Für jedes Fenster einschalten, das mitmachen soll. Mit ausgeschalteter Automatik (global oder für dieses Fenster) gibt es auch keinen Wetterschutz."
-   ],
-   "weekend_days": [
-    "Wochenendtage",
-    "Nur ohne Werktag-Sensor: an diesen Tagen gilt die Wochenend-Uhrzeit der Morgenöffnung. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
-   ],
-   "wind_entity": [
-    "Windsensor",
-    "Windgeschwindigkeit oder Böen, z. B. von einer Wetterstation."
    ],
    "wind_position": [
     "Position bei Wind",
@@ -7469,10 +6859,6 @@ export const SHUTTER = {
    "window_wind_threshold": [
     "Eigene Windschwelle",
     "Leer = Windschutz ab der Schwelle der Grundeinstellungen. Sonst schützt dieses Fenster schon oder erst ab diesem Wert (Einheit des Windsensors)."
-   ],
-   "workday_entity": [
-    "Werktag-Sensor",
-    "Optional, für die Morgenöffnung nach Uhrzeit (z. B. Workday-Integration, berücksichtigt Feiertage). Ohne Sensor entscheiden die Wochenendtage. Gilt nur, solange unter Einstellungen > Haus nichts eingetragen ist."
    ]
   },
   "en": {
@@ -7588,10 +6974,6 @@ export const SHUTTER = {
     "Heating wanted",
     "Optional, e.g. an input_boolean \"heating season\" or the heating day of a heating control. While it is on, the warmth of the sun is welcome: sun protection only when the room of a window is too warm anyway. Windows without a room temperature are then not lowered."
    ],
-   "language": [
-    "Language of messages",
-    "Logbook, last reason and push messages. Only while nothing is set under Settings > House."
-   ],
    "lockout_protection": [
     "Lockout protection (door)",
     "While the contact reports open, nothing closes below the ventilation position, also not with the window exception or the weather protection."
@@ -7696,10 +7078,6 @@ export const SHUTTER = {
     "Notify about an open window",
     "Once a day, if an open window prevented the sun protection."
    ],
-   "notify_services": [
-    "Notification services",
-    "Get a message when an open window prevents sun protection (notify services only, e.g. notify.mobile_app_phone). Only while nothing is set under Settings > House."
-   ],
    "open_block_entity": [
     "Opening block",
     "No automatic opening (auto up, ventilation, vacation morning, morning opening) unless this entity has one of the free states (e.g. a TV)."
@@ -7707,10 +7085,6 @@ export const SHUTTER = {
    "open_block_free_states": [
     "Free states",
     "States of the opening block in which opening is still allowed (e.g. off, standby)."
-   ],
-   "outdoor_temperature": [
-    "Outdoor temperature sensor",
-    "For the summer day and the temperature condition of every window. Without a sensor the current temperature of the weather entity is used (at least one of both). Only while nothing is set under Settings > House."
    ],
    "override_duration": [
     "Duration",
@@ -7868,21 +7242,9 @@ export const SHUTTER = {
     "Check the position after",
     "If a cover has not reached its target by then, the command is repeated once; then a notification is sent. 0 = off."
    ],
-   "weather": [
-    "Weather entity",
-    "Its daily forecast decides at the day change whether today is a summer day. Only while nothing is set under Settings > House."
-   ],
    "weather_protection": [
     "Weather protection for this window",
     "Off = wind, rain and frost never move or limit this cover, whatever the positions below say. Turn it on for every window that should take part. With the automatic off (globally or for this window) there is no weather protection either."
-   ],
-   "weekend_days": [
-    "Weekend days",
-    "Only without a workday sensor: on these days the weekend time of the morning opening applies. Only while nothing is set under Settings > House."
-   ],
-   "wind_entity": [
-    "Wind sensor",
-    "Wind speed or gusts, e.g. from a weather station."
    ],
    "wind_position": [
     "Position with wind",
@@ -7907,10 +7269,6 @@ export const SHUTTER = {
    "window_wind_threshold": [
     "Own wind threshold",
     "Empty = wind protection from the threshold of the basic settings. Otherwise this window is protected already or only from this value (unit of the wind sensor)."
-   ],
-   "workday_entity": [
-    "Workday sensor",
-    "Optional, for the morning opening by time (e.g. Workday integration, knows public holidays). Without a sensor the weekend days decide. Only while nothing is set under Settings > House."
    ]
   }
  },
@@ -8032,7 +7390,12 @@ export const SHUTTER = {
    "invalid_auth": "Anthropic hat den API-Key abgelehnt. Prüfe ihn unter console.anthropic.com > API Keys und füge ihn ohne Leerzeichen ein. Ohne Key läuft die lokale Regelung weiter.",
    "cannot_connect": "Anthropic ist nicht erreichbar. Prüfe Internetverbindung, Proxy und Firewall. Der Key wurde nicht gespeichert.",
    "max_below_base": "Das maximale Intervall muss mindestens so groß sein wie das Prüfintervall (z. B. alle 4 h prüfen, höchstens alle 48 h).",
-   "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen."
+   "outdoor_required": "Bitte einen Außentemperatursensor oder eine Wetter-Entität wählen.",
+   "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
+   "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
+   "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+   "airing_min_above_max": "Die minimale Lüftungsdauer darf die maximale Dauer nicht überschreiten.",
+   "invalid_value": "Ungültiger Wert. Neue KI-Grenzen müssen im festen Bereich des Parameters liegen; der Schritt muss zwischen 0 und der Spanne liegen (0 = Parameter eingefroren)."
   },
   "en": {
    "latest_before_earliest": "The latest time is before the earliest one. Move the latest time later or the earliest earlier.",
@@ -8049,7 +7412,12 @@ export const SHUTTER = {
    "invalid_auth": "Anthropic rejected the API key. Check it at console.anthropic.com under API keys and paste it without spaces. Without a key the local control keeps running.",
    "cannot_connect": "Anthropic cannot be reached. Check the internet connection, proxy and firewall. The key was not saved.",
    "max_below_base": "The maximum interval must be at least the check interval (e.g. check every 4 h, at most every 48 h).",
-   "outdoor_required": "Choose an outdoor temperature sensor or a weather entity."
+   "outdoor_required": "Choose an outdoor temperature sensor or a weather entity.",
+   "house_settings_only": "Change this setting only in House.",
+   "room_basics_house_only": "Change room basics only in House.",
+   "create_rooms_in_house": "Create new rooms in House.",
+   "airing_min_above_max": "The minimum airing duration must not exceed the maximum duration.",
+   "invalid_value": "Invalid value. New AI limits must stay within the fixed parameter range; the step must be between 0 and its span (0 = parameter frozen)."
   }
  },
  "STATUS": {

@@ -17,13 +17,10 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_API_KEY
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
-    AreaSelector,
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
-    NumberSelectorConfig,
-    NumberSelectorMode,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -33,9 +30,9 @@ from homeassistant.helpers.selector import (
     TimeSelector,
 )
 
-from ..const import OPT_CORE
-from ..core.house import CONF_AREA, CONF_COOLING_ENTITY, CONF_FLOOR_AREA
-from ..core.schema import without
+from ..const import OPT_CORE, SHARED_KEYS
+from ..core.house import CONF_AREA, CONF_FLOOR_AREA
+from ..core.schema import number
 from ..runtime import enabled_modules, module_options, shared_options
 from .ai_client import AiAuthError, AiError, ClaudeClient
 
@@ -144,7 +141,7 @@ from .const import (
     SOUTHERN_SEASON,
     SUBENTRY_ROOM,
 )
-from .logic.ai_schema import ALL_PARAMS, default_limits
+from .logic.ai_schema import ALL_PARAMS, default_limits, normalize_limits, validate_limit
 from .logic.draft import draft_groups
 from .logic.physics import parse_day_month
 from .logic.ventilation import BLOCK_DOMAINS
@@ -155,10 +152,7 @@ PRICE_KEYS = (CONF_PRICE_INPUT, CONF_PRICE_OUTPUT, CONF_PRICE_CACHE_WRITE, CONF_
 def _number(
     minimum: float, maximum: float, step: float | str, unit: str | None = None
 ) -> NumberSelector:
-    config = NumberSelectorConfig(min=minimum, max=maximum, step=step, mode=NumberSelectorMode.BOX)
-    if unit:
-        config["unit_of_measurement"] = unit
-    return NumberSelector(config)
+    return number(minimum, maximum, step, unit)
 
 
 def _entity(
@@ -243,27 +237,15 @@ def _join_season(user_input: dict[str, Any]) -> dict[str, Any]:
     return values
 
 
-def general_schema(v: dict[str, Any], season_text: bool = False, shared: bool = True) -> vol.Schema:
-    """``season_text``: the period as text fields (the panel); the dialogs use day and
-    month fields. ``shared``: with the outdoor values and the weather, which the house
-    sets for every module (the setup asks for them with the house)."""
+def general_schema(v: dict[str, Any], season_text: bool = False) -> vol.Schema:
+    """Heating settings; season text fields are used by the panel."""
     season = (
         {_req(CONF_SEASON_START, v): TextSelector(), _req(CONF_SEASON_END, v): TextSelector()}
         if season_text
         else _season_fields(v)
     )
-    outdoor = (
-        {
-            _opt_entity(CONF_OUTDOOR_TEMP, v): _sensor("temperature", TEMP_UNITS),
-            _opt_entity(CONF_OUTDOOR_HUMIDITY, v): _sensor("humidity", HUMIDITY_UNITS),
-            _opt_entity(CONF_WEATHER, v): _entity(["weather"]),
-        }
-        if shared
-        else {}
-    )
     return vol.Schema(
         {
-            **outdoor,
             _opt_entity(CONF_PV_POWER, v): _sensor("power", POWER_UNITS),
             _opt_entity(CONF_PV_FORECAST, v): _entity(
                 ["sensor"],
@@ -360,10 +342,7 @@ def ai_schema(v: dict[str, Any]) -> vol.Schema:
 
 
 def _limits_schema(v: dict[str, Any]) -> vol.Schema:
-    limits = default_limits()
-    for key, value in (v.get(CONF_LIMITS) or {}).items():
-        if key in limits:
-            limits[key].update(value)
+    limits = normalize_limits(v.get(CONF_LIMITS))
     fields: dict[Any, Any] = {}
     for key, spec in ALL_PARAMS.items():
         width = max(abs(spec.min), abs(spec.max)) * 2 + 10
@@ -371,13 +350,19 @@ def _limits_schema(v: dict[str, Any]) -> vol.Schema:
             vol.Schema(
                 {
                     vol.Required("min", default=limits[key]["min"]): _number(
-                        -width, width, 0.01, spec.unit or None
+                        min(-width, limits[key]["min"]),
+                        max(width, limits[key]["min"]),
+                        0.01,
+                        spec.unit or None,
                     ),
                     vol.Required("max", default=limits[key]["max"]): _number(
-                        -width, width, 0.01, spec.unit or None
+                        min(-width, limits[key]["max"]),
+                        max(width, limits[key]["max"]),
+                        0.01,
+                        spec.unit or None,
                     ),
                     vol.Required("step", default=limits[key]["step"]): _number(
-                        0, width, 0.01, spec.unit or None
+                        0, max(width, limits[key]["step"]), 0.01, spec.unit or None
                     ),
                 }
             ),
@@ -466,19 +451,17 @@ def _validate_general(
     return errors
 
 
-def _validate_limits(user_input: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
+def _validate_limits(
+    user_input: dict[str, Any], current: dict[str, Any] | None = None
+) -> tuple[dict[str, Any], dict[str, str]]:
     limits: dict[str, Any] = {}
     errors: dict[str, str] = {}
+    stored = normalize_limits(current)
     for key in ALL_PARAMS:
-        value = user_input.get(key) or {}
-        low, high, step = (
-            float(value.get("min", 0)),
-            float(value.get("max", 0)),
-            float(value.get("step", 0)),
-        )
-        if low > high:
-            errors[key] = "min_above_max"
-        limits[key] = {"min": low, "max": high, "step": step}
+        try:
+            limits[key] = validate_limit(key, user_input.get(key) or {}, stored[key])
+        except ValueError as err:
+            errors[key] = str(err)
     return limits, errors
 
 
@@ -545,7 +528,7 @@ class HeatingSetupSteps:
             user_input = dict(SOUTHERN_SEASON)  # winter is in the middle of the year
         return self.async_show_form(  # type: ignore[attr-defined]
             step_id="heating",
-            data_schema=general_schema(user_input or {}, shared=False),
+            data_schema=general_schema(user_input or {}),
             errors=errors,
         )
 
@@ -615,7 +598,7 @@ class HeatingSetupSteps:
         options = {**DEFAULTS, **self._heating()}
         options = with_price_suggestions({CONF_AI_MODEL: DEFAULTS[CONF_AI_MODEL]}, options)
         options[CONF_LIMITS] = default_limits()
-        self._options[MODULE_HEATING] = options
+        self._options[MODULE_HEATING] = {k: v for k, v in options.items() if k not in SHARED_KEYS}
         return await self._async_next()
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
@@ -698,16 +681,18 @@ class HeatingOptionsSteps:
             options.pop(key, None)
         options.update(updates)
         return self.async_create_entry(  # type: ignore[attr-defined]
-            data={**self.config_entry.options, MODULE_HEATING: options}
+            data={
+                **self.config_entry.options,
+                MODULE_HEATING: {k: v for k, v in options.items() if k not in SHARED_KEYS},
+            }
         )
 
     def _heating_form(
         self, step_id: str, schema: vol.Schema, errors: dict[str, str] | None = None
     ) -> ConfigFlowResult:
-        # the settings the house sets for every module are not asked for again
         return self.async_show_form(  # type: ignore[attr-defined]
             step_id=step_id,
-            data_schema=without(schema, shared_options(self.config_entry)),
+            data_schema=schema,
             errors=errors or {},
         )
 
@@ -760,7 +745,9 @@ class HeatingOptionsSteps:
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            if float(user_input[CONF_VENT_CHECK_MAX_INTERVAL]) < float(
+            if float(user_input[CONF_VENT_MIN_MINUTES]) > float(user_input[CONF_VENT_MAX_MINUTES]):
+                errors[CONF_VENT_MIN_MINUTES] = "airing_min_above_max"
+            elif float(user_input[CONF_VENT_CHECK_MAX_INTERVAL]) < float(
                 user_input[CONF_VENT_CHECK_INTERVAL]
             ):
                 errors[CONF_VENT_CHECK_MAX_INTERVAL] = "max_below_base"
@@ -788,7 +775,7 @@ class HeatingOptionsSteps:
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            limits, errors = _validate_limits(user_input)
+            limits, errors = _validate_limits(user_input, self._heating_values.get(CONF_LIMITS))
             if not errors:
                 return self._heating_save({CONF_LIMITS: limits})
         return self._heating_form("heating_ai_limits", _limits_schema(self._heating_values), errors)
@@ -824,28 +811,12 @@ def area_schema(
     heating: bool = True,
     covers: bool = True,
 ) -> vol.Schema:
-    """Form of a room. Name, Home Assistant area and sensors always; the sections of the
-    heating with the heating module, the air conditioner with the covers. Start values
-    only when the room is created: an existing room shows the learned values instead
-    (``learned``, omitted when unknown). The windows of a room are entered as windows."""
+    """Heating fields of an existing room; basic data is edited in the house."""
 
     def req(key: str) -> vol.Required:
         return vol.Required(key, default=v.get(key, AREA_DEFAULTS.get(key)))
 
-    fields: dict[Any, Any] = {
-        vol.Required(CONF_AREA_NAME, default=v.get(CONF_AREA_NAME, "")): TextSelector(),
-        _opt_entity(CONF_AREA, v): AreaSelector(),
-        _opt_entity(CONF_FLOOR_AREA, v): _number(1, 200, 0.5, "m²"),
-        vol.Required(SECTION_SENSORS): section(
-            vol.Schema(
-                {
-                    _opt_entity(CONF_TEMP_SENSOR, v): _sensor("temperature", TEMP_UNITS),
-                    _opt_entity(CONF_HUMIDITY_SENSOR, v): _sensor("humidity", HUMIDITY_UNITS),
-                }
-            ),
-            {"collapsed": False},
-        ),
-    }
+    fields: dict[Any, Any] = {}
     if heating:
         # stored combinations (or those of version 1.1.0), filled up to all fields
         drafts = draft_groups(v)
@@ -910,11 +881,6 @@ def area_schema(
                     {"collapsed": not any(drafts)},
                 ),
             }
-        )
-    if covers:
-        fields[vol.Required(SECTION_SUN)] = section(
-            vol.Schema({_opt_entity(CONF_COOLING_ENTITY, v): _entity(["climate"])}),
-            {"collapsed": not v.get(CONF_COOLING_ENTITY)},
         )
     return vol.Schema(fields)
 
@@ -1015,7 +981,7 @@ def validate_area(data: dict[str, Any], others: Sequence[ConfigSubentry] = ()) -
         # two areas switching one circuit would work against each other
         errors.setdefault("base", "switch_in_use")
     low, high = float(data.get(CONF_MIN_TARGET, 16)), float(data.get(CONF_MAX_TARGET, 24))
-    if low >= high:
+    if low > high:
         errors.setdefault("base", "min_above_max")
     elif not low <= float(data.get(CONF_DEFAULT_TARGET, 21)) <= high:
         errors.setdefault("base", "target_out_of_range")
@@ -1035,12 +1001,14 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         errors: dict[str, str] = {}
         values: dict[str, Any] = {}
         if user_input is not None:
-            values = _flatten(user_input)
+            values = {CONF_AREA_NAME: str(user_input.get(CONF_AREA_NAME, "")).strip()}
             errors = validate_area(values, other_areas(self._get_entry()))
             if not errors:
                 return self.async_create_entry(title=values[CONF_AREA_NAME], data=values)
         return self.async_show_form(
-            step_id="user", data_schema=area_schema(values, **self._modules()), errors=errors
+            step_id="user",
+            data_schema=vol.Schema({vol.Required(CONF_AREA_NAME): TextSelector()}),
+            errors=errors,
         )
 
     async def async_step_reconfigure(
@@ -1062,7 +1030,12 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             # values of a module switched off stay as well
             shown = set(_fields_of(area_schema(values, **self._modules())))
             kept = {k: v for k, v in subentry.data.items() if k not in shown}
-            values = {**kept, **_flatten(user_input), **keep_start_values(subentry.data)}
+            values = {
+                **kept,
+                **{k: v for k, v in _flatten(user_input).items() if k in shown},
+                **keep_start_values(subentry.data),
+                CONF_AREA_NAME: subentry.title,
+            }
             errors = validate_area(values, other_areas(entry, subentry.subentry_id))
             if not errors:
                 if coordinator is not None and edited:
