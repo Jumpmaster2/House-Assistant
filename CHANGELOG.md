@@ -3,27 +3,30 @@
 ## 1.0.0b17 (2026-10-29)
 
 ### Added
-- Per-module corrupt-state snapshots and translated repair warnings, with regression coverage for unchanged valid records, rollback and AI timeouts.
+
+- A repair notice appears when stored data of a module was damaged. The damaged records are replaced by their defaults, the discarded raw data is saved once in a separate store (`house_assistant.<entry>.<module>.corrupt`, removed together with the integration), and the rest of the module keeps working.
 
 ### Changed
-- Limit each meter AI service call to 180 seconds; timeouts follow the existing failed-reading path and release the reading lock.
+
+- A meter reading by AI stops after 180 seconds. A timeout counts as a failed reading like any other error of the AI task and releases the meter for the next reading.
 
 ### Fixed
-- Roll back failed house/module startup in reverse order, including partial cover startup; cleanup failures no longer hide the original error or prevent remaining cleanup.
-- Validate stored state before use, isolating damaged rooms, windows and meters while retaining valid data unchanged. Back up rejected raw records before normal saves and remove snapshots when the integration is removed.
+
+- If the house or a module fails to start, everything started before is stopped again in reverse order before the error is passed on. Before, listeners and timers of the parts that had started stayed active and a second attempt started them twice. A failure while cleaning up no longer hides the original error.
+- Damaged stored data (for example a text where a number belongs) no longer stops a module from starting: the stored state is checked before use and only the damaged record (one meter, room, window or the vacation) falls back to its defaults. Valid stored data is loaded exactly as before.
 
 ## 1.0.0b16 (2026-10-29)
 
-### Added
-- Regression coverage for service authorization, finite numbers, AI limits and airing duration order.
-
 ### Changed
-- Share administrator authorization across heating, manual meter corrections and vacation services; automations and scripts without a user remain allowed.
-- Use the same finite number selectors and AI parameter limit validation in dialogs and the panel: new limits stay within the fixed parameter range, unchanged legacy limits outside it remain valid until edited, and step 0 freezes a parameter.
+
+- `house_assistant.set_meter_reading` and `house_assistant.set_vacation` require an administrator, like the paid and changing services of the heating. Calls without a user (automations, scripts) stay allowed.
+- New limits for the AI parameters are checked the same way in the dialog and in the panel: they must lie inside the fixed range of the parameter, the step must not exceed its span, and a step of 0 freezes the parameter. Limits stored before, even outside that range, stay valid until you change them.
 
 ### Fixed
-- Reject nonfinite manual and AI meter readings, AI adjustments, confidence and JSON constants.
-- Validate airing duration order in dialogs, the panel and AI changes; repair only unusable stored limits and contradictory durations idempotently at startup, preserving usable legacy limits.
+
+- A manual meter reading, an answer of the meter AI and every number entered in a dialog or the panel must be a finite number. `NaN` and infinite values are rejected before anything is stored.
+- An answer of the heating AI with the JSON constants `NaN` or `Infinity` is rejected as invalid. A non-finite value as text in a change (value, confidence, limit) rejects only that change; the other valid changes of the same answer still apply.
+- The minimum airing duration may not be larger than the maximum, in the dialog, in the panel and for changes by the AI. A contradictory pair stored before is set to equal values at startup.
 
 ## 1.0.0b15 (2026-10-29)
 
