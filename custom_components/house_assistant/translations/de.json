@@ -911,6 +911,34 @@
                 "puffer": "Heiztag-Regel: nötiger Abstand über dem Sollwert beim Nachtlauf (gelernt)."
               }
             },
+            "start_values": {
+              "name": "Startwerte (werden gelernt)",
+              "description": "Nur beim Anlegen des Raums. Danach werden die gelernten Werte bearbeitet.",
+              "data": {
+                "window_delay": "Fensterverzögerung (Startwert)",
+                "recovery_time": "Erholungszeit nach Lüften (Startwert)",
+                "dead_time": "Totzeit bis der Raum wärmer wird (Startwert)",
+                "puffer": "Reserve über Sollwert (Startwert)"
+              },
+              "data_description": {
+                "window_delay": "So lange offen pausiert die Heizung. Die KI darf den Wert anpassen.",
+                "recovery_time": "Nach dem Schließen wird so lange gewartet, weil Estrich und Wände den Raum oft selbst aufheizen. Wird danach gelernt.",
+                "dead_time": "Zeit vom Einschalten, bis der Raum wärmer wird; bei Fußbodenheizung oft 30-90 min, bei Heizkörpern 5-20 min. Wird danach gelernt.",
+                "puffer": "Heiztag-Regel: wie weit ein Raum beim Nachtlauf über dem Sollwert liegen muss, um einen Tag ohne Heizen zu überstehen (z. B. 0,7 K). Wird danach gelernt."
+              }
+            },
+            "airing": {
+              "name": "Lüften",
+              "description": "Kurzes Lüften und die Wartezeit danach. Jederzeit änderbar, auch bei bestehenden Räumen.",
+              "data": {
+                "short_airing_min": "Kurz lüften ab",
+                "short_recovery_percent": "Wartezeit nach kurzem Lüften"
+              },
+              "data_description": {
+                "short_airing_min": "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause.",
+                "short_recovery_percent": "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
+              }
+            },
             "ventilation": {
               "name": "Lüftung",
               "data": {

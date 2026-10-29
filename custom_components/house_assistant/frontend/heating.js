@@ -28,7 +28,7 @@ const UI = {
       decision: "Heiztag-Entscheidung",
     },
     cards: {
-      sensors: ["Sensoren", "Außentemperatur, Wetter und PV für alle Räume."],
+      sensors: ["Sensoren", "PV und Wärmezähler für alle Räume."],
       season: ["Heizperiode und Frostschutz", "Außerhalb der Heizperiode bleiben alle Kreise aus (nur Frostschutz)."],
       vacation: ["Urlaub", "Urlaubstemperatur und Vorheizen zur Rückkehr. Der Urlaub selbst, seine Quellen und die Rückkehr stehen im Haus."],
       emergency: ["Notfallregel", "Komfort-Sicherheitsnetz an Tagen ohne Heizbetrieb."],
@@ -215,7 +215,7 @@ const UI = {
       decision: "Heating day decision",
     },
     cards: {
-      sensors: ["Sensors", "Outdoor temperature, weather and PV for all rooms."],
+      sensors: ["Sensors", "PV and heat meter for all rooms."],
       season: ["Heating period and frost protection", "Outside the heating period all circuits stay off (frost protection only)."],
       vacation: ["Vacation", "Vacation temperature and preheating for the return. The vacation itself, its sources and the return are set in the house."],
       emergency: ["Emergency rule", "Comfort safety net on days without heating."],
@@ -1231,7 +1231,7 @@ class HouseAssistantHeatingView extends HTMLElement {
     return `<div class="card" data-card="edit">
       <h2><button class="icon-btn" data-action="close-edit"><ha-icon icon="mdi:arrow-left"></ha-icon></button>
         <ha-icon icon="${e.data.heater_switch ? "mdi:home-thermometer-outline" : "mdi:weather-windy"}"></ha-icon>${esc(title)}</h2>
-      <div class="fields">${basics}</div>
+      <div class="fields room-basics">${basics}</div>
       <p class="desc">${esc(this.labels.notes.room_basics_note)}</p>
       ${groups}
       ${running ? "" : `<p class="desc">${esc(ui.notRunning)}</p>`}
@@ -1842,6 +1842,8 @@ h3 { margin:20px 0 4px; font-size:15px; font-weight:500; }
 .desc { margin:0 0 12px; color:var(--secondary-text-color); font-size:14px; }
 .fields { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px 20px; margin-top:8px; }
 .field { display:flex; flex-direction:column; gap:4px; font-size:14px; }
+.room-basics { margin-bottom:16px; }
+.room-basics > div { min-width:0; overflow-wrap:anywhere; }
 .house-note { grid-column:1 / -1; overflow-wrap:anywhere; }
 .lbl { font-weight:500; }
 small { color:var(--secondary-text-color); font-size:12px; line-height:1.3; }

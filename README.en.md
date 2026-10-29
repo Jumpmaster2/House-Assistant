@@ -10,7 +10,7 @@ Custom integration for Home Assistant that brings heating, covers and meter read
 
 Every module can be switched on and off on its own. No function of the former integrations is dropped; their users move with a script, without losing history or learned values ([docs/transfer.md](docs/transfer.md#english)).
 
-> Status: version 1.0.0b17 (beta). Please keep an eye on the logbook during the first weeks.
+> Status: version 1.0.0b18 (beta). Please keep an eye on the logbook during the first weeks.
 
 ## Working together
 
