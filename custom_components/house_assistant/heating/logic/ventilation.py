@@ -25,6 +25,7 @@ from dataclasses import asdict, dataclass, fields
 from enum import StrEnum
 from typing import Any
 
+from ...core.store_validation import checked_fields, dataclass_schema
 from .physics import absolute_humidity
 
 
@@ -101,6 +102,7 @@ class VentilationSettings:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None, **defaults: float) -> VentilationSettings:
+        data = checked_fields(data, dataclass_schema(cls))
         settings = cls(**defaults)
         if data:
             for f in fields(cls):

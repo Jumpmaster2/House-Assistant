@@ -20,7 +20,7 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import CONF_MODULES, LOGGER, MODULE_ORDER, OPT_CORE, SHARED_KEYS
-from .core.store import module_store
+from .core.store import remove_module_store
 
 type HouseConfigEntry = ConfigEntry[HouseRuntime]
 
@@ -135,7 +135,7 @@ class Module:
     @classmethod
     async def async_remove_entry(cls, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """The entry is deleted: remove what the module stored."""
-        await module_store(hass, entry, cls.key).async_remove()
+        await remove_module_store(hass, entry, cls.key)
 
     @callback
     def async_on_stop(self, unsub: Callable[[], None]) -> None:
@@ -168,10 +168,16 @@ class Module:
         if self._tasks or self._waited:
             await asyncio.gather(*self._tasks, *self._waited, return_exceptions=True)
         while self._unsubs:
-            self._unsubs.pop()()
+            try:
+                self._unsubs.pop()()
+            except Exception:
+                LOGGER.exception("Could not unsubscribe module %s", self.key)
         for entity in self._entities:
             if entity.hass is not None and entity.platform is not None:
-                await entity.async_remove(force_remove=switched_off or quiet)
+                try:
+                    await entity.async_remove(force_remove=switched_off or quiet)
+                except Exception:
+                    LOGGER.exception("Could not remove entity of module %s", self.key)
         self._entities.clear()
         await self.async_unload()
 
@@ -194,15 +200,27 @@ class HouseRuntime:
 
     async def async_start(self) -> None:
         """Start the house and the enabled modules (when the entry is set up)."""
-        await self._start_house()
-        for key in enabled_modules(self.entry):
-            await self._start(key)
+        key = "house"
+        try:
+            await self._start_house()
+            for key in enabled_modules(self.entry):
+                await self._start(key)
+        except BaseException:
+            LOGGER.exception("The module %s could not be started", key)
+            await self.async_shutdown()
+            raise
 
     async def async_shutdown(self) -> None:
         async with self._lock:
             for key in reversed(list(self.modules)):
-                await self._stop(key)
-            await self._stop_house()
+                try:
+                    await self._stop(key)
+                except Exception:
+                    LOGGER.exception("Could not stop the module %s", key)
+            try:
+                await self._stop_house()
+            except Exception:
+                LOGGER.exception("Could not stop the house")
 
     async def _start_house(self) -> None:
         if not HOUSE_TYPE:
@@ -210,14 +228,19 @@ class HouseRuntime:
         house = HOUSE_TYPE[0](self)
         try:
             await house.async_setup()
-        except Exception:
-            await house.async_stop()
+            self.house = house
+            self._signatures[house.key] = house.signature()
+            house.started()
+            for platform, add_entities in self._adders.items():
+                self._add(house, platform, add_entities)
+        except BaseException:
+            self.house = None
+            self._signatures.pop(house.key, None)
+            try:
+                await house.async_stop()
+            except Exception:
+                LOGGER.exception("Could not clean up failed module %s", house.key)
             raise
-        self.house = house
-        self._signatures[house.key] = house.signature()
-        house.started()
-        for platform, add_entities in self._adders.items():
-            self._add(house, platform, add_entities)
 
     async def _stop_house(self, quiet: bool = False) -> None:
         house, self.house = self.house, None
@@ -268,14 +291,19 @@ class HouseRuntime:
         module = MODULE_TYPES[key](self)
         try:
             await module.async_setup()
-        except Exception:
-            await module.async_stop()
+            self.modules[key] = module
+            self._signatures[key] = module.signature()
+            module.started()
+            for platform, add_entities in self._adders.items():
+                self._add(module, platform, add_entities)
+        except BaseException:
+            self.modules.pop(key, None)
+            self._signatures.pop(module.key, None)
+            try:
+                await module.async_stop()
+            except Exception:
+                LOGGER.exception("Could not clean up failed module %s", module.key)
             raise
-        self.modules[key] = module
-        self._signatures[key] = module.signature()
-        module.started()
-        for platform, add_entities in self._adders.items():
-            self._add(module, platform, add_entities)
 
     async def _stop(self, key: str, switched_off: bool = False, quiet: bool = False) -> None:
         module = self.modules.pop(key)

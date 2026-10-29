@@ -10,7 +10,7 @@ Custom integration for Home Assistant that brings heating, covers and meter read
 
 Every module can be switched on and off on its own. No function of the former integrations is dropped; their users move with a script, without losing history or learned values ([docs/transfer.md](docs/transfer.md#english)).
 
-> Status: version 1.0.0b1 (beta). Please keep an eye on the logbook during the first weeks.
+> Status: version 1.0.0b17 (beta). Please keep an eye on the logbook during the first weeks.
 
 ## Working together
 
@@ -25,6 +25,12 @@ Every module can be switched on and off on its own. No function of the former in
 * **Settings of the house:** outdoor values, weather, language, notifications and working days apply to every module.
 * **One panel** with sections for house, heating, covers and meters.
 * **No reload:** a change restarts only the module concerned; hold times of the covers and a running meter reading stay untouched.
+
+## Startup and stored data
+
+If the house or a module fails to start, already started parts stop in reverse order. The original error and module name appear in the log; a retry starts cleanly.
+
+Stored data is checked per record. Valid data stays unchanged; damaged records fall back to defaults. Before the next save, a timestamped snapshot is written to `.storage/house_assistant.<entry_id>.<module>.corrupt`. Only new corruption replaces it, and removing the integration deletes it. Nonfinite numbers are represented as `__nonfinite_float__`; malformed JSON files are preserved byte for byte as `file_hex`. A repair warning identifies the module and clears on the next clean load. Each meter AI call has a 180-second limit; a timeout counts as a failed reading.
 
 ## Installation
 

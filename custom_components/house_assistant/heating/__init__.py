@@ -15,7 +15,7 @@ from homeassistant.helpers.entity import Entity
 
 from ..core.house import CONF_AREA
 from ..core.links import heating_changed
-from ..core.store import module_store
+from ..core.store import StoreRecovery, module_store, remove_module_store
 from ..runtime import Module, register_module
 from .binary_sensor import HeatingDaySensor, VentilationRecommended
 from .climate import AreaClimate
@@ -63,12 +63,12 @@ class HeatingModule(Module):
 
     async def async_setup(self) -> None:
         coordinator = HeatingCoordinator(self)
+        self.coordinator = coordinator
         # Create the device of the module first so room devices can point to it by id.
         device = dr.async_get(self.hass).async_get_or_create(
             config_entry_id=self.entry.entry_id, **global_device_info(self.entry.entry_id)
         )
         coordinator.global_device_id = device.id
-        self.coordinator = coordinator
         await coordinator.async_start()
         self._remove_stale_entities()
         self._place_room_devices()
@@ -122,11 +122,12 @@ class HeatingModule(Module):
         """Switch off the circuits, then delete the learned data."""
         store = module_store(hass, entry, MODULE_HEATING)
         # switches dropped from rooms but not yet switched off are only kept in the store
-        stored = await store.async_load() or {}
-        pending = [s for s in stored.get("release") or [] if isinstance(s, str)]
+        stored = await StoreRecovery(hass, entry, MODULE_HEATING).load(store)
+        raw = stored.get("release")
+        pending = [s for s in raw if isinstance(s, str)] if isinstance(raw, list) else []
         await _async_switch_off_circuits(hass, entry, "removed", pending)
         async_delete_issues(hass)
-        await store.async_remove()
+        await remove_module_store(hass, entry, MODULE_HEATING)
 
     @callback
     def _remove_stale_entities(self) -> None:

@@ -22,6 +22,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from ...core.store_validation import checked, dataclass_schema, number, optional
+
 FLOOR_AREA_BOUNDS = (1.0, 200.0)  # m², as offered in the form
 DEFAULT_COEFFICIENT = 0.0025  # kW/(m²K): about 1 kW for 20 m² at a demand of 20 K
 COEFFICIENT_BOUNDS = (0.0, 0.05)
@@ -72,6 +74,7 @@ class Counter:
 
     @classmethod
     def from_dict(cls, data: Any) -> Counter:
+        data = checked(data, dataclass_schema(cls))
         counter = cls()
         if not isinstance(data, dict):
             return counter
@@ -112,6 +115,7 @@ class Run:
 
     @classmethod
     def from_dict(cls, data: Any) -> Run:
+        data = checked(data, dataclass_schema(cls))
         if not isinstance(data, dict):
             return cls()
         days = data.get("days")
@@ -316,6 +320,7 @@ class RoomEnergyModel:
 
     @classmethod
     def from_dict(cls, data: Any) -> RoomEnergyModel:
+        data = checked(data, room_energy_schema())
         model = cls()
         if not isinstance(data, dict):
             return model
@@ -340,3 +345,17 @@ class RoomEnergyModel:
         model.start = _float(start) if isinstance(start, int | float) else None
         model.runs = {str(r): Run.from_dict(v) for r, v in (data.get("runs") or {}).items()}
         return model
+
+
+def room_energy_schema() -> dict[str, Any]:
+    numeric_map = {"*": number}
+    return {
+        **{k: numeric_map for k in ("areas", "coefficients", "moment", "phases", "single")},
+        "gram": {"*": numeric_map},
+        "sum_x": number,
+        "sum_y": number,
+        "counters": {"*": dataclass_schema(Counter)},
+        "unassigned": dataclass_schema(Counter),
+        "start": optional(number),
+        "runs": {"*": dataclass_schema(Run)},
+    }

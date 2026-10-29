@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ...core.store_validation import checked, dataclass_schema
+
 # Factor to kWh per unit of the meter entity.
 UNIT_TO_KWH = {"Wh": 0.001, "kWh": 1.0, "MWh": 1000.0, "MJ": 1 / 3.6, "GJ": 1000 / 3.6}
 MIN_HOURS = 1.0  # shorter spans between readings are too coarse to report
@@ -37,6 +39,7 @@ class Reading:
 
     @classmethod
     def from_dict(cls, data: Any) -> Reading | None:
+        data = checked(data, dataclass_schema(cls))
         try:
             return cls(float(data["kwh"]), float(data["ts"]), float(data["demand_kh"]))
         except (KeyError, TypeError, ValueError):
@@ -146,6 +149,7 @@ class HeatMeter:
 
     @classmethod
     def from_dict(cls, data: Any) -> HeatMeter:
+        data = checked(data, dataclass_schema(cls))
         meter = cls()
         if not isinstance(data, dict):
             return meter

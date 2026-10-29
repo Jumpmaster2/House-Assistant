@@ -60,9 +60,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: HouseConfigEntry) -> boo
             )
     _move_vacation_sources(hass, entry)
     runtime = HouseRuntime(hass, entry)
-    await runtime.async_start()
     entry.runtime_data = runtime
     try:
+        await runtime.async_start()
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except Exception:
         # do not leave listeners and timers behind

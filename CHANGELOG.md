@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0b17 (2026-10-29)
+
+### Added
+- Per-module corrupt-state snapshots and translated repair warnings, with regression coverage for unchanged valid records, rollback and AI timeouts.
+
+### Changed
+- Limit each meter AI service call to 180 seconds; timeouts follow the existing failed-reading path and release the reading lock.
+
+### Fixed
+- Roll back failed house/module startup in reverse order, including partial cover startup; cleanup failures no longer hide the original error or prevent remaining cleanup.
+- Validate stored state before use, isolating damaged rooms, windows and meters while retaining valid data unchanged. Back up rejected raw records before normal saves and remove snapshots when the integration is removed.
+
 ## 1.0.0b16 (2026-10-29)
 
 ### Added

@@ -25,6 +25,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from ...core.store_validation import checked, dataclass_schema, number, optional, required_mapping
 from .physics import clamp
 
 # Bounds keep a learner from drifting into nonsense if a sensor misbehaves.
@@ -122,6 +123,7 @@ class Ewma:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None, default: float) -> Ewma:
+        data = checked(data, dataclass_schema(cls))
         if not data:
             return cls(default)
         return cls(float(data.get("value", default)), int(data.get("count", 0)))
@@ -220,6 +222,7 @@ class ThermalModel:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> ThermalModel:
+        data = checked(data, dataclass_schema(cls))
         model = cls()
         if not data:
             return model
@@ -291,6 +294,7 @@ class RecoveryModel:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> RecoveryModel:
+        data = checked(data, dataclass_schema(cls))
         model = cls()
         if not isinstance(data, dict):
             return model
@@ -371,6 +375,7 @@ class AreaLearner:
     def from_dict(
         cls, data: dict[str, Any] | None, dead_time_s: float, recovery_s: float
     ) -> AreaLearner:
+        data = checked(data, learner_schema())
         if not data:
             return cls.create(dead_time_s, recovery_s)
         learner = cls()
@@ -706,3 +711,33 @@ class AreaLearner:
             return False
         valve = sum(1.0 for s in shifted if s.valve) / len(shifted)
         return self.model.update(valve, mean_temp - mean_out, pv, rate)
+
+
+def learner_schema() -> dict[str, Any]:
+    schema = dataclass_schema(AreaLearner)
+    for key, required in {
+        "track_on": ("start", "min"),
+        "track_off": ("start", "t_off", "max"),
+        "track_airing": (
+            "start",
+            "last",
+            "t_before",
+            "cold",
+            "min",
+            "out_sum",
+            "out_n",
+            "own_s",
+            "cross_s",
+            "draft_s",
+            "opening",
+        ),
+    }.items():
+        schema[key] = optional(required_mapping({"*": number}, *required))
+    schema["track_recovery"] = optional(
+        required_mapping(
+            {"start": number, "t_before": number, "wait": number, "airing": schema["track_airing"]},
+            "start",
+            "t_before",
+        )
+    )
+    return schema

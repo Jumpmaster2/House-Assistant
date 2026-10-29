@@ -10,7 +10,7 @@ Custom Integration für Home Assistant, die Heizung, Rollos und Zählerablesung 
 
 Jedes Modul lässt sich einzeln ein- und ausschalten. Keine Funktion der bisherigen Integrationen fällt weg; wer sie nutzt, zieht mit einem Skript um, ohne Verlauf und Lernwerte zu verlieren ([docs/transfer.md](docs/transfer.md)).
 
-> Status: Version 1.0.0b1 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
+> Status: Version 1.0.0b17 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
 
 ## Zusammenspiel
 
@@ -25,6 +25,12 @@ Jedes Modul lässt sich einzeln ein- und ausschalten. Keine Funktion der bisheri
 * **Einstellungen des Hauses:** Außenwerte, Wetter, Sprache, Benachrichtigungen und Arbeitstage gelten für alle Module.
 * **Ein Panel** mit Bereichen für Haus, Heizung, Rollos und Zähler.
 * **Kein Neuladen:** Eine Änderung startet nur das betroffene Modul neu; Haltezeiten der Rollos und eine laufende Zählerablesung bleiben unberührt.
+
+## Start und gespeicherte Daten
+
+Schlägt der Start des Hauses oder eines Moduls fehl, werden bereits gestartete Teile in umgekehrter Reihenfolge gestoppt. Der ursprüngliche Fehler steht mit dem Modulnamen im Protokoll; ein erneuter Start beginnt sauber.
+
+Beschädigte Speicherdaten werden getrennt je Datensatz geprüft. Gültige Daten bleiben unverändert, betroffene Datensätze erhalten Standardwerte. Vor dem nächsten Speichern liegt eine Sicherung mit Zeitpunkt unter `.storage/house_assistant.<entry_id>.<module>.corrupt`. Sie wird nur bei neuer Beschädigung ersetzt und beim Entfernen der Integration gelöscht. Nichtendliche Zahlen sind dort als `__nonfinite_float__` markiert; beschädigte JSON-Dateien werden bytegetreu als `file_hex` gesichert. Eine Reparatur-Warnung nennt das Modul und verschwindet beim nächsten fehlerfreien Laden. Der Zähler wartet je KI-Aufruf höchstens 180 Sekunden; danach zählt die Ablesung als fehlgeschlagen.
 
 ## Installation
 

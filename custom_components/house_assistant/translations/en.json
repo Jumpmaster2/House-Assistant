@@ -2291,6 +2291,10 @@
     "outdoor_unavailable": {
       "title": "Outdoor temperature sensor unavailable",
       "description": "The outdoor temperature sensor {entity_id} has not delivered a valid value for at least 15 minutes. The control keeps running, but the prediction is less accurate and the thermal model learns nothing meanwhile.\n\nCheck the sensor or choose another one in the heating settings (General). This message disappears by itself as soon as the sensor delivers values again."
+    },
+    "corrupt_storage": {
+      "title": "Corrupt stored data: {module}",
+      "description": "Corrupt stored data in {module} was discarded and replaced with defaults. The raw data was backed up in a separate store ending in .corrupt before saving. Check the settings and log. This warning clears on the next clean load."
     }
   },
   "panel": {

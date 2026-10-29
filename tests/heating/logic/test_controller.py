@@ -361,7 +361,7 @@ def test_params_from_dict_ignores_garbage() -> None:
     params = ControlParams.from_dict(
         {"hysteresis_on": "0.3", "bogus": 1, "sun_factor": "x"}, puffer=0.5
     )
-    assert params.hysteresis_on == 0.3 and params.puffer == 0.5 and params.sun_factor == 1.0
+    assert params.hysteresis_on == 0.2 and params.puffer == 0.5 and params.sun_factor == 1.0
 
 
 def test_preheat_start() -> None:

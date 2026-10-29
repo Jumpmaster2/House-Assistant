@@ -54,7 +54,9 @@ from ..const import SIGNAL_VACATION
 from ..core.house import CONF_ROOM, CONF_TEMP_SENSOR, rooms
 from ..core.links import SIGNAL_HEATING, room_target
 from ..core.links import heating_day as links_heating_day
-from ..core.store import module_store
+from ..core.store import StoreRecovery, module_store
+from ..core.store_validation import boolean, number, optional
+from ..core.store_validation import text as stored_text
 from .const import (
     CONF_AUTO_UP,
     CONF_AZIMUTH_FROM,
@@ -484,8 +486,41 @@ class ShutterEngine(DataUpdateCoordinator[None]):
 
     async def async_setup(self) -> None:
         """Load stored state, register listeners and timers."""
-        stored = await self._store.async_load() or {}
-        self._restore(stored)
+        recovery = StoreRecovery(self.hass, self.config_entry, MODULE_SHUTTER)
+        stored = await recovery.load(self._store)
+        guard = {"active": boolean, "release_due": optional(number)}
+        date_field = optional(lambda v: isinstance(v, str) and _to_date(v) is not None)
+        time_field = optional(lambda v: isinstance(v, str) and _to_datetime(v) is not None)
+        data = recovery.record(
+            "data",
+            {k: v for k, v in stored.items() if k not in ("windows", "protection")},
+            {
+                "automatic": boolean,
+                "forecast_max": optional(number),
+                "forecast_night_low": optional(number),
+                **{k: date_field for k in ("forecast_day", "raised_day", "vacation_evening_day")},
+            },
+        )
+        guards = recovery.mapping("protection", stored.get("protection", {}))
+        data["protection"] = {k: recovery.record(f"guard.{k}", v, guard) for k, v in guards.items()}
+        windows = recovery.mapping("windows", stored.get("windows", {}))
+        schema = {
+            **{
+                k: time_field
+                for k in ("override_until", "override_since", "last_manual", "trigger_locked_until")
+            },
+            **{k: date_field for k in ("sun_day", "notified_day", "evening_day", "morning_day")},
+            **{
+                k: boolean
+                for k in ("override_sunrise", "trigger_pending", "automatic", "sun_enabled")
+            },
+            "last_reason": {},
+            "protection": optional(stored_text),
+            "wind_guard": optional(guard),
+        }
+        data["windows"] = {k: recovery.record(f"window.{k}", v, schema) for k, v in windows.items()}
+        await recovery.finish()
+        self._restore(data)
         now = dt_util.now()
         for win in self.windows.values():
             self._set_contact(win)
@@ -604,13 +639,21 @@ class ShutterEngine(DataUpdateCoordinator[None]):
     async def async_shutdown(self) -> None:
         self._shutdown = True
         for unsub in self._unsubs:
-            unsub()
+            try:
+                unsub()
+            except Exception:
+                LOGGER.exception("Could not remove module listener or timer")
         self._unsubs.clear()
         for unsub in self._timers.values():
-            unsub()
+            try:
+                unsub()
+            except Exception:
+                LOGGER.exception("Could not remove module listener or timer")
         self._timers.clear()
-        await self._store.async_save(self._data_to_save())
-        await super().async_shutdown()
+        try:
+            await self._store.async_save(self._data_to_save())
+        finally:
+            await super().async_shutdown()
 
     def _update_issues(self) -> None:
         wanted = {

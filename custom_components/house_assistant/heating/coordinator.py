@@ -48,7 +48,9 @@ from ..core.house import windows as house_windows
 from ..core.links import meter_reading
 from ..core.logic.contacts import OPEN, TILTED, contact_state, opening_share, window_state
 from ..core.logic.geometry import KIND_CROSS
-from ..core.store import module_store
+from ..core.store import StoreRecovery, module_store
+from ..core.store_validation import boolean, dataclass_schema, number, optional, template, validate
+from ..core.store_validation import text as stored_text
 from .ai_client import AiAuthError, AiError, ClaudeClient
 from .const import (
     CONF_AI_CHECK_DAYS,
@@ -177,7 +179,7 @@ from .logic.controller import (
 )
 from .logic.draft import draft_groups, has_draft
 from .logic.energy import HeatMeter, to_kwh
-from .logic.humidity_learning import HumidityProfile
+from .logic.humidity_learning import HumidityProfile, humidity_schema
 from .logic.learning import (
     DEAD_TIME_BOUNDS,
     MIN_RECOVERY_EVENTS,
@@ -187,10 +189,11 @@ from .logic.learning import (
     Ewma,
     RecoveryModel,
     Sample,
+    learner_schema,
 )
 from .logic.physics import absolute_humidity, clamp, in_season, parse_day_month
 from .logic.prompts import check_messages, nightly_messages, r, vent_check_messages
-from .logic.room_energy import RoomEnergyModel
+from .logic.room_energy import RoomEnergyModel, room_energy_schema
 from .logic.start_values import (
     LEARNED_BOUNDS,
     apply_start_values,
@@ -571,7 +574,109 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
 
     async def _async_setup(self) -> None:
         """Load stored state, build areas, start timers and listeners."""
-        stored = await self.store.async_load() or {}
+        recovery = StoreRecovery(self.hass, self.config_entry, MODULE_HEATING)
+        stored = dict(await recovery.load(self.store))
+        energy = recovery.mapping("room_energy", stored.get("room_energy", {}))
+        energy = dict(energy)
+        for name, schema in room_energy_schema().items():
+            if isinstance(schema, dict) and "*" in schema and name in energy:
+                values = recovery.mapping(f"room_energy.{name}", energy[name])
+                clean = {}
+                for room, raw in values.items():
+                    try:
+                        validate(raw, schema["*"])
+                    except (ValueError, TypeError, OverflowError):
+                        recovery.rejected[f"room_energy.{name}.{room}"] = raw
+                    else:
+                        clean[room] = raw
+                energy[name] = clean
+            elif name in energy:
+                try:
+                    validate(energy[name], schema)
+                except (ValueError, TypeError, OverflowError):
+                    recovery.rejected[f"room_energy.{name}"] = energy.pop(name)
+        stored["room_energy"] = energy
+        ai = dict(recovery.mapping("ai", stored.get("ai", {})))
+        budget_data = recovery.record("budget", ai.get("budget", {}), dataclass_schema(Budget))
+        ai["budget"] = budget_data
+        stored["ai"] = ai
+        moment = optional(
+            lambda v: (
+                isinstance(v, str)
+                and (parsed := dt_util.parse_datetime(v)) is not None
+                and parsed.tzinfo is not None
+            )
+        )
+        ai_schema = {
+            "stable": number,
+            "enabled": boolean,
+            "next_check": moment,
+            "last_check": moment,
+            "last_error_at": moment,
+            "check_history": [{"areas": {"*": {"*": optional(number)}}, "changes": [stored_text]}],
+        }
+        for name, schema in {
+            "day": {
+                "theta": number,
+                "history": [dataclass_schema(hd.DayRecord)],
+                "current": optional(
+                    {
+                        "date": stored_text,
+                        "valid_until": moment,
+                        "decided_at": moment,
+                        "heat": boolean,
+                        "vacation": boolean,
+                        "evaluated": boolean,
+                        "confidence": optional(number),
+                        "rule": optional({}),
+                        "ai": optional({}),
+                    }
+                ),
+                "manual_days": [stored_text],
+            },
+            "ai": {
+                **ai_schema,
+                "vent": {**ai_schema, "history": [{"areas": {"*": {"*": optional(number)}}}]},
+            },
+            "sun": {"scale": optional(number)},
+            "meter": dataclass_schema(HeatMeter),
+            "room_energy": room_energy_schema(),
+        }.items():
+            stored[name] = recovery.record(name, stored.get(name, {}), schema)
+        stored["ai"]["budget"] = budget_data
+        stored_areas = recovery.mapping("areas", stored.get("areas", {}))
+        stored["areas"] = {}
+        for area_id, raw in stored_areas.items():
+            stored["areas"][area_id] = recovery.record(
+                f"area.{area_id}",
+                raw,
+                {
+                    "target": number,
+                    "hvac_on": boolean,
+                    "params": dataclass_schema(ControlParams),
+                    "learner": optional(learner_schema()),
+                    "runtime": dataclass_schema(AreaRuntime),
+                    "day": dataclass_schema(hd.DayAreaStats),
+                    "check": template(_new_check_stats()),
+                    "vent_params": dataclass_schema(VentilationSettings),
+                    "vent_check": template(new_vent_stats()),
+                    "humidity": humidity_schema(),
+                    "start": {"*": number},
+                    "vent_start": {"*": number},
+                },
+            )
+        for key, schema in {"circuits": {"*": stored_text}, "release": [stored_text]}.items():
+            if key in stored:
+                raw = stored[key]
+                if key == "release":
+                    try:
+                        validate(raw, schema)
+                    except (ValueError, TypeError, OverflowError):
+                        recovery.rejected[key] = raw
+                        stored[key] = []
+                else:
+                    stored[key] = recovery.record(key, raw, schema)
+        await recovery.finish()
         self.day_state = stored.get("day", {})
         self.ai_state = stored.get("ai", {})
         self.budget = Budget.from_dict(self.ai_state.get("budget"))
@@ -973,18 +1078,31 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             return
         self._shut_down = True
         for unsub in self._unsubs:
-            unsub()
+            try:
+                unsub()
+            except Exception:
+                LOGGER.exception("Could not remove module listener or timer")
         self._unsubs.clear()
         if self._unsub_check:
-            self._unsub_check()
-            self._unsub_check = None
+            cancel, self._unsub_check = self._unsub_check, None
+            try:
+                cancel()
+            except Exception:
+                LOGGER.exception("Could not cancel heating schedule")
         if self._unsub_vent:
-            self._unsub_vent()
-            self._unsub_vent = None
-        if self.client:
-            await self.client.close()
-        await self.store.async_save(self._data_to_save())
-        await super().async_shutdown()
+            cancel, self._unsub_vent = self._unsub_vent, None
+            try:
+                cancel()
+            except Exception:
+                LOGGER.exception("Could not cancel heating schedule")
+        try:
+            if self.client:
+                await self.client.close()
+        finally:
+            try:
+                await self.store.async_save(self._data_to_save())
+            finally:
+                await super().async_shutdown()
 
     # ------------------------------------------------------------------ helpers
 

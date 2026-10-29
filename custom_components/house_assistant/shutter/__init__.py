@@ -39,13 +39,13 @@ class ShutterModule(Module):
 
     async def async_setup(self) -> None:
         engine = ShutterEngine(self)
+        self.engine = engine
         # Create the device of the module first so window devices can point to it by id.
         device = dr.async_get(self.hass).async_get_or_create(
             config_entry_id=self.entry.entry_id, **global_device_info(self.entry.entry_id)
         )
         engine.global_device_id = device.id
         await engine.async_setup()
-        self.engine = engine
 
     async def async_unload(self) -> None:
         if self.engine is not None:

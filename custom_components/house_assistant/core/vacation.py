@@ -56,7 +56,8 @@ from .links import SIGNAL_HEATING
 from .logic import vacation as vac
 from .logic.contacts import CLOSED, OPEN, TILTED, UNKNOWN, window_state
 from .notify import async_notify, house_language
-from .store import module_store
+from .store import StoreRecovery, module_store, remove_module_store
+from .store_validation import boolean, optional, text
 
 HOUSE: str = "house"
 # a window must stay open this long before it is reported (contacts bounce)
@@ -175,7 +176,21 @@ class HouseModule(Module):
     # ------------------------------------------------------------------ lifetime
 
     async def async_setup(self) -> None:
-        stored = await self._store.async_load() or {}
+        recovery = StoreRecovery(self.hass, self.entry, HOUSE)
+        stored = recovery.record(
+            "vacation",
+            await recovery.load(self._store),
+            {
+                "on": boolean,
+                "active": boolean,
+                "source": optional(text),
+                **{
+                    key: optional(lambda v: isinstance(v, str) and _dt(v) is not None)
+                    for key in ("departure", "return", "since")
+                },
+            },
+        )
+        await recovery.finish()
         self.times = vac.Times(
             bool(stored.get("on")), _dt(stored.get("departure")), _dt(stored.get("return"))
         )
@@ -215,7 +230,7 @@ class HouseModule(Module):
 
     @classmethod
     async def async_remove_entry(cls, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        await module_store(hass, entry, HOUSE).async_remove()
+        await remove_module_store(hass, entry, HOUSE)
 
     def entities(self, platform: Platform) -> list[tuple[str | None, list[Entity]]]:
         return [(None, vacation_entities(self, platform))]

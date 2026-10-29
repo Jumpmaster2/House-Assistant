@@ -180,3 +180,7 @@ def meter_values(data: dict) -> dict:
         values.update(zip(crop, turned, strict=True))
     values[CONF_ROTATE] = rotation(rotate)
     return values
+
+
+# Maximum duration of one AI service call.
+AI_TIMEOUT = 180

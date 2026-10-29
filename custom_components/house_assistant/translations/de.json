@@ -2291,6 +2291,10 @@
     "outdoor_unavailable": {
       "title": "Außentemperatursensor nicht verfügbar",
       "description": "Der Außentemperatursensor {entity_id} liefert seit mindestens 15 Minuten keinen gültigen Wert. Die Regelung läuft weiter, aber die Vorhersage ist ungenauer, und das thermische Modell lernt in dieser Zeit nichts.\n\nPrüfe den Sensor oder wähle in den Einstellungen der Heizung (Allgemein) einen anderen. Die Meldung verschwindet von selbst, sobald der Sensor wieder Werte liefert."
+    },
+    "corrupt_storage": {
+      "title": "Beschädigte Speicherdaten: {module}",
+      "description": "Im Modul {module} wurden beschädigte Speicherdaten verworfen und durch Standardwerte ersetzt. Die Rohdaten wurden vor dem Speichern in einem eigenen Speicher mit der Endung .corrupt gesichert. Prüfe die Einstellungen und das Protokoll. Die Meldung verschwindet beim nächsten fehlerfreien Laden."
     }
   },
   "panel": {
