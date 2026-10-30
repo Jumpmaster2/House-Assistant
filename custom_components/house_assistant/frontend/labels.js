@@ -1267,6 +1267,24 @@ export const LABELS = {
         ""
        ]
       }
+     },
+     "pipe_factor": {
+      "name": "Rohrwärmefaktor",
+      "description": "",
+      "fields": {
+       "min": [
+        "Minimum",
+        ""
+       ],
+       "max": [
+        "Maximum",
+        ""
+       ],
+       "step": [
+        "Max. Änderung je Prüfung",
+        ""
+       ]
+      }
      }
     }
    },
@@ -1417,6 +1435,24 @@ export const LABELS = {
        "draft_group_4": [
         "Kombination 4",
         ""
+       ]
+      }
+     },
+     "pipe_heat": {
+      "name": "Rohre durch andere Räume",
+      "description": "Rohre anderer Heizkreise wärmen diesen Raum mit. Zugewinn = Startwert × Rohrwärmefaktor × Summe der Gewichte laufender Quellen. Startwert und Gewichte sind konfiguriert, nicht separat gelernt.",
+      "fields": {
+       "pipe_sources": [
+        "Quell-Heizkreise",
+        "Andere Räume mit Heizkreis, deren Rohre durch diesen Raum führen. Leer deaktiviert die Funktion. Gelöschte Quellen werden ignoriert."
+       ],
+       "pipe_gain": [
+        "Rohr-Zugewinn (Startwert)",
+        "Temperaturanstieg in K/h bei einer durchgehend laufenden Quelle mit Gewicht 1 (0 bis 1, Schritt 0,05). Jederzeit bearbeitbar; die KI skaliert mit pipe_factor (0 bis 2)."
+       ],
+       "pipe_source_weights": [
+        "Rohrlänge je Quelle (Startgewichte)",
+        "Relative Rohrlänge im Ziel je Quell-Heizkreis: Standard 1,0, Bereich 0,1 bis 3,0, Schritt 0,1. Nur ausgewählte Quellen zählen. Neue Quellen erhalten Gewicht 1,0; im Dialog können alle angebotenen Heizkreise vorbereitet werden."
        ]
       }
      }
@@ -2356,7 +2392,8 @@ export const LABELS = {
     "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor.",
     "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
     "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
-    "create_rooms_in_house": "Neue Räume im Haus anlegen."
+    "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+    "invalid_pipe_weights": "Rohrgewichte müssen zwischen 0,1 und 3,0 liegen (Schritt 0,1)."
    },
    "group": {
     "latest_before_earliest": "Die späteste Zeit liegt vor der frühesten. Bitte die späteste Zeit nach hinten oder die früheste nach vorne verschieben.",
@@ -3814,6 +3851,24 @@ export const LABELS = {
         ""
        ]
       }
+     },
+     "pipe_factor": {
+      "name": "Pipe heat factor",
+      "description": "",
+      "fields": {
+       "min": [
+        "Minimum",
+        ""
+       ],
+       "max": [
+        "Maximum",
+        ""
+       ],
+       "step": [
+        "Max. change per check",
+        ""
+       ]
+      }
      }
     }
    },
@@ -3964,6 +4019,24 @@ export const LABELS = {
        "draft_group_4": [
         "Combination 4",
         ""
+       ]
+      }
+     },
+     "pipe_heat": {
+      "name": "Pipe heat",
+      "description": "Pipes of other heating circuits warm this room. Gain = start value × pipe heat factor × sum of running source weights. Start value and weights are configured, not independently learned.",
+      "fields": {
+       "pipe_sources": [
+        "Source circuits",
+        "Other rooms with heating circuits whose pipes pass through this room. Leave empty to disable. Deleted sources are ignored."
+       ],
+       "pipe_gain": [
+        "Pipe gain (start value)",
+        "Temperature rise in K/h with one continuously running source of weight 1 (0 to 1, step 0.05). Remains editable; the AI scales it with pipe_factor (0 to 2)."
+       ],
+       "pipe_source_weights": [
+        "Pipe length per source (start weights)",
+        "Relative pipe length in the target per source circuit: default 1.0, range 0.1 to 3.0, step 0.1. Only selected sources count. New sources receive weight 1.0; the dialog can prepare weights for any offered circuit."
        ]
       }
      }
@@ -4903,7 +4976,8 @@ export const LABELS = {
     "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room.",
     "house_settings_only": "Change this setting only in House.",
     "room_basics_house_only": "Change room basics only in House.",
-    "create_rooms_in_house": "Create new rooms in House."
+    "create_rooms_in_house": "Create new rooms in House.",
+    "invalid_pipe_weights": "Pipe weights must be between 0.1 and 3.0 (step 0.1)."
    },
    "group": {
     "latest_before_earliest": "The latest time is before the earliest one. Move the latest time later or the earliest earlier.",
@@ -5271,6 +5345,7 @@ export const HOUSE = {
    "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
    "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
    "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+   "invalid_pipe_weights": "Rohrgewichte müssen zwischen 0,1 und 3,0 liegen (Schritt 0,1).",
    "latest_before_earliest": "Die späteste Zeit liegt vor der frühesten. Bitte die späteste Zeit nach hinten oder die früheste nach vorne verschieben.",
    "night_end_after_evening": "Das Ende der Nacht muss vor dem frühesten Abendbeginn liegen, z. B. 03:30 bei Abendbeginn ab 17:00.",
    "azimuth_equal": "Azimut von und bis müssen verschieden sein.",
@@ -5467,6 +5542,7 @@ export const HOUSE = {
    "house_settings_only": "Change this setting only in House.",
    "room_basics_house_only": "Change room basics only in House.",
    "create_rooms_in_house": "Create new rooms in House.",
+   "invalid_pipe_weights": "Pipe weights must be between 0.1 and 3.0 (step 0.1).",
    "latest_before_earliest": "The latest time is before the earliest one. Move the latest time later or the earliest earlier.",
    "night_end_after_evening": "The end of the night must be before the earliest evening start, e.g. 03:30 with an evening from 17:00.",
    "azimuth_equal": "Azimuth from and to must differ.",
@@ -5845,6 +5921,18 @@ export const HEATING = {
    "draft_group_4": [
     "Kombination 4",
     ""
+   ],
+   "pipe_sources": [
+    "Quell-Heizkreise",
+    "Andere Räume mit Heizkreis, deren Rohre durch diesen Raum führen. Leer deaktiviert die Funktion. Gelöschte Quellen werden ignoriert."
+   ],
+   "pipe_gain": [
+    "Rohr-Zugewinn (Startwert)",
+    "Temperaturanstieg in K/h bei einer durchgehend laufenden Quelle mit Gewicht 1 (0 bis 1, Schritt 0,05). Jederzeit bearbeitbar; die KI skaliert mit pipe_factor (0 bis 2)."
+   ],
+   "pipe_source_weights": [
+    "Rohrlänge je Quelle (Startgewichte)",
+    "Relative Rohrlänge im Ziel je Quell-Heizkreis: Standard 1,0, Bereich 0,1 bis 3,0, Schritt 0,1. Nur ausgewählte Quellen zählen. Neue Quellen erhalten Gewicht 1,0; im Dialog können alle angebotenen Heizkreise vorbereitet werden."
    ]
   },
   "learned": {
@@ -5889,6 +5977,10 @@ export const HEATING = {
    "draft": [
     "Luftzug aus anderen Räumen",
     "Fenster anderer Räume, deren gemeinsames Öffnen auch diesen Raum auskühlt (Querlüftung). Je Kombination die Fenster wählen, die zusammen offen sein müssen. Sobald alle Fenster einer Kombination offen sind, verhält sich der Raum wie bei einem eigenen offenen Fenster: Die Heizung pausiert nach der Fensterverzögerung und wartet danach die Erholungszeit ab. Eine Kombination mit nur einem Fenster löst schon allein aus."
+   ],
+   "pipe_heat": [
+    "Rohre durch andere Räume",
+    "Rohre anderer Heizkreise wärmen diesen Raum mit. Zugewinn = Startwert × Rohrwärmefaktor × Summe der Gewichte laufender Quellen. Startwert und Gewichte sind konfiguriert, nicht separat gelernt."
    ]
   },
   "limits": {
@@ -5915,7 +6007,8 @@ export const HEATING = {
    "airing_time_factor": "Lüftdauer-Faktor",
    "airing_min_minutes": "Kürzeste Lüftdauer",
    "airing_max_minutes": "Längste Lüftdauer",
-   "airing_pause_min": "Pause nach dem Lüften"
+   "airing_pause_min": "Pause nach dem Lüften",
+   "pipe_factor": "Rohrwärmefaktor"
   },
   "limit_columns": {
    "min": "Minimum",
@@ -5954,7 +6047,8 @@ export const HEATING = {
    "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor.",
    "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
    "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
-   "create_rooms_in_house": "Neue Räume im Haus anlegen."
+   "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+   "invalid_pipe_weights": "Rohrgewichte müssen zwischen 0,1 und 3,0 liegen (Schritt 0,1)."
   },
   "states": {
    "status": {
@@ -6361,6 +6455,18 @@ export const HEATING = {
    "draft_group_4": [
     "Combination 4",
     ""
+   ],
+   "pipe_sources": [
+    "Source circuits",
+    "Other rooms with heating circuits whose pipes pass through this room. Leave empty to disable. Deleted sources are ignored."
+   ],
+   "pipe_gain": [
+    "Pipe gain (start value)",
+    "Temperature rise in K/h with one continuously running source of weight 1 (0 to 1, step 0.05). Remains editable; the AI scales it with pipe_factor (0 to 2)."
+   ],
+   "pipe_source_weights": [
+    "Pipe length per source (start weights)",
+    "Relative pipe length in the target per source circuit: default 1.0, range 0.1 to 3.0, step 0.1. Only selected sources count. New sources receive weight 1.0; the dialog can prepare weights for any offered circuit."
    ]
   },
   "learned": {
@@ -6405,6 +6511,10 @@ export const HEATING = {
    "draft": [
     "Draft from other rooms",
     "Windows of other rooms whose opening together also cools this room (cross ventilation). Per combination choose the windows that must be open together. As soon as every window of one combination is open, the room behaves as with its own window open: heating pauses after the window delay and waits the recovery time. A combination with a single window triggers on its own."
+   ],
+   "pipe_heat": [
+    "Pipe heat",
+    "Pipes of other heating circuits warm this room. Gain = start value × pipe heat factor × sum of running source weights. Start value and weights are configured, not independently learned."
    ]
   },
   "limits": {
@@ -6431,7 +6541,8 @@ export const HEATING = {
    "airing_time_factor": "Airing time factor",
    "airing_min_minutes": "Shortest airing time",
    "airing_max_minutes": "Longest airing time",
-   "airing_pause_min": "Pause after airing"
+   "airing_pause_min": "Pause after airing",
+   "pipe_factor": "Pipe heat factor"
   },
   "limit_columns": {
    "min": "Minimum",
@@ -6470,7 +6581,8 @@ export const HEATING = {
    "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room.",
    "house_settings_only": "Change this setting only in House.",
    "room_basics_house_only": "Change room basics only in House.",
-   "create_rooms_in_house": "Create new rooms in House."
+   "create_rooms_in_house": "Create new rooms in House.",
+   "invalid_pipe_weights": "Pipe weights must be between 0.1 and 3.0 (step 0.1)."
   },
   "states": {
    "status": {

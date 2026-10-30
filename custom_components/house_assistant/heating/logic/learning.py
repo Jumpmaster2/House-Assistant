@@ -6,7 +6,8 @@ Two kinds of learners are combined:
   ``dT/dt [K/h] = a * valve - k * (T_room - T_out) + s * pv_kw``.
   ``a`` is the heating effect of the open circuit, ``k`` the heat loss
   coefficient (influence of the outdoor temperature) and ``s`` the solar gain
-  per kW of PV power (used as a sunshine indicator).
+  per kW of PV power (used as a sunshine indicator). Prediction adds configured
+  pipe_gain * pipe_factor * sum(weight * source_on); this term is not fitted by RLS.
 * Event learners (exponentially weighted means) for the dead time after
   switching on, the overshoot after switching off and the recovery time after
   airing.
@@ -184,18 +185,35 @@ class ThermalModel:
         return self.theta[2]
 
     def predict(
-        self, valve: float, temp_diff: float, pv_kw: float, sun_factor: float = 1.0
+        self,
+        valve: float,
+        temp_diff: float,
+        pv_kw: float,
+        sun_factor: float = 1.0,
+        pipe_rate_kph: float = 0.0,
     ) -> float:
         """Return the expected temperature change in K/h."""
-        return self.a * valve - self.k * temp_diff + self.s * pv_kw * sun_factor
+        return self.a * valve - self.k * temp_diff + self.s * pv_kw * sun_factor + pipe_rate_kph
 
-    def heat_rate(self, temp_diff: float, pv_kw: float = 0.0, sun_factor: float = 1.0) -> float:
+    def heat_rate(
+        self,
+        temp_diff: float,
+        pv_kw: float = 0.0,
+        sun_factor: float = 1.0,
+        pipe_rate_kph: float = 0.0,
+    ) -> float:
         """Expected rise in K/h while heating."""
-        return self.predict(1.0, temp_diff, pv_kw, sun_factor)
+        return self.predict(1.0, temp_diff, pv_kw, sun_factor, pipe_rate_kph)
 
-    def cool_rate(self, temp_diff: float, pv_kw: float = 0.0, sun_factor: float = 1.0) -> float:
+    def cool_rate(
+        self,
+        temp_diff: float,
+        pv_kw: float = 0.0,
+        sun_factor: float = 1.0,
+        pipe_rate_kph: float = 0.0,
+    ) -> float:
         """Expected drop in K/h without heating (negative = the room warms up)."""
-        return -self.predict(0.0, temp_diff, pv_kw, sun_factor)
+        return -self.predict(0.0, temp_diff, pv_kw, sun_factor, pipe_rate_kph)
 
     def update(self, valve: float, temp_diff: float, pv_kw: float, rate: float) -> bool:
         """Update with one observation. Returns False if it was rejected as outlier."""
@@ -326,6 +344,7 @@ class Sample:
     window_open: bool = False  # own window or draft
     opening: float = 0.0  # relative opening area of the own windows open
     draft: bool = False  # draft through windows open in other rooms
+    pipe_active: bool = False  # external circuit heat must not teach a/k/s or own events
 
 
 @dataclass
@@ -341,6 +360,7 @@ class AreaLearner:
     airings: list[dict[str, Any]] = field(default_factory=list)  # last airings, for the AI
     samples: deque[Sample] = field(default_factory=lambda: deque(maxlen=6 * 60 + 10))
     last_model_update: float | None = None
+    pipe_last_on: float | None = None  # persisted quarantine of residual pipe heat
     # running trackers
     track_off: dict[str, float] | None = None
     track_on: dict[str, float] | None = None
@@ -369,6 +389,7 @@ class AreaLearner:
             "track_on": self.track_on,
             "track_recovery": self.track_recovery,
             "track_airing": self.track_airing,
+            "pipe_last_on": self.pipe_last_on,
         }
 
     @classmethod
@@ -392,6 +413,7 @@ class AreaLearner:
         learner.track_on = data.get("track_on")
         learner.track_recovery = data.get("track_recovery")
         learner.track_airing = data.get("track_airing")
+        learner.pipe_last_on = data.get("pipe_last_on")
         return learner
 
     # ---------- derived values ----------
@@ -429,9 +451,19 @@ class AreaLearner:
 
     # ---------- events ----------
 
-    def on_switch(self, ts: float, temp: float | None, turned_on: bool, run_hours: float) -> None:
+    def on_switch(
+        self,
+        ts: float,
+        temp: float | None,
+        turned_on: bool,
+        run_hours: float,
+        *,
+        pipe_active: bool = False,
+    ) -> None:
         """Call when the circuit was switched on or off."""
-        if temp is None:
+        if pipe_active:
+            self.pipe_last_on = ts
+        if temp is None or self._pipe_disturbed(ts):
             self.track_on = self.track_off = None
             return
         if turned_on:
@@ -525,6 +557,8 @@ class AreaLearner:
         """Feed one tick. Returns names of values that changed."""
         changed: list[str] = []
         self.samples.append(sample)
+        if sample.pipe_active:
+            self.pipe_last_on = sample.ts
         if self.track_airing is not None and sample.window_open:
             self._follow_airing(sample)
         if sample.temp is not None:
@@ -532,7 +566,12 @@ class AreaLearner:
             # samples are excluded from everything else. An estimated PV power only
             # keeps the sample out of the model, the event trackers do not need it.
             changed += self._track_recovery(sample)
-            if not sample.excluded:
+            # Pipe transport and residual heat are not identified. Keep influenced
+            # phases (including four hours after switch-off) out of the own-circuit
+            # learners rather than attributing that rise to a, k, s or overshoot.
+            if self._pipe_disturbed(sample.ts):
+                self.track_on = self.track_off = None
+            elif not sample.excluded:
                 changed += self._track(sample)
         if self.last_model_update is None or sample.ts - self.last_model_update >= SAMPLE_INTERVAL:
             if self._update_model(sample.ts):
@@ -685,8 +724,13 @@ class AreaLearner:
             return ["recovery"]
         return []
 
+    def _pipe_disturbed(self, now: float) -> bool:
+        return self.pipe_last_on is not None and now - self.pipe_last_on <= TRACK_TIMEOUT
+
     def _update_model(self, now: float) -> bool:
         """Estimate dT/dt over the last hour and update the RLS model."""
+        if self._pipe_disturbed(now):
+            return False
         start = now - RATE_WINDOW
         window = [s for s in self.samples if s.ts >= start - 1]
         if len(window) < 20 or window[0].ts > start + EDGE:

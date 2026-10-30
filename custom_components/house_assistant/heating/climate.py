@@ -106,6 +106,7 @@ class AreaClimate(AreaEntity, ClimateEntity):
         return {
             "status": area.status,
             "draft": area.draft,
+            "pipe_active": self.coordinator.pipe_active(area),
             # the windows of the combination behind a draft or a cross ventilation
             "draft_windows": area.draft_windows or None,
             "effective_target": area.effective_target,

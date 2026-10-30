@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields, replace
 from enum import StrEnum
 from typing import Any
 
@@ -47,6 +47,7 @@ class ControlParams:
     overshoot_factor: float = 1.0
     lead_factor: float = 1.0
     sun_factor: float = 1.0
+    pipe_factor: float = 1.0
     window_delay_min: float = 5.0
     recovery_bias_min: float = 0.0
     puffer: float = 0.7
@@ -92,6 +93,7 @@ class LearnedValues:
     dead_time_s: float = 1800.0
     recovery_s: float = 1800.0
     overshoot_k: float = 0.0  # expected overshoot if switched off now
+    pipe_rate_kph: float = 0.0  # gain from the other circuits, already scaled
     pv_plan_kw: float = 0.0  # PV power expected over the lead time (used in cool_rate_kph)
 
 
@@ -270,6 +272,8 @@ def predict_temp(
     params: ControlParams,
     learned: LearnedValues,
     carry_peak: float | None = None,
+    *,
+    include_pipe: bool = True,
 ) -> float:
     """Temperature expected after the lead time (dead time scaled by the lead factor).
 
@@ -280,7 +284,8 @@ def predict_temp(
     assert data.temp is not None
     lead_h = learned.dead_time_s * params.lead_factor / 3600.0
     basis = data.temp if data.switch_on or carry_peak is None else max(data.temp, carry_peak)
-    return basis - learned.cool_rate_kph * lead_h
+    pipe = learned.pipe_rate_kph if include_pipe else 0.0
+    return basis + (pipe - learned.cool_rate_kph) * lead_h
 
 
 def emergency_limit(target: float, params: ControlParams, settings: AreaSettings) -> float:
@@ -309,7 +314,8 @@ def _update_emergency(
         rt.last_window_change is None
         or data.now - rt.last_window_change >= settings.emergency_window_quiet_s
     )
-    predicted = predict_temp(data, params, learned, rt.carry_peak)
+    # Preserve the emergency threshold independently of incidental pipe heat.
+    predicted = predict_temp(data, params, learned, rt.carry_peak, include_pipe=False)
     # Never while the room is still above target, however steep the learned cooling.
     cold = data.temp < data.target and predicted < emergency_limit(data.target, params, settings)
     if cold and quiet and not data.window_open:
@@ -336,7 +342,11 @@ def thermostat(
     """
     assert data.temp is not None
     predicted = predict_temp(data, params, learned, carry_peak)
-    peak = data.temp + learned.overshoot_k * params.overshoot_factor
+    peak = (
+        data.temp
+        + learned.overshoot_k * params.overshoot_factor
+        + learned.pipe_rate_kph * learned.dead_time_s * params.lead_factor / 3600.0
+    )
     if not data.switch_on and carry_peak is not None:
         peak = max(peak, carry_peak)  # the peak still expected from the last run
     on_threshold = data.target - params.hysteresis_on
@@ -393,11 +403,15 @@ def step(
         if not rt.emergency_active:
             return ControlDecision(False, AreaStatus.NO_HEATING_DAY, may_switch)
 
+    # Emergency operation keeps its previous thermostat behavior as well as its trigger.
+    control_learned = learned if data.heating_day else replace(learned, pipe_rate_kph=0.0)
     want, predicted, peak = thermostat(
-        data, params, learned, rt.carry_peak, settings.force_on_below
+        data, params, control_learned, rt.carry_peak, settings.force_on_below
     )
     if data.switch_on:
-        rt.last_peak = peak
+        # Carry only the own circuit's residual heat; external sources are read
+        # afresh each tick and must not survive their switch-off in carry_peak.
+        rt.last_peak = round(data.temp + learned.overshoot_k * params.overshoot_factor, 2)
     if hold and want and not data.switch_on:
         status = AreaStatus.WINDOW_OPEN if data.window_open else AreaStatus.RECOVERY
         return ControlDecision(False, status, may_switch, predicted, peak)

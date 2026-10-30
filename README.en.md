@@ -10,7 +10,11 @@ Custom integration for Home Assistant that brings heating, covers and meter read
 
 Every module can be switched on and off on its own. No function of the former integrations is dropped; their users move with a script, without losing history or learned values ([docs/transfer.md](docs/transfer.md#english)).
 
-> Status: version 1.0.0b19 (beta). Please keep an eye on the logbook during the first weeks.
+> Status: version 1.0.0b20 (beta). Please keep an eye on the logbook during the first weeks.
+
+## Pipe heat
+
+When a circuit's pipes pass through another room, configure that heat in the target under *Heating > Rooms > Pipe heat*: select source circuits, set their relative pipe lengths in `pipe_source_weights` (default 1.0; 0.1–3.0), and set the gain (default 0.15 K/h per weight 1). Gains from all running sources are added with their weights. The AI may adjust it using `pipe_factor`. No sources means the feature is off. Details: [heating documentation](docs/heating.en.md#pipe-heat).
 
 ## Working together
 

@@ -69,6 +69,16 @@ PARAMS: dict[str, ParamSpec] = {
         ),
         ParamSpec("sun_factor", "area", 1.0, 0.0, 2.0, 0.2, "", "scales learned solar gain"),
         ParamSpec(
+            "pipe_factor",
+            "area",
+            1.0,
+            0.0,
+            2.0,
+            0.2,
+            "",
+            "scales pipe heat from configured source circuits",
+        ),
+        ParamSpec(
             "window_delay_min",
             "area",
             5.0,

@@ -820,6 +820,14 @@
               "max": "Maximum",
               "step": "Max. Änderung je Prüfung"
             }
+          },
+          "pipe_factor": {
+            "name": "Rohrwärmefaktor",
+            "data": {
+              "min": "Minimum",
+              "max": "Maximum",
+              "step": "Max. Änderung je Prüfung"
+            }
           }
         },
         "data": {},
@@ -970,6 +978,20 @@
               "data_description": {
                 "draft_group_1": "z. B. Kinderzimmer + Bad; eine zweite Kombination z. B. Kinderzimmer + Schlafzimmer."
               }
+            },
+            "pipe_heat": {
+              "name": "Rohre durch andere Räume",
+              "description": "Rohre anderer Heizkreise wärmen diesen Raum mit. Zugewinn = Startwert × Rohrwärmefaktor × Summe der Gewichte laufender Quellen. Startwert und Gewichte sind konfiguriert, nicht separat gelernt.",
+              "data": {
+                "pipe_sources": "Quell-Heizkreise",
+                "pipe_gain": "Rohr-Zugewinn (Startwert)",
+                "pipe_source_weights": "Rohrlänge je Quelle (Startgewichte)"
+              },
+              "data_description": {
+                "pipe_sources": "Andere Räume mit Heizkreis, deren Rohre durch diesen Raum führen. Leer deaktiviert die Funktion. Gelöschte Quellen werden ignoriert.",
+                "pipe_gain": "Temperaturanstieg in K/h bei einer durchgehend laufenden Quelle mit Gewicht 1 (0 bis 1, Schritt 0,05). Jederzeit bearbeitbar; die KI skaliert mit pipe_factor (0 bis 2).",
+                "pipe_source_weights": "Relative Rohrlänge im Ziel je Quell-Heizkreis: Standard 1,0, Bereich 0,1 bis 3,0, Schritt 0,1. Nur ausgewählte Quellen zählen. Neue Quellen erhalten Gewicht 1,0; im Dialog können alle angebotenen Heizkreise vorbereitet werden."
+              }
             }
           }
         },
@@ -1004,7 +1026,8 @@
         "temperature_required": "Für Heizkreis und Lüftungsempfehlung braucht der Raum einen Temperatursensor.",
         "house_settings_only": "Diese Einstellung ausschließlich im Haus ändern.",
         "room_basics_house_only": "Raum-Grunddaten ausschließlich im Haus ändern.",
-        "create_rooms_in_house": "Neue Räume im Haus anlegen."
+        "create_rooms_in_house": "Neue Räume im Haus anlegen.",
+        "invalid_pipe_weights": "Rohrgewichte müssen zwischen 0,1 und 3,0 liegen (Schritt 0,1)."
       }
     },
     "group": {
