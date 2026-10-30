@@ -10,7 +10,7 @@
 
 ### Changed
 
-- Pipe-influenced phases are excluded from learning the target circuit thermal model, dead time and overshoot. The pipe gain stays configured because transport delay and independent source excitation are not measured; the AI can calibrate its factor.
+- The target thermal model subtracts the mean configured, scaled pipe gain from its observed rate, so a/k/s keep learning with cycling sources. Windows with a correction above 50 % of the absolute observed rate or residual heat within 20 minutes of source activity are skipped. Dead time and overshoot discard only events overlapping source activity or starting within 20 minutes afterwards, replacing the blanket four-hour learning block. The pipe coefficient p is not learned; its gain stays configured and the AI can calibrate its factor.
 
 ## 1.0.0b19 (2026-10-29)
 

@@ -124,7 +124,23 @@ def test_stats_source_only_overheating_window_and_legacy_store():
     learner.add_sample(Sample(1000, 20, False, 5, 0, False, pipe_active=True))
     stored = learner.as_dict()
     validate(stored, learner_schema())
-    assert AreaLearner.from_dict(stored, 1800, 1800)._pipe_disturbed(2000)
+    restored = AreaLearner.from_dict(stored, 1800, 1800)
+    assert restored._pipe_disturbed(2000)
+    assert not restored._pipe_disturbed(2200)  # 20 minutes, even for pre-correction stores
+    assert restored.as_dict() == stored
+    # Pre-pipe stores preserve learned values and running events without migration.
+    legacy = {
+        "model": {"theta": [1.2, 0.02, 0.4], "n_heat": 48, "n_cool": 96},
+        "dead_time": {"value": 900, "count": 5},
+        "track_off": {"start": 100, "t_off": 20, "max": 20.3, "run_h": 1},
+    }
+    validate(legacy, learner_schema())
+    restored = AreaLearner.from_dict(legacy, 1800, 1800)
+    assert restored.model.theta == legacy["model"]["theta"]
+    assert restored.model.n_heat == 48 and restored.model.n_cool == 96
+    assert restored.dead_time.value == 900 and restored.dead_time.count == 5
+    assert restored.track_off == legacy["track_off"]
+    assert restored.pipe_last_on is None
 
 
 async def test_check_and_nightly_payload_and_parameter_filtering():

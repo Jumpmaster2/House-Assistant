@@ -1,6 +1,10 @@
-"""Incidental pipe heat, isolated learning and protected controller paths."""
+"""Incidental pipe heat, corrected learning and protected controller paths."""
 
+import hashlib
+import json
+import math
 from dataclasses import replace
+from unittest.mock import patch
 
 import pytest
 
@@ -20,6 +24,8 @@ from custom_components.house_assistant.heating.logic.controller import (
     thermostat,
 )
 from custom_components.house_assistant.heating.logic.learning import (
+    PIPE_SETTLE_S,
+    TRACK_TIMEOUT,
     AreaLearner,
     Sample,
     ThermalModel,
@@ -90,24 +96,121 @@ def test_protected_paths_keep_their_behavior(pipe):
     )
 
 
-def test_pipe_samples_do_not_teach_other_coefficients_or_events():
+def _rate_window(rate, pipe):
     learner = AreaLearner()
-    original = learner.model.as_dict()
-    learner.on_switch(0, 20, True, 0)
-    for minute in range(181):
+    for minute in range(61):
         learner.add_sample(
-            Sample(minute * 60, 20 + minute / 600, False, 5, 0, False, pipe_active=True)
+            Sample(
+                minute * 60,
+                20 + rate * minute / 60,
+                True,
+                5,
+                0,
+                False,
+                pipe_active=True,
+                pipe_rate_kph=pipe(minute),
+            )
         )
-    assert learner.model.as_dict() == original
-    assert learner.dead_time.count == learner.overshoot.count == 0
-    assert learner.track_on is learner.track_off is None
-    # Residual warmth remains excluded for four hours after the last active sample.
-    for minute in range(181, 420):
-        learner.add_sample(Sample(minute * 60, 20, False, 5, 0, False))
-    assert learner.model.as_dict() == original
-    for minute in range(420, 451):
-        learner.add_sample(Sample(minute * 60, 20, False, 5, 0, False))
-    assert learner.model.n_cool > 0
+    return learner
+
+
+def test_model_subtracts_mean_scaled_pipe_gain():
+    # The gain varies (e.g. source weights / AI factor change); use every sample,
+    # not just the final or initial gain. Mean correction = 0.15 K/h.
+    with patch.object(ThermalModel, "update", return_value=True) as update:
+        _rate_window(0.8, lambda minute: 0.1 + minute / 600)
+    assert update.call_count == 1
+    assert update.call_args.args[-1] == pytest.approx(0.65)
+
+
+@pytest.mark.parametrize(
+    ("observed", "pipe", "accepted"),
+    [
+        (0.4, 0.25, False),
+        (0.4, 0.19, True),
+        (-0.4, 0.19, True),
+        (-0.4, 0.25, False),
+        (0, 0.01, False),
+    ],
+)
+def test_model_skips_dominant_correction_in_warming_and_cooling(observed, pipe, accepted):
+    learner = _rate_window(observed, lambda minute: pipe)
+    assert bool(learner.model.n_heat) == accepted
+
+
+class _FourHourBlockedLearner(AreaLearner):
+    """The former pipe quarantine for comparison with the corrected learner."""
+
+    def _update_model(self, now):
+        if self.pipe_last_on is not None and now - self.pipe_last_on <= TRACK_TIMEOUT:
+            return False
+        return super()._update_model(now)
+
+
+def test_cycling_sources_still_allow_all_three_coefficients_to_converge():
+    corrected, blocked = AreaLearner(), _FourHourBlockedLearner()
+    for learner in (corrected, blocked):
+        learner.dead_time.value = 0  # this synthetic room has no transport delay
+    true_a, true_k, true_s = 1.2, 0.02, 0.4
+    temp = 20.0
+    # Three weighted circuits cycle every four hours, with staggered on/off edges.
+    # Own heating, weather and sun vary independently of these source cycles.
+    for minute in range(14 * 24 * 60):
+        valve = minute % 310 < 150
+        diff = 12 + 6 * math.sin(minute * 2 * math.pi / 1440)
+        pv = 1.5 * max(0, math.sin((minute % 1440 - 360) * 2 * math.pi / 1440))
+        sources = [0 <= minute % 240 - offset < 90 for offset in (0, 20, 40)]
+        pipe = pipe_rate(0.15, 1, (w * on for w, on in zip((1, 0.5, 1.5), sources, strict=True)))
+        for learner in (corrected, blocked):
+            learner.add_sample(
+                Sample(
+                    minute * 60,
+                    temp,
+                    valve,
+                    temp - diff,
+                    pv,
+                    False,
+                    pipe_active=any(sources),
+                    pipe_rate_kph=pipe,
+                )
+            )
+        temp += (true_a * valve - true_k * diff + true_s * pv + pipe) / 60
+    assert corrected.model.n_heat > 100
+    assert corrected.model.n_cool > 30
+    assert blocked.model.n_heat == blocked.model.n_cool == 0
+    for fitted, frozen, truth, tolerance in zip(
+        corrected.model.theta,
+        blocked.model.theta,
+        (true_a, true_k, true_s),
+        (0.08, 0.005, 0.05),
+        strict=True,
+    ):
+        assert abs(fitted - truth) < abs(frozen - truth)
+        assert fitted == pytest.approx(truth, abs=tolerance)
+
+
+def test_model_rejects_residual_heat_anywhere_in_rate_window():
+    learner = AreaLearner()
+    for minute in range(181):
+        # At 30 min the source stops. Its 20 min tail must still disqualify
+        # the window ending at 105 min, even though it has long been off now.
+        learner.add_sample(
+            Sample(
+                minute * 60,
+                20 + minute / 60,
+                True,
+                5,
+                0,
+                False,
+                pipe_active=minute <= 30,
+                pipe_rate_kph=0.1 if minute <= 30 else 0,
+            )
+        )
+        if minute == 105:
+            assert learner.model.n_heat == 0
+        if minute == 120:
+            assert learner.model.n_heat == 1
+    assert learner.model.n_heat > 1  # no four-hour quarantine
 
 
 def test_explicitly_disabled_pipe_samples_are_identical():
@@ -115,9 +218,15 @@ def test_explicitly_disabled_pipe_samples_are_identical():
     for minute in range(240):
         sample = Sample(minute * 60, 20 - minute / 1000, False, 5, 0, False)
         old.add_sample(sample)
-        new.add_sample(replace(sample, pipe_active=False))
+        new.add_sample(replace(sample, pipe_active=False, pipe_rate_kph=0.0))
     assert old.as_dict() == new.as_dict()
     assert old.model.n_cool > 0
+    # Snapshot produced with the committed learner before the correction:
+    snapshot = json.dumps(old.as_dict(), sort_keys=True).encode()
+    assert (
+        hashlib.sha256(snapshot).hexdigest()
+        == "26fc17dcadc35482380f032ea0ffb1bb3926cdf0f06b104e8aa2c01441347386"
+    )
 
 
 @pytest.mark.parametrize(
@@ -188,3 +297,73 @@ def test_source_weight_validation(value):
     with pytest.raises((TypeError, ValueError, OverflowError)):
         clean_pipe_weights({"pia": value}, ["pia"], strict=True)
     assert clean_pipe_weights({"pia": value}, ["pia"]) == {"pia": 1.0}
+
+
+@pytest.mark.parametrize("turned_on", [False, True], ids=["overshoot", "dead_time"])
+@pytest.mark.parametrize(
+    ("source_minute", "learned"),
+    [(-21, True), (-20, True), (-19, False), (10, False), (60, True)],
+    ids=["before-settling", "settled", "recent", "during", "after"],
+)
+def test_only_source_activity_near_or_during_event_discards_it(turned_on, source_minute, learned):
+    learner = AreaLearner()
+    if source_minute < 0:
+        learner.add_sample(Sample(source_minute * 60, 20, False, 5, 0, False, pipe_active=True))
+    learner.on_switch(0, 20, turned_on, 1)
+    for minute in range(41):
+        if turned_on:
+            temp = 20 if minute < 20 else 20.1 if minute < 25 else 20.2
+        else:
+            temp = 20 + min(minute, 20) * 0.02 - max(0, minute - 20) * 0.02
+        # Missing temperature and exclusion must not hide a source inside an event.
+        missing = minute == source_minute
+        learner.add_sample(
+            Sample(
+                minute * 60,
+                None if missing else temp,
+                turned_on,
+                5,
+                0,
+                missing,
+                pipe_active=missing,
+                pipe_rate_kph=0.15 if missing else 0,
+            )
+        )
+    if source_minute > 40:
+        learner.add_sample(Sample(source_minute * 60, 20, turned_on, 5, 0, False, pipe_active=True))
+    assert learner.dead_time.count == (int(learned) if turned_on else 0)
+    assert learner.overshoot.count == (0 if turned_on else int(learned))
+    assert learner.overshoot_rate.count == learner.overshoot.count
+
+
+def test_next_clean_event_can_start_after_twenty_minutes():
+    learner = AreaLearner()
+    learner.add_sample(Sample(0, 20, False, 5, 0, False, pipe_active=True))
+    learner.on_switch(PIPE_SETTLE_S - 1, 20, True, 0)
+    assert learner.track_on is None
+    learner.on_switch(PIPE_SETTLE_S, 20, True, 0)
+    for minute in range(31):
+        learner.add_sample(
+            Sample(
+                PIPE_SETTLE_S + minute * 60,
+                20 if minute < 20 else 20.2,
+                True,
+                5,
+                0,
+                False,
+            )
+        )
+    assert learner.dead_time.count == 1
+
+
+@pytest.mark.parametrize("turned_on", [False, True], ids=["overshoot", "dead_time"])
+def test_switch_cannot_finish_event_during_settling(turned_on):
+    learner = AreaLearner()
+    learner.pipe_last_on = 0
+    if turned_on:
+        learner.track_off = {"start": -3600, "t_off": 20, "max": 21, "run_h": 1}
+    else:
+        learner.track_on = {"start": -3600, "min": 20, "rise": -600}
+    learner.on_switch(PIPE_SETTLE_S - 1, 20.8, turned_on, 1)
+    assert learner.track_off is learner.track_on is None
+    assert learner.dead_time.count == learner.overshoot.count == 0

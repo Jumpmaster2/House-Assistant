@@ -1871,6 +1871,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 opening=area.opening,
                 draft=area.draft,
                 pipe_active=self.pipe_active(area),
+                pipe_rate_kph=self._pipe_rate(area),
             )
         )
         # The virtual room first: on the first tick of a day it starts at the real

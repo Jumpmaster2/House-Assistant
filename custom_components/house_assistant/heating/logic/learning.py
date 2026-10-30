@@ -8,6 +8,8 @@ Two kinds of learners are combined:
   coefficient (influence of the outdoor temperature) and ``s`` the solar gain
   per kW of PV power (used as a sunshine indicator). Prediction adds configured
   pipe_gain * pipe_factor * sum(weight * source_on); this term is not fitted by RLS.
+  Learning subtracts its sample mean from the observed rate unless it dominates
+  the observation or the window includes unmodelled residual heat after source-off.
 * Event learners (exponentially weighted means) for the dead time after
   switching on, the overshoot after switching off and the recovery time after
   airing.
@@ -56,6 +58,11 @@ RATE_WINDOW = 60 * 60  # s window used to compute dT/dt
 EDGE = 5 * 60  # s averaged at both ends of the window (sensor quantisation)
 MAX_RUN_HOURS_FOR_OVERSHOOT = 3.0
 TRACK_TIMEOUT = 4 * 3600.0
+# Pipe transport delay/residual heat is not measured. Reject the first 20 min
+# after a source was last seen on, rather than blocking learning for four hours.
+PIPE_SETTLE_S = 20 * 60.0
+# A configured correction must not dominate the measured warming/cooling rate.
+PIPE_MAX_RATE_SHARE = 0.5
 
 # Recovery model: minutes = base + per_k * drop [K] + per_kh * cold [K h].
 RECOVERY_MODEL_START = (30.0, 0.0, 0.0)
@@ -344,7 +351,8 @@ class Sample:
     window_open: bool = False  # own window or draft
     opening: float = 0.0  # relative opening area of the own windows open
     draft: bool = False  # draft through windows open in other rooms
-    pipe_active: bool = False  # external circuit heat must not teach a/k/s or own events
+    pipe_active: bool = False  # actual source state, also when gain/factor is zero
+    pipe_rate_kph: float = 0.0  # configured gain * factor * weighted active sources
 
 
 @dataclass
@@ -360,7 +368,7 @@ class AreaLearner:
     airings: list[dict[str, Any]] = field(default_factory=list)  # last airings, for the AI
     samples: deque[Sample] = field(default_factory=lambda: deque(maxlen=6 * 60 + 10))
     last_model_update: float | None = None
-    pipe_last_on: float | None = None  # persisted quarantine of residual pipe heat
+    pipe_last_on: float | None = None  # last observed source activity, including after restart
     # running trackers
     track_off: dict[str, float] | None = None
     track_on: dict[str, float] | None = None
@@ -559,6 +567,10 @@ class AreaLearner:
         self.samples.append(sample)
         if sample.pipe_active:
             self.pipe_last_on = sample.ts
+        # Discard an entire own-circuit event if a source overlaps it, even when
+        # the temperature is missing or this tick is excluded from learning.
+        if self._pipe_disturbed(sample.ts):
+            self.track_on = self.track_off = None
         if self.track_airing is not None and sample.window_open:
             self._follow_airing(sample)
         if sample.temp is not None:
@@ -566,12 +578,7 @@ class AreaLearner:
             # samples are excluded from everything else. An estimated PV power only
             # keeps the sample out of the model, the event trackers do not need it.
             changed += self._track_recovery(sample)
-            # Pipe transport and residual heat are not identified. Keep influenced
-            # phases (including four hours after switch-off) out of the own-circuit
-            # learners rather than attributing that rise to a, k, s or overshoot.
-            if self._pipe_disturbed(sample.ts):
-                self.track_on = self.track_off = None
-            elif not sample.excluded:
+            if not sample.excluded:
                 changed += self._track(sample)
         if self.last_model_update is None or sample.ts - self.last_model_update >= SAMPLE_INTERVAL:
             if self._update_model(sample.ts):
@@ -725,18 +732,27 @@ class AreaLearner:
         return []
 
     def _pipe_disturbed(self, now: float) -> bool:
-        return self.pipe_last_on is not None and now - self.pipe_last_on <= TRACK_TIMEOUT
+        """A source is on or was seen on less than the settling time ago."""
+        return self.pipe_last_on is not None and now - self.pipe_last_on < PIPE_SETTLE_S
 
     def _update_model(self, now: float) -> bool:
         """Estimate dT/dt over the last hour and update the RLS model."""
-        if self._pipe_disturbed(now):
-            return False
         start = now - RATE_WINDOW
         window = [s for s in self.samples if s.ts >= start - 1]
         if len(window) < 20 or window[0].ts > start + EDGE:
             return False
         if any(s.excluded or s.pv_unknown or s.temp is None or s.outdoor is None for s in window):
             return False
+        # Reject windows containing the unmodelled tail after source-off. Inspect
+        # history before the window too; a restart retains only pipe_last_on.
+        last_on = self.pipe_last_on
+        if last_on is not None and last_on >= self.samples[0].ts:
+            last_on = None  # later activity must not mask earlier off transitions
+        for s in self.samples:
+            if s.pipe_active:
+                last_on = s.ts
+            elif s.ts >= start - 1 and last_on is not None and s.ts - last_on < PIPE_SETTLE_S:
+                return False
         head = [s.temp for s in window if s.ts <= window[0].ts + EDGE]
         tail = [s.temp for s in window if s.ts >= now - EDGE]
         if not head or not tail:
@@ -745,6 +761,11 @@ class AreaLearner:
         if hours <= 0.3:
             return False
         rate = (sum(tail) / len(tail) - sum(head) / len(head)) / hours  # type: ignore[arg-type]
+        pipe = sum(s.pipe_rate_kph for s in window) / len(window)
+        if pipe > 0:
+            if pipe > PIPE_MAX_RATE_SHARE * abs(rate):
+                return False
+            rate -= pipe
         mean_temp = sum(s.temp for s in window) / len(window)  # type: ignore[misc]
         mean_out = sum(s.outdoor for s in window) / len(window)  # type: ignore[misc]
         pv = sum(s.pv_kw for s in window) / len(window)

@@ -4,6 +4,12 @@ The gain is configured, not fitted alongside a/k/s: the source has no measured
 transport delay and normally runs in the same cold periods as the target. A
 fourth RLS coefficient would trade heat loss, solar gain and pipe heat against
 one another. The AI can instead calibrate the bounded pipe_factor.
+
+The target's RLS learner subtracts the configured, scaled gain averaged over its
+rate window. Windows with a correction above 50 % of the absolute observed rate
+or any of the first 20 min after source activity are skipped (unmeasured residual
+heat). Dead time and overshoot discard only events overlapping source activity
+or starting less than 20 min afterwards; there is no four-hour pipe quarantine.
 """
 
 from __future__ import annotations

@@ -35,6 +35,8 @@ async def test_pipe_dialog_attribute_panel_and_reload(hass, base_states):
     coordinator = heating(entry)
     a = coordinator.areas["room_1"]
     assert coordinator._pipe_rate(a) == 0.6
+    assert a.learner.samples[-1].pipe_rate_kph == 0.6
+    assert a.learner.samples[-1].pipe_active is True
     payload = config_payload(hass, entry)
     target = payload["areas"][0]
     assert target["data"]["pipe_sources"] == ["room_2"]
