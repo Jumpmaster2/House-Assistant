@@ -125,6 +125,9 @@ CONF_SHORT_RECOVERY = "short_recovery_percent"
 CONF_RECOVERY = "recovery_time"
 CONF_DEAD_TIME = "dead_time"
 CONF_PUFFER = "puffer"
+CONF_PIPE_SOURCES = "pipe_sources"
+CONF_PIPE_GAIN = "pipe_gain"
+CONF_PIPE_SOURCE_WEIGHTS = "pipe_source_weights"
 CONF_VENT_RH = "ventilation_rh_threshold"
 CONF_REF_TEMP = "reference_temperature"
 CONF_REF_HUMIDITY = "reference_humidity"
@@ -135,6 +138,7 @@ SECTION_SENSORS = "sensors"
 SECTION_VENTILATION = "ventilation"
 SECTION_DRAFT = "draft"
 SECTION_START = "start_values"
+SECTION_PIPE = "pipe_heat"
 SECTION_AIRING = "airing"
 SECTION_LEARNED = "learned_values"
 # room: the air conditioner, a default of the windows for the covers
@@ -230,5 +234,8 @@ AREA_DEFAULTS: Final[dict[str, object]] = {
     CONF_RECOVERY: 30,
     CONF_DEAD_TIME: 30,
     CONF_PUFFER: 0.7,
+    CONF_PIPE_SOURCES: [],
+    CONF_PIPE_GAIN: 0.15,
+    CONF_PIPE_SOURCE_WEIGHTS: {},
     CONF_VENT_RH: 60.0,
 }

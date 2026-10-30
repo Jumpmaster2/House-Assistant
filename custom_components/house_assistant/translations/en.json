@@ -820,6 +820,14 @@
               "max": "Maximum",
               "step": "Max. change per check"
             }
+          },
+          "pipe_factor": {
+            "name": "Pipe heat factor",
+            "data": {
+              "min": "Minimum",
+              "max": "Maximum",
+              "step": "Max. change per check"
+            }
           }
         },
         "data": {},
@@ -970,6 +978,20 @@
               "data_description": {
                 "draft_group_1": "e.g. kids' room + bathroom; a second combination e.g. kids' room + bedroom."
               }
+            },
+            "pipe_heat": {
+              "name": "Pipe heat",
+              "description": "Pipes of other heating circuits warm this room. Gain = start value × pipe heat factor × sum of running source weights. Start value and weights are configured, not independently learned.",
+              "data": {
+                "pipe_sources": "Source circuits",
+                "pipe_gain": "Pipe gain (start value)",
+                "pipe_source_weights": "Pipe length per source (start weights)"
+              },
+              "data_description": {
+                "pipe_sources": "Other rooms with heating circuits whose pipes pass through this room. Leave empty to disable. Deleted sources are ignored.",
+                "pipe_gain": "Temperature rise in K/h with one continuously running source of weight 1 (0 to 1, step 0.05). Remains editable; the AI scales it with pipe_factor (0 to 2).",
+                "pipe_source_weights": "Relative pipe length in the target per source circuit: default 1.0, range 0.1 to 3.0, step 0.1. Only selected sources count. New sources receive weight 1.0; the dialog can prepare weights for any offered circuit."
+              }
             }
           }
         },
@@ -1004,7 +1026,8 @@
         "temperature_required": "A heating circuit and the ventilation advice need a temperature sensor of the room.",
         "house_settings_only": "Change this setting only in House.",
         "room_basics_house_only": "Change room basics only in House.",
-        "create_rooms_in_house": "Create new rooms in House."
+        "create_rooms_in_house": "Create new rooms in House.",
+        "invalid_pipe_weights": "Pipe weights must be between 0.1 and 3.0 (step 0.1)."
       }
     },
     "group": {

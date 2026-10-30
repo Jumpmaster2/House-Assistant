@@ -21,6 +21,8 @@ from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
+    ObjectSelector,
+    ObjectSelectorConfig,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -74,6 +76,9 @@ from .const import (
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMP,
     CONF_PHASE_MAX_ERRORS,
+    CONF_PIPE_GAIN,
+    CONF_PIPE_SOURCE_WEIGHTS,
+    CONF_PIPE_SOURCES,
     CONF_PREHEAT_RESERVE,
     CONF_PRICE_CACHE_READ,
     CONF_PRICE_CACHE_WRITE,
@@ -135,6 +140,7 @@ from .const import (
     SECTION_DRAFT,
     SECTION_HEATING,
     SECTION_LEARNED,
+    SECTION_PIPE,
     SECTION_SENSORS,
     SECTION_START,
     SECTION_SUN,
@@ -145,6 +151,7 @@ from .const import (
 from .logic.ai_schema import ALL_PARAMS, default_limits, normalize_limits, validate_limit
 from .logic.draft import draft_groups
 from .logic.physics import parse_day_month
+from .logic.pipe_heat import clean_pipe_sources, clean_pipe_weights
 from .logic.ventilation import BLOCK_DOMAINS
 
 PRICE_KEYS = (CONF_PRICE_INPUT, CONF_PRICE_OUTPUT, CONF_PRICE_CACHE_WRITE, CONF_PRICE_CACHE_READ)
@@ -818,12 +825,28 @@ class HeatingOptionsSteps:
 # ---------------------------------------------------------------- room subentry
 
 
+class PipeWeightsSelector(ObjectSelector):
+    """Structured circuit weights with finite, bounded tenth steps on both APIs."""
+
+    def __call__(self, value: Any) -> dict[str, float]:
+        try:
+            # Stale room references are intentionally discarded before field validation.
+            if not isinstance(value, dict):
+                raise ValueError("mapping expected")
+            allowed = self.config.get("fields", {})
+            selected = [key for key in value if key in allowed]
+            return clean_pipe_weights(value, selected, strict=True)
+        except (ValueError, TypeError, OverflowError) as err:
+            raise vol.Invalid(str(err)) from err
+
+
 def area_schema(
     v: dict[str, Any],
     learned: dict[str, float] | None = None,
     ranges: dict[str, tuple[float, float]] | None = None,
     heating: bool = True,
     covers: bool = True,
+    others: Sequence[ConfigSubentry] = (),
 ) -> vol.Schema:
     """Heating fields of an existing room; basic data is edited in the house."""
 
@@ -858,6 +881,53 @@ def area_schema(
                     {"collapsed": False},
                 ),
                 **(_start_section(v) if learned is None else _learned_section(learned, ranges)),
+                vol.Optional(SECTION_PIPE): section(
+                    vol.Schema(
+                        {
+                            vol.Required(
+                                CONF_PIPE_SOURCES,
+                                default=clean_pipe_sources(
+                                    v.get(CONF_PIPE_SOURCES),
+                                    (o.subentry_id for o in others if o.data.get(CONF_SWITCH)),
+                                ),
+                            ): SelectSelector(
+                                SelectSelectorConfig(
+                                    options=[
+                                        {"value": o.subentry_id, "label": o.title}
+                                        for o in others
+                                        if o.data.get(CONF_SWITCH)
+                                    ],
+                                    multiple=True,
+                                    mode=SelectSelectorMode.DROPDOWN,
+                                )
+                            ),
+                            req(CONF_PIPE_GAIN): _number(0, 1, 0.05, "K/h"),
+                            vol.Required(
+                                CONF_PIPE_SOURCE_WEIGHTS,
+                                default=clean_pipe_weights(
+                                    v.get(CONF_PIPE_SOURCE_WEIGHTS),
+                                    clean_pipe_sources(
+                                        v.get(CONF_PIPE_SOURCES),
+                                        (o.subentry_id for o in others if o.data.get(CONF_SWITCH)),
+                                    ),
+                                ),
+                            ): PipeWeightsSelector(
+                                ObjectSelectorConfig(
+                                    fields={
+                                        o.subentry_id: {
+                                            "label": o.title,
+                                            "selector": _number(0.1, 3.0, 0.1),
+                                            "default": 1.0,
+                                        }
+                                        for o in others
+                                        if o.data.get(CONF_SWITCH)
+                                    }
+                                )
+                            ),
+                        }
+                    ),
+                    {"collapsed": True},
+                ),
                 # always changeable, also for rooms that exist already
                 vol.Required(SECTION_AIRING): section(
                     vol.Schema(
@@ -948,6 +1018,7 @@ def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
         SECTION_SENSORS,
         SECTION_HEATING,
         SECTION_START,
+        SECTION_PIPE,
         SECTION_AIRING,
         SECTION_VENTILATION,
         SECTION_DRAFT,
@@ -1042,7 +1113,32 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             edited = user_input.pop(SECTION_LEARNED, None) or {}
             # the start values were set when the room was created and stay as they are;
             # values of a module switched off stay as well
-            shown = set(_fields_of(area_schema(values, **self._modules())))
+            others = other_areas(entry, subentry.subentry_id)
+            # Older clients may omit the new section: retain their current values.
+            if self._modules()["heating"]:
+                pipe = user_input.setdefault(
+                    SECTION_PIPE,
+                    {
+                        CONF_PIPE_SOURCES: subentry.data.get(CONF_PIPE_SOURCES, []),
+                        CONF_PIPE_GAIN: subentry.data.get(
+                            CONF_PIPE_GAIN, AREA_DEFAULTS[CONF_PIPE_GAIN]
+                        ),
+                    },
+                )
+                pipe.setdefault(
+                    CONF_PIPE_SOURCE_WEIGHTS, subentry.data.get(CONF_PIPE_SOURCE_WEIGHTS, {})
+                )
+                pipe[CONF_PIPE_SOURCES] = clean_pipe_sources(
+                    pipe.get(CONF_PIPE_SOURCES),
+                    (o.subentry_id for o in others if o.data.get(CONF_SWITCH)),
+                )
+                try:
+                    pipe[CONF_PIPE_SOURCE_WEIGHTS] = clean_pipe_weights(
+                        pipe[CONF_PIPE_SOURCE_WEIGHTS], pipe[CONF_PIPE_SOURCES], strict=True
+                    )
+                except (TypeError, ValueError, OverflowError):
+                    errors["base"] = "invalid_pipe_weights"
+            shown = set(_fields_of(area_schema(values, others=others, **self._modules())))
             kept = {k: v for k, v in subentry.data.items() if k not in shown}
             values = {
                 **kept,
@@ -1050,7 +1146,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 **keep_start_values(subentry.data),
                 CONF_AREA_NAME: subentry.title,
             }
-            errors = validate_area(values, other_areas(entry, subentry.subentry_id))
+            errors.update(validate_area(values, other_areas(entry, subentry.subentry_id)))
             if not errors:
                 if coordinator is not None and edited:
                     coordinator.set_learned(subentry.subentry_id, edited)
@@ -1059,6 +1155,12 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 )
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=area_schema(values, learned, ranges, **self._modules()),
+            data_schema=area_schema(
+                values,
+                learned,
+                ranges,
+                others=other_areas(entry, subentry.subentry_id),
+                **self._modules(),
+            ),
             errors=errors,
         )

@@ -47,9 +47,12 @@ from .const import (
     CONF_HEAT_METER,
     CONF_LIMITS,
     CONF_OUTDOOR_TEMP,
+    CONF_PIPE_SOURCE_WEIGHTS,
+    CONF_PIPE_SOURCES,
     CONF_PROMPTS,
     CONF_SEASON_END,
     CONF_SEASON_START,
+    CONF_SWITCH,
     CONF_VENT_CHECK_INTERVAL,
     CONF_VENT_CHECK_MAX_INTERVAL,
     CONF_VENT_MAX_MINUTES,
@@ -65,6 +68,7 @@ from .const import (
 from .logic.ai_schema import ALL_PARAMS, VENT_PARAMS, normalize_limits, validate_limit
 from .logic.draft import LEGACY_MODE, LEGACY_WINDOWS, draft_groups
 from .logic.physics import parse_day_month
+from .logic.pipe_heat import clean_pipe_sources, clean_pipe_weights
 from .logic.prompts import PromptError, clean_prompts, prompt_defaults
 from .logic.windows import WINDOW_FIELDS
 from .sensor import AREA_SENSORS
@@ -261,7 +265,14 @@ def area_data(
 ) -> dict[str, Any]:
     """Validated data of a room; raises PanelError. ``others`` are the other rooms of
     the entry (names and switches must differ)."""
-    fields = area_fields()
+    fields = _fields(area_schema({}, others=others))
+    data = dict(data)
+    if CONF_PIPE_SOURCES in data:
+        if not isinstance(data[CONF_PIPE_SOURCES], list):
+            raise PanelError("invalid_value", CONF_PIPE_SOURCES)
+        data[CONF_PIPE_SOURCES] = clean_pipe_sources(
+            data[CONF_PIPE_SOURCES], (o.subentry_id for o in others if o.data.get(CONF_SWITCH))
+        )
     title = title.strip()
     values: dict[str, Any] = {}
     for key, value in data.items():
@@ -275,6 +286,15 @@ def area_data(
         if coerced is not None:
             values[key] = coerced
     values = {**AREA_DEFAULTS, **(current or {}), CONF_AREA_NAME: title, **values}
+    values[CONF_PIPE_SOURCES] = clean_pipe_sources(
+        values.get(CONF_PIPE_SOURCES), (o.subentry_id for o in others if o.data.get(CONF_SWITCH))
+    )
+    try:
+        values[CONF_PIPE_SOURCE_WEIGHTS] = clean_pipe_weights(
+            values.get(CONF_PIPE_SOURCE_WEIGHTS, {}), values[CONF_PIPE_SOURCES], strict=True
+        )
+    except (TypeError, ValueError, OverflowError) as err:
+        raise PanelError("invalid_value", CONF_PIPE_SOURCE_WEIGHTS) from err
     errors = validate_area(values, others)
     if error := errors.get(CONF_AREA_NAME):
         raise PanelError(error)
@@ -370,7 +390,31 @@ def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
             {
                 "id": sub_id,
                 "title": sub.title,
-                "data": _area_values(sub.data),
+                "data": {
+                    **_area_values(sub.data),
+                    CONF_PIPE_SOURCE_WEIGHTS: clean_pipe_weights(
+                        sub.data.get(CONF_PIPE_SOURCE_WEIGHTS),
+                        clean_pipe_sources(
+                            sub.data.get(CONF_PIPE_SOURCES),
+                            (
+                                o.subentry_id
+                                for o in other_areas(entry, sub_id)
+                                if o.data.get(CONF_SWITCH)
+                            ),
+                        ),
+                    ),
+                    CONF_PIPE_SOURCES: clean_pipe_sources(
+                        sub.data.get(CONF_PIPE_SOURCES),
+                        (
+                            o.subentry_id
+                            for o in other_areas(entry, sub_id)
+                            if o.data.get(CONF_SWITCH)
+                        ),
+                    ),
+                },
+                "pipe": coordinator._pipe_payload(coordinator.areas[sub_id]).get("pipe")
+                if coordinator and sub_id in coordinator.areas
+                else None,
                 "entities": area_entities,
                 # values in effect instead of the start values (empty while not running)
                 "learned": coordinator.learned_values(sub_id) if coordinator else {},
@@ -396,7 +440,10 @@ def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
         "areas": areas,
         "entities": entities,
         "option_specs": {key: _spec(sel) for key, sel in option_fields().items()},
-        "area_specs": {key: _spec(sel) for key, sel in area_fields().items()},
+        "area_specs": {
+            key: _spec(sel)
+            for key, sel in _fields(area_schema({}, others=other_areas(entry))).items()
+        },
         "area_defaults": dict(AREA_DEFAULTS),
         "theta": round(coordinator.theta, 2) if coordinator else None,
         "room_energy": room_energy_payload(coordinator),

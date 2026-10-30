@@ -153,6 +153,7 @@ _VALUES: dict[str, dict[str, dict[str, str]]] = {
         "overshoot_factor": {"de": "Überschwing-Faktor", "en": "overshoot factor"},
         "lead_factor": {"de": "Vorlauf-Faktor", "en": "lead factor"},
         "sun_factor": {"de": "Sonnenfaktor", "en": "sun factor"},
+        "pipe_factor": {"de": "Rohrwärmefaktor", "en": "pipe heat factor"},
         "window_delay_min": {"de": "Fensterverzögerung", "en": "window delay"},
         "recovery_bias_min": {"de": "Erholungszeit-Zuschlag", "en": "recovery time offset"},
         "puffer": {"de": "Reserve über Sollwert", "en": "margin above target"},

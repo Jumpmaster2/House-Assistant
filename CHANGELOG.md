@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0b20 (2026-10-30)
+
+### Added
+
+- Configurable pipe heat from other heating circuits in the room dialog and panel: source rooms with individual relative pipe length weights (`pipe_source_weights`, 0.1–3.0) and an editable gain per unit weight, scaled by the bounded AI parameter `pipe_factor`.
+- Pipe gain is the sum of weighted running sources, without averaging or capping at one. Only rooms with a heating circuit can be sources; the live manifold and bedroom have no circuit.
+- Pipe heat in switch-on and switch-off predictions, thermostat attributes, AI check and nightly data, and persisted check statistics.
+
+### Changed
+
+- The target thermal model subtracts the mean configured, scaled pipe gain from its observed rate, so a/k/s keep learning with cycling sources. Windows with a correction above 50 % of the absolute observed rate or residual heat within 20 minutes of source activity are skipped. Dead time and overshoot discard only events overlapping source activity or starting within 20 minutes afterwards, replacing the blanket four-hour learning block. The pipe coefficient p is not learned; its gain stays configured and the AI can calibrate its factor.
+
 ## 1.0.0b19 (2026-10-29)
 
 ### Added

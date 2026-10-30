@@ -10,7 +10,11 @@ Custom Integration für Home Assistant, die Heizung, Rollos und Zählerablesung 
 
 Jedes Modul lässt sich einzeln ein- und ausschalten. Keine Funktion der bisherigen Integrationen fällt weg; wer sie nutzt, zieht mit einem Skript um, ohne Verlauf und Lernwerte zu verlieren ([docs/transfer.md](docs/transfer.md)).
 
-> Status: Version 1.0.0b19 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
+> Status: Version 1.0.0b20 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
+
+## Rohre durch andere Räume
+
+Führen die Rohre eines Heizkreises durch andere Räume, lässt sich diese Wärme im Zielraum unter *Heizung > Räume > Rohre durch andere Räume* berücksichtigen: Quell-Heizkreise auswählen, je Quelle die relative Rohrlänge als `pipe_source_weights` (Standard 1,0; 0,1–3,0) und den Zugewinn (Standard 0,15 K/h je Gewicht 1) einstellen. Die Zugewinne aller laufenden Quellen werden gewichtet addiert. Die KI darf ihn mit `pipe_factor` anpassen. Ohne Quellen bleibt die Funktion aus. Details: [Heizungsdokumentation](docs/heating.md#rohre-durch-andere-räume).
 
 ## Zusammenspiel
 

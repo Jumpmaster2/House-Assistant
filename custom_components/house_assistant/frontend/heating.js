@@ -473,6 +473,7 @@ const SETTINGS = {
 const AREA_GROUPS = [
   ["heating", ["heater_switch", "default_target", "min_target", "max_target", "min_on_time", "min_off_time", "heating_type"], false],
   ["start_values", ["window_delay", "recovery_time", "dead_time", "puffer"], true],
+  ["pipe_heat", ["pipe_sources", "pipe_gain", "pipe_source_weights"], true],
   ["airing", ["short_airing_min", "short_recovery_percent"], true],
   ["learned_values", ["window_delay", "recovery_time", "dead_time", "puffer"], false],
   ["ventilation", ["ventilation_rh_threshold", "reference_temperature", "reference_humidity", "ventilation_block_entity"], true],
@@ -1134,8 +1135,8 @@ class HouseAssistantHeatingView extends HTMLElement {
 
   _learnedTab() {
     const ui = this.ui;
-    const heating = this._cfg.areas.filter((a) => a.entities.learning_progress);
-    const others = this._cfg.areas.filter((a) => !a.entities.learning_progress);
+    const heating = this._cfg.areas.filter((a) => a.entities.learning_progress || a.pipe);
+    const others = this._cfg.areas.filter((a) => !a.entities.learning_progress && !a.pipe);
     const phase = this._state(this._cfg.entities.decision_phase);
     const dayRule = this._ok(phase)
       ? `<div class="card learn"><div class="learn-head"><h2><ha-icon icon="mdi:calendar-check-outline"></ha-icon>${esc(ui.dayRule)}</h2>
@@ -1156,6 +1157,10 @@ class HouseAssistantHeatingView extends HTMLElement {
               <span>${esc(this._learnedText(area.entities[key], stats[key], digits))}</span></div>`,
           )
           .join("");
+        const pipe = area.pipe;
+        const pipeFactor = progress?.attributes?.parameters?.pipe_factor ?? pipe?.factor;
+        const pipeCell = pipe ? `<div class="learn-cell"><span class="lbl small">${esc(this.label("pipe_gain")[0])}</span><span>${esc(`${this._num(pipe.gain_kph, 2)} K/h × ${this._num(pipeFactor, 2)}`)}</span></div>` : "";
+        const pipeWeights = pipe ? `<div class="learn-cell"><span class="lbl small">${esc(this.label("pipe_source_weights")[0])}</span><span>${esc((area.data.pipe_sources || []).map((id) => `${this._cfg.areas.find((a) => a.id === id)?.title || id}: ${this._num(area.data.pipe_source_weights?.[id] ?? 1, 1)}`).join(", "))}</span></div>` : "";
         const params = Object.entries(progress?.attributes?.parameters || {})
           .map(([key, value]) => {
             const unit = units[key] ? ` ${units[key]}` : "";
@@ -1167,7 +1172,7 @@ class HouseAssistantHeatingView extends HTMLElement {
           <div class="learn-head"><h2>${esc(area.title)}</h2><span class="grow"></span>
             <button class="icon-btn muted" data-edit="${esc(area.id)}" title="${esc(ui.editLearned)}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>
             <span class="pill ${this._ok(progress) ? "" : "muted"}" title="${esc(ui.learningProgress)}"><ha-icon icon="mdi:school-outline"></ha-icon>${esc(this._formatState(area.entities.learning_progress, 0))}</span></div>
-          <div class="learn-grid">${cells}</div>
+          <div class="learn-grid">${cells}${pipeCell}${pipeWeights}</div>
           ${params ? `<details data-keep="params-${esc(area.id)}" ${open ? "open" : ""}><summary>${esc(ui.aiParams)}</summary><div class="learn-grid">${params}</div></details>` : ""}
         </div>`;
       })
@@ -1214,7 +1219,9 @@ class HouseAssistantHeatingView extends HTMLElement {
         .map((key) =>
           learned
             ? this._field("learned", key, this._cfg.learned_specs[key], e.learned[key], this.labels.learned[key])
-            : this._field("edit", key, specs[key], e.data[key]),
+            : this._field("edit", key, key === "pipe_sources"
+              ? { ...specs[key], options: (specs[key]?.options || []).filter((o) => o.value !== e.id) }
+              : specs[key], e.data[key]),
         )
         .join("");
       const body = `${desc ? `<p class="desc">${esc(desc)}</p>` : ""}<div class="fields">${fields}</div>`;
@@ -1475,7 +1482,22 @@ class HouseAssistantHeatingView extends HTMLElement {
       }
       case "time":
         return `<label class="field"><span class="lbl">${esc(name)}</span><input type="time" step="1" ${attrs("time")} value="${esc(value ?? "")}">${helpHtml}</label>`;
+      case "object": {
+        if (key !== "pipe_source_weights") break;
+        const sources = this._edit?.data.pipe_sources || [];
+        const fields = sources.filter((id) => spec.fields?.[id]).map((id) => {
+          const field = spec.fields[id];
+          const number = field.selector?.number || {};
+          return this._field(cardId, `pipe_source_weights:${id}`, { selector: "number", ...number }, value?.[id] ?? 1, [field.label || id, ""]);
+        }).join("");
+        return `<div class="field"><span class="lbl">${esc(name)}</span>${helpHtml}<div class="fields">${fields}</div></div>`;
+      }
       case "select": {
+        if (spec.multiple) {
+          return `<label class="field"><span class="lbl">${esc(name)}</span><select multiple ${attrs("select-multiple")}>
+            ${(spec.options || []).map((o) => `<option value="${esc(o.value)}" ${(value || []).includes(o.value) ? "selected" : ""}>${esc(o.label)}</option>`).join("")}
+            </select>${helpHtml}</label>`;
+        }
         const options = (spec.options || []).map((o) => (typeof o === "object" ? o.value : o));
         const texts = spec.translation_key ? this.labels[spec.translation_key] || {} : {};
         if (spec.custom_value) {
@@ -1531,7 +1553,14 @@ class HouseAssistantHeatingView extends HTMLElement {
   _setValue(cardId, key, value) {
     if (cardId === "edit") {
       if (key === "name") this._edit.title = value;
-      else this._edit.data[key] = value;
+      else if (key.startsWith("pipe_source_weights:")) {
+        const id = key.slice("pipe_source_weights:".length);
+        this._edit.data.pipe_source_weights = { ...this._edit.data.pipe_source_weights, [id]: value };
+      } else this._edit.data[key] = value;
+      if (key === "pipe_sources") {
+        this._edit.data.pipe_source_weights = Object.fromEntries((value || []).map((id) => [id, this._edit.data.pipe_source_weights?.[id] ?? 1]));
+        this._rerenderContent();
+      }
       return;
     }
     if (cardId === "learned") {
@@ -1578,6 +1607,8 @@ class HouseAssistantHeatingView extends HTMLElement {
       value = el.checked;
       const sw = el.nextElementSibling;
       if (sw?.classList.contains("switch")) sw.classList.toggle("on", value);
+    } else if (type === "select-multiple") {
+      value = Array.from(el.selectedOptions, (o) => o.value);
     } else if (type === "number") {
       value = el.value === "" ? null : Number(el.value);
     } else {

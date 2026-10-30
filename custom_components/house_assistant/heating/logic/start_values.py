@@ -16,6 +16,8 @@ from .learning import DEAD_TIME_BOUNDS, RECOVERY_BOUNDS, AreaLearner, Ewma, Reco
 from .physics import clamp
 
 # Attribute names of AreaLearner (seconds) and ControlParams (minutes, K).
+# pipe_gain and pipe_source_weights stay directly editable in configuration: unlike these values it is
+# not replaced by a learned estimate. pipe_factor is persisted with ControlParams.
 START_NAMES = ("dead_time", "recovery", "window_delay_min", "puffer")
 LEARNED_BOUNDS = {"dead_time": DEAD_TIME_BOUNDS, "recovery": RECOVERY_BOUNDS}
 TOL = 1e-6

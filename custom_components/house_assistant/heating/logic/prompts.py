@@ -79,6 +79,16 @@ PROMPTS: dict[str, PromptSpec] = {
                 "present) are in the data. window_open also covers draft through windows open "
                 "in other rooms (draft).",
             ),
+            PromptBlock(
+                "pipe_heat",
+                "pipe_sources are circuits whose pipes pass through this area and lightly warm it. "
+                "pipe_source_weights maps each source ID to relative pipe length (default 1). "
+                "Gain = pipe_gain_kph * pipe_factor * sum(weight * source_on), without averaging "
+                "or capping the sum at 1. pipe_gain_kph applies to one source of weight 1. "
+                "This gain is incidental, not heating demand of the target or its puffer; on a "
+                "no-heating day sources normally stay off too. Do not rely on current pipe heat "
+                "lasting the whole day. pipes_through names the targets warmed by a source.",
+            ),
             PromptBlock("learn", "Learn from recent errors."),
         ),
         tail=(
@@ -139,6 +149,24 @@ PROMPTS: dict[str, PromptSpec] = {
                 "no_drop = the sensor barely saw the airing) and after_min = minutes from "
                 "closing to the result. The controller learns the recovery from these itself; "
                 "recovery_bias_min only corrects what stays systematically wrong.",
+            ),
+            PromptBlock(
+                "pipe_heat",
+                "pipe.sources lists circuits whose pipes pass through this target and lightly warm "
+                "it even with its own circuit off; pipes_through names a source's targets. Sources "
+                "have relative pipe lengths in pipe.source_weights (default 1 each). The gain is "
+                "gain_kph * factor * sum(weight * source_on), without averaging or capping at 1. "
+                "gain_kph applies to one continuously running source of weight 1. Weights remain "
+                "configured start values, not independently learned lengths. "
+                "learned=false and confidence=0 mean configured gain, not an independently learned "
+                "coefficient. A slight target rise while a source runs is expected, not a fault of "
+                "the target circuit. pipe_on_min counts minutes with any source on, pipe_over_kh "
+                "counts excess above target + 0.2 K then, excluding airing/recovery, including when "
+                "only a source heated. High pipe_over_kh without sun: raise pipe_factor or adjust "
+                "the target overshoot_factor/hysteresis_off; no rise despite running sources: "
+                "lower pipe_factor. Never use pipe_factor as a substitute for sun_factor: distinguish "
+                "sun and pipes using sun_over_kh and pipe_on_min; simultaneous gains are not causal "
+                "proof. Only propose pipe_factor for areas with pipe.sources.",
             ),
             PromptBlock(
                 "comfort",

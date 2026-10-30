@@ -82,6 +82,9 @@ from .const import (
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMP,
     CONF_PHASE_MAX_ERRORS,
+    CONF_PIPE_GAIN,
+    CONF_PIPE_SOURCE_WEIGHTS,
+    CONF_PIPE_SOURCES,
     CONF_PREHEAT_RESERVE,
     CONF_PRICE_CACHE_READ,
     CONF_PRICE_CACHE_WRITE,
@@ -193,6 +196,13 @@ from .logic.learning import (
     learner_schema,
 )
 from .logic.physics import absolute_humidity, clamp, in_season, parse_day_month
+from .logic.pipe_heat import (
+    PIPE_GAIN_BOUNDS,
+    PIPE_GAIN_DEFAULT,
+    clean_pipe_sources,
+    clean_pipe_weights,
+    pipe_rate,
+)
 from .logic.prompts import check_messages, nightly_messages, r, vent_check_messages
 from .logic.room_energy import RoomEnergyModel, room_energy_schema
 from .logic.sensor_stale import sensor_is_stale
@@ -388,6 +398,8 @@ def _new_check_stats() -> dict[str, float]:
         "rec_cold_min": 0.0,
         "over_kh": 0.0,
         "sun_over_kh": 0.0,
+        "pipe_on_min": 0.0,
+        "pipe_over_kh": 0.0,
         "deg_h": 0.0,
     }
 
@@ -1055,7 +1067,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         ts = new.last_changed.timestamp()
         run_hours = (ts - area.on_since) / 3600 if (not turned_on and area.on_since) else 0.0
         if area.learner is not None:
-            area.learner.on_switch(ts, area.temp, turned_on, run_hours)
+            area.learner.on_switch(
+                ts, area.temp, turned_on, run_hours, pipe_active=self.pipe_active(area)
+            )
         area.on_since = ts if turned_on else None
         area.off_at = None if turned_on else ts
         self._command_done(area)
@@ -1586,6 +1600,64 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 self._pv_missing_min,
             )
 
+    def pipe_sources(self, area: Area) -> list[Area]:
+        ids = clean_pipe_sources(
+            area.cfg.get(CONF_PIPE_SOURCES),
+            (a.area_id for a in self.areas.values() if a.has_circuit and a is not area),
+        )
+        return [self.areas[key] for key in ids]
+
+    def pipe_active(self, area: Area) -> bool:
+        return any(
+            self._state_value(a.cfg[CONF_SWITCH]) == STATE_ON for a in self.pipe_sources(area)
+        )
+
+    def _pipe_gain(self, area: Area) -> float:
+        return clamp(float(area.cfg.get(CONF_PIPE_GAIN, PIPE_GAIN_DEFAULT)), *PIPE_GAIN_BOUNDS)
+
+    def pipe_weights(self, area: Area) -> dict[str, float]:
+        return clean_pipe_weights(
+            area.cfg.get(CONF_PIPE_SOURCE_WEIGHTS), (s.area_id for s in self.pipe_sources(area))
+        )
+
+    def _pipe_rate(self, area: Area) -> float:
+        weights = self.pipe_weights(area)
+        return pipe_rate(
+            self._pipe_gain(area),
+            area.params.pipe_factor,
+            (
+                weights[a.area_id] * (self._state_value(a.cfg[CONF_SWITCH]) == STATE_ON)
+                for a in self.pipe_sources(area)
+            ),
+        )
+
+    def _pipe_payload(self, area: Area) -> dict[str, Any]:
+        sources = self.pipe_sources(area)
+        return (
+            {
+                "pipe": {
+                    "sources": [a.prompt_id for a in sources],
+                    "source_weights": {
+                        a.prompt_id: self.pipe_weights(area)[a.area_id] for a in sources
+                    },
+                    "gain_kph": self._pipe_gain(area),
+                    "learned": False,
+                    "factor": area.params.pipe_factor,
+                    "confidence": 0,
+                }
+            }
+            if sources
+            else {}
+        )
+
+    def _pipes_through(self, area: Area) -> dict[str, Any]:
+        targets = [
+            a.name
+            for a in self.areas.values()
+            if any(s.area_id == area.area_id for s in self.pipe_sources(a))
+        ]
+        return {"pipes_through": targets} if targets else {}
+
     def _learned_values(self, area: Area, run_hours: float, ts: float) -> LearnedValues:
         learner = area.learner
         if learner is None:
@@ -1603,7 +1675,10 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         pv_plan = planning_pv(ts, pv_now, self._pv_points, lead_s, self._trust)
         return LearnedValues(
             cool_rate_kph=model.cool_rate(diff, pv_plan, area.params.sun_factor),
-            heat_rate_kph=model.heat_rate(diff, pv_now, area.params.sun_factor),
+            heat_rate_kph=model.heat_rate(
+                diff, pv_now, area.params.sun_factor, self._pipe_rate(area)
+            ),
+            pipe_rate_kph=self._pipe_rate(area),
             dead_time_s=learner.dead_time.value,
             # follows the airing running now once enough airings are known
             recovery_s=learner.recovery_s(area.temp),
@@ -1655,6 +1730,8 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         else:
             area.status = AreaStatus.NO_CIRCUIT
             area.effective_target = None
+            if self.pipe_sources(area):
+                self._count(area, minutes, area.target, ts)
 
         self._ventilation(area, heating_day, ts, minutes)
 
@@ -1793,6 +1870,8 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 window_open=area.window_open,
                 opening=area.opening,
                 draft=area.draft,
+                pipe_active=self.pipe_active(area),
+                pipe_rate_kph=self._pipe_rate(area),
             )
         )
         # The virtual room first: on the first tick of a day it starts at the real
@@ -1873,6 +1952,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             return
         margin = float(self.opt(CONF_TOO_COLD_MARGIN))
         day, check = area.day, area.check
+        pipe_on = self.pipe_active(area)
+        if pipe_on:
+            check["pipe_on_min"] = check.get("pipe_on_min", 0.0) + minutes
         if area.window_open:
             day.window_min += minutes
             check["window_min"] = check.get("window_min", 0.0) + minutes
@@ -1893,12 +1975,18 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 day.too_cold_min += minutes
             if area.temp < target - CHECK_COLD_MARGIN:
                 check["cold_min"] = check.get("cold_min", 0.0) + minutes
-            # Heat above the target shortly after heating was wasted; warmth from sun
-            # alone on a day without heating costs nothing.
+            # Heat above target after own or source heating was wasted. Count sun
+            # in the same phases, including source-only heating, so the AI can
+            # distinguish coincident sun from pipe heat. Sun alone costs nothing.
             excess = area.temp - target - OVERHEAT_MARGIN
-            heated = area.switch_on or (
-                area.off_at is not None and 0 <= ts - area.off_at < OVERHEAT_AFTER_S
+            heated = (
+                area.switch_on
+                or pipe_on
+                or (area.off_at is not None and 0 <= ts - area.off_at < OVERHEAT_AFTER_S)
             )
+            if pipe_on and excess > 0:
+                # Also count heat supplied only by a source while the target is off.
+                check["pipe_over_kh"] = check.get("pipe_over_kh", 0.0) + excess * minutes / 60
             if excess > 0 and heated:
                 over = excess * minutes / 60
                 day.over_kh += over
@@ -1931,6 +2019,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             area.day,
             area.temp,
             minutes,
+            # A day without any heating also means that the source circuits are off.
             lambda t: model.cool_rate((t - outdoor) if outdoor is not None else 10.0, pv, sun),
             target,
             float(self.opt(CONF_TOO_COLD_MARGIN)),
@@ -2435,13 +2524,28 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                     "temp": r(a.temp),
                     "target": a.effective_target or a.target,
                     "puffer": a.params.puffer,
+                    **({"has_circuit": False} if not a.has_circuit else {}),
+                    **(
+                        {
+                            "pipe_sources": [s.prompt_id for s in self.pipe_sources(a)],
+                            "pipe_source_weights": {
+                                s.prompt_id: self.pipe_weights(a)[s.area_id]
+                                for s in self.pipe_sources(a)
+                            },
+                            "pipe_gain_kph": self._pipe_gain(a),
+                            "pipe_factor": a.params.pipe_factor,
+                        }
+                        if self.pipe_sources(a)
+                        else {}
+                    ),
+                    **self._pipes_through(a),
                     "window_open": a.window_open,
                     **({"draft": True} if a.draft else {}),
                     "cool_kph": r(a.learned_values.cool_rate_kph, 3),
                     "confidence": a.learner.confidence() if a.learner else 0,
                 }
                 for a in self.areas.values()
-                if a.has_circuit and a.hvac_on
+                if (a.has_circuit or self.pipe_sources(a)) and a.hvac_on
             ],
             "rule": {
                 "theta": rule.theta,
@@ -2579,14 +2683,23 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
     async def _run_check(self) -> None:
         now = dt_util.utcnow()
         hourly = await self._forecast("hourly")
-        controlled = [a for a in self.areas.values() if a.has_circuit and a.learner is not None]
+        controlled = [
+            a
+            for a in self.areas.values()
+            if (a.has_circuit and a.learner is not None) or self.pipe_sources(a)
+        ]
         current: dict[str, dict[str, float]] = {GLOBAL: {"theta": self.theta}}
         areas_payload = []
         for area in controlled:
-            assert area.learner is not None
-            values = {k: getattr(area.params, k) for k, p in PARAMS.items() if p.scope == "area"}
+            values = (
+                {k: getattr(area.params, k) for k, p in PARAMS.items() if p.scope == "area"}
+                if area.learner
+                else {"pipe_factor": area.params.pipe_factor}
+            )
+            if not self.pipe_sources(area):
+                values.pop("pipe_factor", None)
             current[area.prompt_id] = values
-            model = area.learner.model
+            model = area.learner.model if area.learner else None
             check = area.check
             areas_payload.append(
                 {
@@ -2608,8 +2721,12 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                         "recovery_min": r(area.learner.recovery.value / 60, 0),
                         "recovery_model": _recovery_model_payload(area.learner),
                         "confidence": area.learner.confidence(),
-                    },
+                    }
+                    if area.learner and model
+                    else {"confidence": 0},
                     "params": values,
+                    **self._pipe_payload(area),
+                    **self._pipes_through(area),
                     "stats": {
                         "minutes": r(check.get("minutes"), 0),
                         "cold_min": r(check.get("cold_min"), 0),
@@ -2626,6 +2743,14 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                         else None,
                         "over_kh": r(check.get("over_kh", 0.0)),
                         "sun_over_kh": r(check.get("sun_over_kh", 0.0)),
+                        **(
+                            {
+                                "pipe_on_min": r(check.get("pipe_on_min", 0.0), 0),
+                                "pipe_over_kh": r(check.get("pipe_over_kh", 0.0)),
+                            }
+                            if self.pipe_sources(area)
+                            else {}
+                        ),
                         "min_t": r(check.get("min_t") if check.get("min_t", 99) < 99 else None),
                         "max_t": r(check.get("max_t") if check.get("max_t", -99) > -99 else None),
                         "window_min": r(check.get("window_min"), 0),
@@ -2635,7 +2760,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                         "rec_min": r(check.get("rec_min"), 0),
                         "rec_cold_min": r(check.get("rec_cold_min"), 0),
                     },
-                    "airings": _airings_payload(area.learner),
+                    "airings": _airings_payload(area.learner) if area.learner else [],
                 }
             )
         limits = self.limits
@@ -2658,7 +2783,10 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             a.check.get("cold_min", 0) >= float(self.opt(CONF_TOO_COLD_MINUTES)) for a in controlled
         )
         efficiency_issue = any(
-            overheat_issue(a.check.get("over_kh", 0.0), a.check.get("minutes", 0.0))
+            overheat_issue(
+                max(a.check.get("over_kh", 0.0), a.check.get("pipe_over_kh", 0.0)),
+                a.check.get("minutes", 0.0),
+            )
             for a in controlled
         )
         relevant = False
@@ -2721,7 +2849,16 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         heat: dict[str, Any] | None,
     ) -> None:
         """Keep the key figures of this check and its changes for the next checks."""
-        keys = ("cold_min", "over_kh", "sun_over_kh", "on_per_kh", "cycles", "rec_cold_min")
+        keys = (
+            "cold_min",
+            "over_kh",
+            "sun_over_kh",
+            "pipe_on_min",
+            "pipe_over_kh",
+            "on_per_kh",
+            "cycles",
+            "rec_cold_min",
+        )
         entry: dict[str, Any] = {
             "t": dt_util.now().strftime("%m-%d %H:%M"),
             "areas": {a["id"]: {k: a["stats"].get(k) for k in keys} for a in areas_payload},
