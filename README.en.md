@@ -10,7 +10,11 @@ Custom integration for Home Assistant that brings heating, covers and meter read
 
 Every module can be switched on and off on its own. No function of the former integrations is dropped; their users move with a script, without losing history or learned values ([docs/transfer.md](docs/transfer.md#english)).
 
-> Status: version 1.0.0b20 (beta). Please keep an eye on the logbook during the first weeks.
+> Status: version 1.0.0b21 (beta). Please keep an eye on the logbook during the first weeks.
+
+## Ventilation comfort
+
+Ventilation: air briefly from the configured humidity threshold (default 60 %), and without a pause from **Always air from** (default 65 %) if reference air is drier. **Airing** shows an ongoing airing with time left and reason. Rebound never prevents airing; short airings and closing below threshold save energy. AI and panel humidity thresholds stay within configured − 5 to + 2 and never above the always-air value; AI may only lower that value. Details: [Ventilation advice](docs/heating.en.md#ventilation-advice).
 
 ## Pipe heat
 

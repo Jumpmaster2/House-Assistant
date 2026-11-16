@@ -223,6 +223,7 @@ def heating_labels(translation: dict[str, Any]) -> dict[str, Any]:
             "phase": entity["sensor"]["decision_phase"]["state"],
             "override": entity["select"]["heating_day_override"]["state"],
         },
+        "vent_reasons": entity["sensor"]["ventilation"]["state_attributes"]["reason"]["state"],
         "effort": translation["selector"]["effort"]["options"],
         "heating_type": translation["selector"]["heating_type"]["options"],
     }

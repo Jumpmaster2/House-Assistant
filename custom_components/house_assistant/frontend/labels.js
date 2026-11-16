@@ -644,17 +644,13 @@ export const LABELS = {
       "Außen höchstens wärmer um",
       "Trocknen wird nicht empfohlen, wenn es außen um mehr als diesen Wert wärmer ist als innen."
      ],
-     "ventilation_energy_rh_per_k": [
-      "Energiespar-Zuschlag",
-      "Energiesparen: In der Heizperiode kostet Lüften Wärme, umso mehr, je kälter es draußen ist. Die Feuchte muss die Schwelle dann um so viel je Kelvin übersteigen, wie es draußen kälter ist als im Raum (z. B. 0,25 %/K: bei 21 °C innen und 1 °C außen 5 % mehr), höchstens bis 70 %; darüber wird gegen Schimmel immer gelüftet. 0 = aus. Startwert, die KI passt ihn je Raum an."
-     ],
      "ventilation_mould_rh": [
-      "Schimmelgrenze",
-      "Ab dieser relativen Feuchte wird immer zum Lüften geraten, auch bei Frost und direkt nach einer Lüftung; der Energiespar-Zuschlag geht nie darüber. Für Räume mit kalten Außenwänden niedriger setzen. Startwert, die KI passt ihn je Raum an."
+      "Immer lüften ab",
+      "Ab dieser Feuchte bei trockenerer Außenluft immer lüften, auch direkt nach dem Lüften. Standard 65 %. Die KI darf diesen Wert nur senken (mindestens 55 %)."
      ],
      "ventilation_airing_target_below": [
       "Lüftziel unter der Schwelle",
-      "Die vorgeschlagene Lüftdauer zielt so weit unter die Feuchte-Schwelle. Startwert für die KI."
+      "Beim Öffnen ist das Lüftziel so viele Prozentpunkte unter der Feuchte-Schwelle, bei hoher Feuchte unter „Immer lüften ab“. Standard 5. Startwert für die KI."
      ],
      "ventilation_airing_time_factor": [
       "Lüftdauer-Faktor",
@@ -670,7 +666,7 @@ export const LABELS = {
      ],
      "ventilation_airing_pause": [
       "Pause nach dem Lüften",
-      "Nach dem Lüften kommt Feuchte aus Wänden und Möbeln zurück. Erst nach dieser Pause wird wieder zum Trocknen geraten (unter der Schimmelgrenze); das spart Wärme und Nerven. Startwert für die KI."
+      "Nach dem Schließen wartet der Raum, bis sich die Rückfeuchte gesetzt hat. Ab „Immer lüften ab“ entfällt die Pause. Rückfeuchte verhindert Lüften nicht. Startwert für die KI."
      ],
      "ventilation_min_cooling_advantage": [
       "Mindest-Kühlvorteil",
@@ -1142,26 +1138,8 @@ export const LABELS = {
        ]
       }
      },
-     "energy_rh_per_k": {
-      "name": "Energiespar-Zuschlag",
-      "description": "",
-      "fields": {
-       "min": [
-        "Minimum",
-        ""
-       ],
-       "max": [
-        "Maximum",
-        ""
-       ],
-       "step": [
-        "Max. Änderung je Prüfung",
-        ""
-       ]
-      }
-     },
      "mould_rh": {
-      "name": "Schimmelgrenze",
+      "name": "Immer lüften ab",
       "description": "",
       "fields": {
        "min": [
@@ -1400,7 +1378,7 @@ export const LABELS = {
       "fields": {
        "ventilation_rh_threshold": [
         "Feuchte-Schwelle",
-        "Startwert der relativen Feuchte, ab der Lüften empfohlen wird (z. B. 65 % für Bäder); die KI-Lüftungsprüfung passt ihn an den Raum an."
+        "Ab dieser relativen Feuchte kurz stoßlüften (Standard 60 %, Bad und Abstellkammer 65 %). Die KI darf nur im Band konfiguriert − 5 bis + 2 und nie über „Immer lüften ab“ anpassen."
        ],
        "reference_temperature": [
         "Referenz-Temperatur statt außen",
@@ -2559,7 +2537,25 @@ export const LABELS = {
     "do_not_ventilate": "Nicht lüften",
     "blocked": "Lüften blockiert",
     "optimal": "Alles optimal",
-    "vacation": "Urlaub"
+    "vacation": "Urlaub",
+    "airing": "Lüften läuft"
+   },
+   "sensor.ventilation.reason": {
+    "mould_limit": "Immer lüften ab erreicht, draußen trockener.",
+    "humid_short_airing": "Feucht, kurz stoßlüften.",
+    "airing_running": "Lüften läuft.",
+    "target_reached": "Ziel erreicht, Fenster schließen.",
+    "airing_time_over": "Lüftzeit vorbei, Fenster schließen.",
+    "below_threshold_save_heat": "Feuchte in Ordnung, Fenster zu spart Heizenergie.",
+    "outside_not_drier": "Draußen nicht trockener, Lüften hilft nicht.",
+    "pause_after_airing": "Kurz nach dem Lüften, Feuchte setzt sich noch.",
+    "little_effect": "Lüften senkt die Feuchte gerade zu wenig.",
+    "cooling": "Lüften kühlt den Raum.",
+    "blocked": "Lüften ist gesperrt.",
+    "optimal": "Alles in Ordnung.",
+    "vacation": "Lüftungsempfehlung ruht im Urlaub.",
+    "unknown": "Messwerte fehlen.",
+    "outside_warmer": "Draußen wärmer, Fenster schließen."
    },
    "sensor.decision_phase": {
     "ai_leads": "KI führt",
@@ -3228,17 +3224,13 @@ export const LABELS = {
       "Maximum outside warmer by",
       "Drying is not recommended if outside is warmer than inside by more than this."
      ],
-     "ventilation_energy_rh_per_k": [
-      "Energy saving surcharge",
-      "Energy saving: within the heating period airing costs heat, the more the colder it is outside. The humidity must then exceed the threshold by this much per Kelvin outside is colder than the room (e.g. 0.25 %/K: at 21 °C inside and 1 °C outside 5 % more), at most up to 70 %, above which airing is always recommended against mould. 0 = off. Start value, the AI adjusts it per room."
-     ],
      "ventilation_mould_rh": [
-      "Mould limit",
-      "From this relative humidity airing is always recommended, even in frost and right after an airing; the energy saving surcharge never goes beyond it. Lower it for rooms with cold exterior walls. Start value, the AI adjusts it per room."
+      "Always air from",
+      "Always air from this humidity if reference air is drier, even just after airing. Default 65 %. AI may only lower this value (minimum 55 %)."
      ],
      "ventilation_airing_target_below": [
       "Airing target below threshold",
-      "The suggested airing time aims at this far below the humidity threshold. Start value for the AI."
+      "At opening the airing target is this many percentage points below the humidity threshold, or below Always air from at high humidity. Default 5. Starting value for AI."
      ],
      "ventilation_airing_time_factor": [
       "Airing time factor",
@@ -3254,7 +3246,7 @@ export const LABELS = {
      ],
      "ventilation_airing_pause": [
       "Pause after airing",
-      "After an airing moisture comes back from walls and furniture. Drying is recommended again only after this pause (below the mould limit), which saves heat and nagging. Start value for the AI."
+      "After closing, wait for rebound to settle. From Always air from, skip the pause. Rebound never prevents airing. Starting value for AI."
      ],
      "ventilation_min_cooling_advantage": [
       "Minimum cooling advantage",
@@ -3726,26 +3718,8 @@ export const LABELS = {
        ]
       }
      },
-     "energy_rh_per_k": {
-      "name": "Energy saving surcharge",
-      "description": "",
-      "fields": {
-       "min": [
-        "Minimum",
-        ""
-       ],
-       "max": [
-        "Maximum",
-        ""
-       ],
-       "step": [
-        "Max. change per check",
-        ""
-       ]
-      }
-     },
      "mould_rh": {
-      "name": "Mould limit",
+      "name": "Always air from",
       "description": "",
       "fields": {
        "min": [
@@ -3984,7 +3958,7 @@ export const LABELS = {
       "fields": {
        "ventilation_rh_threshold": [
         "Humidity threshold",
-        "Start value of the relative humidity from which ventilating is recommended (e.g. 65 % for bathrooms); the AI ventilation check adjusts it to the room."
+        "Air briefly from this relative humidity (default 60 %, bathroom and storage 65 %). AI adjustments stay within configured − 5 to + 2, never above Always air from."
        ],
        "reference_temperature": [
         "Reference temperature instead of outdoor",
@@ -5143,7 +5117,25 @@ export const LABELS = {
     "do_not_ventilate": "Do not ventilate",
     "blocked": "Ventilation blocked",
     "optimal": "All fine",
-    "vacation": "Vacation"
+    "vacation": "Vacation",
+    "airing": "Airing"
+   },
+   "sensor.ventilation.reason": {
+    "mould_limit": "Always-air threshold reached, reference air is drier.",
+    "humid_short_airing": "Humid, air briefly.",
+    "airing_running": "Airing is in progress.",
+    "target_reached": "Target reached, close window.",
+    "airing_time_over": "Airing time over, close window.",
+    "below_threshold_save_heat": "Humidity is fine, close window to save heating energy.",
+    "outside_not_drier": "Reference air is not drier, airing does not help.",
+    "pause_after_airing": "Just aired, humidity is still settling.",
+    "little_effect": "Airing would lower humidity too little.",
+    "cooling": "Airing cools the room.",
+    "blocked": "Airing is blocked.",
+    "optimal": "All fine.",
+    "vacation": "Ventilation advice rests during vacation.",
+    "unknown": "Measurements are missing.",
+    "outside_warmer": "Reference air is warmer, close window."
    },
    "sensor.decision_phase": {
     "ai_leads": "AI leads",
@@ -5674,17 +5666,13 @@ export const HEATING = {
     "Außen höchstens wärmer um",
     "Trocknen wird nicht empfohlen, wenn es außen um mehr als diesen Wert wärmer ist als innen."
    ],
-   "ventilation_energy_rh_per_k": [
-    "Energiespar-Zuschlag",
-    "Energiesparen: In der Heizperiode kostet Lüften Wärme, umso mehr, je kälter es draußen ist. Die Feuchte muss die Schwelle dann um so viel je Kelvin übersteigen, wie es draußen kälter ist als im Raum (z. B. 0,25 %/K: bei 21 °C innen und 1 °C außen 5 % mehr), höchstens bis 70 %; darüber wird gegen Schimmel immer gelüftet. 0 = aus. Startwert, die KI passt ihn je Raum an."
-   ],
    "ventilation_mould_rh": [
-    "Schimmelgrenze",
-    "Ab dieser relativen Feuchte wird immer zum Lüften geraten, auch bei Frost und direkt nach einer Lüftung; der Energiespar-Zuschlag geht nie darüber. Für Räume mit kalten Außenwänden niedriger setzen. Startwert, die KI passt ihn je Raum an."
+    "Immer lüften ab",
+    "Ab dieser Feuchte bei trockenerer Außenluft immer lüften, auch direkt nach dem Lüften. Standard 65 %. Die KI darf diesen Wert nur senken (mindestens 55 %)."
    ],
    "ventilation_airing_target_below": [
     "Lüftziel unter der Schwelle",
-    "Die vorgeschlagene Lüftdauer zielt so weit unter die Feuchte-Schwelle. Startwert für die KI."
+    "Beim Öffnen ist das Lüftziel so viele Prozentpunkte unter der Feuchte-Schwelle, bei hoher Feuchte unter „Immer lüften ab“. Standard 5. Startwert für die KI."
    ],
    "ventilation_airing_time_factor": [
     "Lüftdauer-Faktor",
@@ -5700,7 +5688,7 @@ export const HEATING = {
    ],
    "ventilation_airing_pause": [
     "Pause nach dem Lüften",
-    "Nach dem Lüften kommt Feuchte aus Wänden und Möbeln zurück. Erst nach dieser Pause wird wieder zum Trocknen geraten (unter der Schimmelgrenze); das spart Wärme und Nerven. Startwert für die KI."
+    "Nach dem Schließen wartet der Raum, bis sich die Rückfeuchte gesetzt hat. Ab „Immer lüften ab“ entfällt die Pause. Rückfeuchte verhindert Lüften nicht. Startwert für die KI."
    ],
    "ventilation_min_cooling_advantage": [
     "Mindest-Kühlvorteil",
@@ -5892,7 +5880,7 @@ export const HEATING = {
    ],
    "ventilation_rh_threshold": [
     "Feuchte-Schwelle",
-    "Startwert der relativen Feuchte, ab der Lüften empfohlen wird (z. B. 65 % für Bäder); die KI-Lüftungsprüfung passt ihn an den Raum an."
+    "Ab dieser relativen Feuchte kurz stoßlüften (Standard 60 %, Bad und Abstellkammer 65 %). Die KI darf nur im Band konfiguriert − 5 bis + 2 und nie über „Immer lüften ab“ anpassen."
    ],
    "reference_temperature": [
     "Referenz-Temperatur statt außen",
@@ -6001,8 +5989,7 @@ export const HEATING = {
    "min_cooling_advantage": "Mindest-Kühlvorteil",
    "cooling_margin": "Kühl-Abstand über Sollwert",
    "cooling_min_temp": "Kühlen erst ab Raumtemperatur",
-   "energy_rh_per_k": "Energiespar-Zuschlag",
-   "mould_rh": "Schimmelgrenze",
+   "mould_rh": "Immer lüften ab",
    "airing_target_below": "Lüftziel unter der Schwelle",
    "airing_time_factor": "Lüftdauer-Faktor",
    "airing_min_minutes": "Kürzeste Lüftdauer",
@@ -6075,7 +6062,8 @@ export const HEATING = {
     "do_not_ventilate": "Nicht lüften",
     "blocked": "Lüften blockiert",
     "optimal": "Alles optimal",
-    "vacation": "Urlaub"
+    "vacation": "Urlaub",
+    "airing": "Lüften läuft"
    },
    "phase": {
     "ai_leads": "KI führt",
@@ -6087,6 +6075,23 @@ export const HEATING = {
     "heat_today": "Heute heizen",
     "off_today": "Heute nicht heizen"
    }
+  },
+  "vent_reasons": {
+   "mould_limit": "Immer lüften ab erreicht, draußen trockener.",
+   "humid_short_airing": "Feucht, kurz stoßlüften.",
+   "airing_running": "Lüften läuft.",
+   "target_reached": "Ziel erreicht, Fenster schließen.",
+   "airing_time_over": "Lüftzeit vorbei, Fenster schließen.",
+   "below_threshold_save_heat": "Feuchte in Ordnung, Fenster zu spart Heizenergie.",
+   "outside_not_drier": "Draußen nicht trockener, Lüften hilft nicht.",
+   "pause_after_airing": "Kurz nach dem Lüften, Feuchte setzt sich noch.",
+   "little_effect": "Lüften senkt die Feuchte gerade zu wenig.",
+   "cooling": "Lüften kühlt den Raum.",
+   "blocked": "Lüften ist gesperrt.",
+   "optimal": "Alles in Ordnung.",
+   "vacation": "Lüftungsempfehlung ruht im Urlaub.",
+   "unknown": "Messwerte fehlen.",
+   "outside_warmer": "Draußen wärmer, Fenster schließen."
   },
   "effort": {
    "auto": "Auto (Modell-Standard)",
@@ -6208,17 +6213,13 @@ export const HEATING = {
     "Maximum outside warmer by",
     "Drying is not recommended if outside is warmer than inside by more than this."
    ],
-   "ventilation_energy_rh_per_k": [
-    "Energy saving surcharge",
-    "Energy saving: within the heating period airing costs heat, the more the colder it is outside. The humidity must then exceed the threshold by this much per Kelvin outside is colder than the room (e.g. 0.25 %/K: at 21 °C inside and 1 °C outside 5 % more), at most up to 70 %, above which airing is always recommended against mould. 0 = off. Start value, the AI adjusts it per room."
-   ],
    "ventilation_mould_rh": [
-    "Mould limit",
-    "From this relative humidity airing is always recommended, even in frost and right after an airing; the energy saving surcharge never goes beyond it. Lower it for rooms with cold exterior walls. Start value, the AI adjusts it per room."
+    "Always air from",
+    "Always air from this humidity if reference air is drier, even just after airing. Default 65 %. AI may only lower this value (minimum 55 %)."
    ],
    "ventilation_airing_target_below": [
     "Airing target below threshold",
-    "The suggested airing time aims at this far below the humidity threshold. Start value for the AI."
+    "At opening the airing target is this many percentage points below the humidity threshold, or below Always air from at high humidity. Default 5. Starting value for AI."
    ],
    "ventilation_airing_time_factor": [
     "Airing time factor",
@@ -6234,7 +6235,7 @@ export const HEATING = {
    ],
    "ventilation_airing_pause": [
     "Pause after airing",
-    "After an airing moisture comes back from walls and furniture. Drying is recommended again only after this pause (below the mould limit), which saves heat and nagging. Start value for the AI."
+    "After closing, wait for rebound to settle. From Always air from, skip the pause. Rebound never prevents airing. Starting value for AI."
    ],
    "ventilation_min_cooling_advantage": [
     "Minimum cooling advantage",
@@ -6426,7 +6427,7 @@ export const HEATING = {
    ],
    "ventilation_rh_threshold": [
     "Humidity threshold",
-    "Start value of the relative humidity from which ventilating is recommended (e.g. 65 % for bathrooms); the AI ventilation check adjusts it to the room."
+    "Air briefly from this relative humidity (default 60 %, bathroom and storage 65 %). AI adjustments stay within configured − 5 to + 2, never above Always air from."
    ],
    "reference_temperature": [
     "Reference temperature instead of outdoor",
@@ -6535,8 +6536,7 @@ export const HEATING = {
    "min_cooling_advantage": "Minimum cooling advantage",
    "cooling_margin": "Cooling distance above target",
    "cooling_min_temp": "Cool only from room temperature",
-   "energy_rh_per_k": "Energy saving surcharge",
-   "mould_rh": "Mould limit",
+   "mould_rh": "Always air from",
    "airing_target_below": "Airing target below threshold",
    "airing_time_factor": "Airing time factor",
    "airing_min_minutes": "Shortest airing time",
@@ -6609,7 +6609,8 @@ export const HEATING = {
     "do_not_ventilate": "Do not ventilate",
     "blocked": "Ventilation blocked",
     "optimal": "All fine",
-    "vacation": "Vacation"
+    "vacation": "Vacation",
+    "airing": "Airing"
    },
    "phase": {
     "ai_leads": "AI leads",
@@ -6621,6 +6622,23 @@ export const HEATING = {
     "heat_today": "Heat today",
     "off_today": "No heating today"
    }
+  },
+  "vent_reasons": {
+   "mould_limit": "Always-air threshold reached, reference air is drier.",
+   "humid_short_airing": "Humid, air briefly.",
+   "airing_running": "Airing is in progress.",
+   "target_reached": "Target reached, close window.",
+   "airing_time_over": "Airing time over, close window.",
+   "below_threshold_save_heat": "Humidity is fine, close window to save heating energy.",
+   "outside_not_drier": "Reference air is not drier, airing does not help.",
+   "pause_after_airing": "Just aired, humidity is still settling.",
+   "little_effect": "Airing would lower humidity too little.",
+   "cooling": "Airing cools the room.",
+   "blocked": "Airing is blocked.",
+   "optimal": "All fine.",
+   "vacation": "Ventilation advice rests during vacation.",
+   "unknown": "Measurements are missing.",
+   "outside_warmer": "Reference air is warmer, close window."
   },
   "effort": {
    "auto": "Auto (model default)",

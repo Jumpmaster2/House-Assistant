@@ -123,7 +123,6 @@ from .const import (
     CONF_VENT_CHECK_MAX_INTERVAL,
     CONF_VENT_COOL_MARGIN,
     CONF_VENT_COOL_MIN_TEMP,
-    CONF_VENT_ENERGY,
     CONF_VENT_MAX_EXCESS,
     CONF_VENT_MAX_MINUTES,
     CONF_VENT_MIN_AH,
@@ -229,11 +228,13 @@ from .logic.sun import (
 from .logic.vent_check import count_vent, new_vent_stats, stats_payload
 from .logic.ventilation import (
     VentilationInput,
+    VentilationReason,
     VentilationResult,
     VentilationSettings,
     VentilationState,
     is_blocking,
     recommend,
+    room_limits,
 )
 from .logic.windows import WINDOW_FIELDS, largest, open_area, own_windows, size_fields
 from .messages import label_of, text
@@ -328,6 +329,12 @@ class Area:
     vent_check: dict[str, float] = field(default_factory=new_vent_stats)
     vent_start: dict[str, float] = field(default_factory=dict)  # ventilation start values
     humidity_profile: HumidityProfile = field(default_factory=HumidityProfile)
+    vent_window_opened: float | None = None
+    vent_airing_minutes: int | None = None
+    vent_airing_target: float | None = None
+    vent_airing_started_high: bool = False
+    vent_changed: float | None = None
+    vent_window_was_open: bool = False
     ref_temp: float | None = None  # reference air of the ventilation recommendation
     ref_humidity: float | None = None
     # an own window open together with one of another room (manual or automatic draft
@@ -872,7 +879,6 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             "rh_threshold": float(cfg.get(CONF_VENT_RH, 60.0)),
             "min_ah_advantage": float(self.opt(CONF_VENT_MIN_AH)),
             "max_reference_excess": float(self.opt(CONF_VENT_MAX_EXCESS)),
-            "energy_rh_per_k": float(self.opt(CONF_VENT_ENERGY)),
             "mould_rh": float(self.opt(CONF_VENT_MOULD_RH)),
             "airing_target_below": float(self.opt(CONF_VENT_TARGET_BELOW)),
             "airing_time_factor": float(self.opt(CONF_VENT_TIME_FACTOR)),
@@ -901,6 +907,27 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 unit=VENT_PARAMS[name].unit,
             )
         area.vent_start = configured
+        self._clamp_vent_room(area)
+
+    def _clamp_vent_room(self, area: Area) -> None:
+        """Enforce comfort bounds after loading, AI checks and manual imports."""
+        vp = area.vent_params
+        bounds = room_limits(area.vent_start, self.limits)
+        # First the always-air ceiling, then the threshold below that ceiling.
+        for key in ("mould_rh", "rh_threshold", "rh_hysteresis"):
+            if key == "rh_threshold":
+                bounds = room_limits(area.vent_start, self.limits, vp.mould_rh)
+            old = getattr(vp, key)
+            new = clamp(old, bounds[key]["min"], bounds[key]["max"])
+            if new != old:
+                setattr(vp, key, new)
+                self._log(
+                    "limit_clamp",
+                    area,
+                    parameter=label_of(self.language, "parameter", key),
+                    old=f"{old:g}",
+                    new=f"{new:g}",
+                )
 
     def _apply_start_values(self, area: Area, configured: dict[str, float], stored: Any) -> None:
         """A start value changed in the configuration replaces the stored one, and the
@@ -946,6 +973,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                         old=f"{old:g}",
                         new=f"{new:g}",
                     )
+            self._clamp_vent_room(area)
             if area.vent_params.airing_min_minutes > area.vent_params.airing_max_minutes:
                 area.vent_params.airing_min_minutes = area.vent_params.airing_max_minutes
                 LOGGER.debug("Clamped stored airing minimum to maximum for %s", area.area_id)
@@ -2050,7 +2078,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             # Nobody airs on vacation and nobody makes the air humid: no advice, no
             # samples for the humidity profile, no minutes for the AI ventilation check.
             area.suggested_window = None
-            area.ventilation = VentilationResult(VentilationState.VACATION)
+            area.ventilation = VentilationResult(
+                VentilationState.VACATION, reason=VentilationReason.VACATION
+            )
             return
         ref_ah = (
             absolute_humidity(ref_temp, ref_hum)
@@ -2059,6 +2089,20 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         )
         profile = area.humidity_profile
         previous = area.ventilation
+        window_changed = area.own_window_open != area.vent_window_was_open
+        if window_changed:
+            area.vent_window_was_open = area.own_window_open
+            area.vent_window_opened = ts if area.own_window_open else None
+            area.vent_airing_minutes = None
+            area.vent_airing_target = None
+            area.vent_airing_started_high = bool(
+                area.humidity is not None and area.humidity >= area.vent_params.rh_threshold
+            ) or bool(previous and previous.rh_high)
+            if not area.own_window_open:
+                profile.last_closed = ts
+        # After startup, time starts with the first observation of an open window.
+        if area.own_window_open and area.vent_window_opened is None:
+            area.vent_window_opened = ts
         # an own window together with windows in other rooms: cross ventilation
         cross = area.cross
         delta_t = area.temp - ref_temp if area.temp is not None and ref_temp is not None else None
@@ -2083,6 +2127,10 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         area.suggested_window = None if area.own_window_open or biggest is None else biggest[0]
         opening = area.opening or (biggest[1] if biggest else 1.0)
         vp = area.vent_params
+        if area.own_window_open and area.vent_airing_target is None and area.humidity is not None:
+            area.vent_airing_target = (
+                vp.mould_rh if area.humidity >= vp.mould_rh else vp.rh_threshold
+            ) - vp.airing_target_below
         area.ventilation = recommend(
             VentilationInput(
                 temp=area.temp,
@@ -2100,23 +2148,48 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 was_rh_high=previous is not None and previous.rh_high,
                 was_drying=previous is not None
                 and previous.state == VentilationState.VENTILATE_NOW,
-                achievable_rh=profile.achievable_rh(area.temp, area.humidity, ref_ah),
+                achievable_rh=profile.achievable_rh(
+                    area.temp, area.humidity, ref_ah, immediate=True
+                ),
                 learned_airing_minutes=profile.airing_minutes(
                     area.temp,
                     area.humidity,
                     ref_ah,
                     delta_t,
-                    vp.rh_threshold - vp.airing_target_below,
+                    area.vent_airing_target
+                    if area.vent_airing_target is not None
+                    else (
+                        vp.mould_rh
+                        if area.humidity is not None and area.humidity >= vp.mould_rh
+                        else vp.rh_threshold
+                    )
+                    - vp.airing_target_below,
                     opening,
                     cross,
                 ),
                 opening=opening,
+                window_open_minutes=(ts - area.vent_window_opened) / 60
+                if area.vent_window_opened is not None
+                else 0,
+                running_airing_minutes=area.vent_airing_minutes,
+                airing_target_rh=area.vent_airing_target,
+                airing_started_high=area.vent_airing_started_high,
+                previous_state=previous.state if previous else None,
+                previous_reason=previous.reason if previous else VentilationReason.UNKNOWN,
+                minutes_since_change=(ts - area.vent_changed) / 60
+                if area.vent_changed is not None
+                else None,
+                window_changed=window_changed,
                 minutes_since_airing=(ts - profile.last_closed) / 60
                 if profile.last_closed is not None
                 else None,
             ),
             area.vent_params,
         )
+        if previous is None or previous.state != area.ventilation.state or window_changed:
+            area.vent_changed = ts
+        if area.own_window_open and area.vent_airing_minutes is None:
+            area.vent_airing_minutes = area.ventilation.airing_minutes
         count_vent(
             area.vent_check,
             minutes,
@@ -2943,6 +3016,8 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 if area.cfg.get(key)
             },
             "params": area.vent_params.as_dict(),
+            "configured": area.vent_start,
+            "limits": room_limits(area.vent_start, self.limits, area.vent_params.mould_rh),
             "profile": area.humidity_profile.summary(
                 self._humidity_season, area.temp, area.humidity, ref_ah
             ),
@@ -2983,7 +3058,16 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         result = None
         if data is not None:
             try:
-                result = validate_check(data, current, limits, VENT_PARAMS)
+                result = validate_check(
+                    data,
+                    current,
+                    limits,
+                    VENT_PARAMS,
+                    area_limits={
+                        a.prompt_id: room_limits(a.vent_start, limits, a.vent_params.mould_rh)
+                        for a in areas
+                    },
+                )
             except AnswerError as err:
                 self._ai_failed("ventilation", str(err))
         if result is None:
@@ -3007,6 +3091,8 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 clamped=text(self.language, "clamped") if adj.clamped else "",
                 reason=adj.reason,
             )
+        for area in areas:
+            self._clamp_vent_room(area)
         state["last_summary"] = result.summary
         state["last_confidence"] = result.confidence
         state["last_rejected"] = result.rejected[:10]
@@ -3031,7 +3117,6 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             "rh_mean",
             "rec_min",
             "useless_min",
-            "energy_hold_min",
             "pause_hold_min",
             "flips",
         )
@@ -3120,6 +3205,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 if name in VENT_PARAMS and isinstance(value, int | float):
                     lim = limits[name]
                     setattr(area.vent_params, name, clamp(float(value), lim["min"], lim["max"]))
+            self._clamp_vent_room(area)
             if isinstance(values.get("humidity"), dict):
                 area.humidity_profile = HumidityProfile.from_dict(values["humidity"])
             if isinstance(values.get("target"), int | float):

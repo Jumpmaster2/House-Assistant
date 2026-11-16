@@ -88,7 +88,8 @@ const UI = {
     ventNames: {
       typical_humidity: "Übliche Feuchte",
       lowest_humidity_14d: "Tiefste Feuchte (14 Tage)",
-      humidity_after_airing: "Erreichbar durch Lüften",
+      humidity_after_airing: "Sofort erreichbar durch Lüften",
+      always_rh: "Immer lüften ab",
       humidity_threshold: "Feuchte-Schwelle",
     },
     lastVentCheck: "Letzte Lüftungsprüfung",
@@ -275,7 +276,8 @@ const UI = {
     ventNames: {
       typical_humidity: "Usual humidity",
       lowest_humidity_14d: "Lowest humidity (14 days)",
-      humidity_after_airing: "Reachable by airing",
+      humidity_after_airing: "Immediately reachable by airing",
+      always_rh: "Always air from",
       humidity_threshold: "Humidity threshold",
     },
     lastVentCheck: "Last ventilation check",
@@ -422,7 +424,6 @@ const SETTINGS = {
       fields: [
         "ventilation_min_ah_advantage",
         "ventilation_max_reference_excess",
-        "ventilation_energy_rh_per_k",
         "ventilation_mould_rh",
         "ventilation_airing_target_below",
         "ventilation_airing_time_factor",
@@ -501,7 +502,7 @@ const STATUS_PILL = {
   actuator_unavailable: "bad",
   idle: "ok",
 };
-const VENT_PILL = { ventilate_now: "warn", close_window: "warn", ventilation_useful: "ok" };
+const VENT_PILL = { airing: "ok", ventilate_now: "warn", close_window: "warn", ventilation_useful: "ok" };
 
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -865,7 +866,10 @@ class HouseAssistantHeatingView extends HTMLElement {
   _areaVent(area) {
     const st = this._state(area.entities.ventilation);
     if (!this._ok(st) || ["optimal", "unknown"].includes(st.state)) return null;
-    return [this._stateLabel("ventilation", st.state), VENT_PILL[st.state] || "muted"];
+    const reason = this.labels.vent_reasons[st.attributes.reason];
+    const left = st.attributes.airing_minutes_left;
+    const suffix = left === null || left === undefined ? "" : ` (${left} min)`;
+    return [[this._stateLabel("ventilation", st.state) + suffix, reason].filter(Boolean).join(": "), VENT_PILL[st.state] || "muted"];
   }
 
   _overview() {
@@ -1194,6 +1198,7 @@ class HouseAssistantHeatingView extends HTMLElement {
         const open = this._openDetails?.has(`vent-${area.id}`);
         return `<div class="card learn">
           <div class="learn-head"><h2><ha-icon icon="mdi:water-percent"></ha-icon>${esc(`${ui.ventLearned}: ${area.title}`)}</h2></div>
+          <p>${esc(this.labels.vent_reasons[attrs.reason] || "")}</p>
           <div class="learn-grid">${cells}</div>
           ${params ? `<details data-keep="vent-${esc(area.id)}" ${open ? "open" : ""}><summary>${esc(ui.ventParams)}</summary><div class="learn-grid">${params}</div></details>` : ""}
         </div>`;

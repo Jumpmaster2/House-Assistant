@@ -10,7 +10,11 @@ Custom Integration für Home Assistant, die Heizung, Rollos und Zählerablesung 
 
 Jedes Modul lässt sich einzeln ein- und ausschalten. Keine Funktion der bisherigen Integrationen fällt weg; wer sie nutzt, zieht mit einem Skript um, ohne Verlauf und Lernwerte zu verlieren ([docs/transfer.md](docs/transfer.md)).
 
-> Status: Version 1.0.0b20 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
+> Status: Version 1.0.0b21 (Beta). Bitte die ersten Wochen das Logbuch im Blick behalten.
+
+## Lüftung mit Feingefühl
+
+Lüftung: Ab der konfigurierten Feuchte-Schwelle (Standard 60 %) kurz stoßlüften, ab **Immer lüften ab** (Standard 65 %) ohne Pause, wenn die Referenzluft trockener ist. **Lüften läuft** zeigt eine laufende Lüftung mit Restzeit und Grund. Rückfeuchte verhindert Lüften nicht; Energie wird über kurze Lüftzeiten und Schließen unter der Schwelle gespart. KI- und Panel-Werte bleiben bei der Feuchte-Schwelle innerhalb konfiguriert − 5 bis + 2 und höchstens beim Immer-lüften-Wert; diesen darf die KI nur senken. Details: [Lüftungsempfehlung](docs/heating.md#lüftungsempfehlung).
 
 ## Rohre durch andere Räume
 

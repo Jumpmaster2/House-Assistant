@@ -61,7 +61,6 @@ CONF_VENT_MAX_EXCESS = "ventilation_max_reference_excess"
 CONF_VENT_MIN_COOLING = "ventilation_min_cooling_advantage"
 CONF_VENT_COOL_MARGIN = "ventilation_cooling_margin"
 CONF_VENT_COOL_MIN_TEMP = "ventilation_cooling_min_temp"
-CONF_VENT_ENERGY = "ventilation_energy_rh_per_k"
 CONF_VENT_MOULD_RH = "ventilation_mould_rh"
 CONF_VENT_TARGET_BELOW = "ventilation_airing_target_below"
 CONF_VENT_TIME_FACTOR = "ventilation_airing_time_factor"
@@ -181,8 +180,7 @@ DEFAULTS: Final[dict[str, object]] = {
     CONF_VENT_MIN_COOLING: 1.0,
     CONF_VENT_COOL_MARGIN: 1.0,
     CONF_VENT_COOL_MIN_TEMP: 0.0,
-    CONF_VENT_ENERGY: 0.25,
-    CONF_VENT_MOULD_RH: 70.0,
+    CONF_VENT_MOULD_RH: 65.0,
     CONF_VENT_TARGET_BELOW: 5.0,
     CONF_VENT_TIME_FACTOR: 1.0,
     CONF_VENT_MIN_MINUTES: 3.0,

@@ -1,28 +1,10 @@
-"""Ventilation recommendation based on absolute humidity and temperature.
-
-The decision order follows a proven template based solution:
-1. a blocking entity (air conditioner running, sun protection closed, ...)
-2. window open although ventilating brings nothing -> close window
-3. relative humidity high and outside air is drier -> ventilate now (only if airing
-   can lower the humidity noticeably: with a learned humidity profile the humidity
-   reachable by airing must lie at least ``min_rh_drop`` below the current one).
-   Airing in the heating period costs heat, the more the colder the reference air:
-   there the humidity must exceed the threshold by ``energy_rh_per_k`` per Kelvin the
-   reference is colder than the room, but never more than up to the mould limit.
-   After an airing the room gets ``airing_pause_min`` to settle (moisture comes back
-   from walls) before drying is recommended again, unless it is at the mould limit.
-4. room is warmer than the reference and nobody heats -> ventilating is useful
-   (within the heating period only if the room is clearly above its target, never
-   below the optional minimum room temperature and never if the outside air would
-   push the relative humidity of the room above its threshold)
-5. humidity high but outside air not drier -> do not ventilate
-6. otherwise everything is fine
-"""
+"""Humidity first ventilation advice with short airings and stable recommendations."""
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, fields
 from enum import StrEnum
+from math import ceil
 from typing import Any
 
 from ...core.store_validation import checked_fields, dataclass_schema
@@ -33,6 +15,7 @@ class VentilationState(StrEnum):
     """Possible recommendations."""
 
     UNKNOWN = "unknown"
+    AIRING = "airing"
     CLOSE_WINDOW = "close_window"
     VENTILATE_NOW = "ventilate_now"
     VENTILATION_USEFUL = "ventilation_useful"
@@ -42,13 +25,39 @@ class VentilationState(StrEnum):
     VACATION = "vacation"
 
 
-MOULD_RH = 70.0  # default relative humidity from which mould grows if it lasts
+class VentilationReason(StrEnum):
+    """Stable reasons for sensors, cards and the panel."""
+
+    MOULD_LIMIT = "mould_limit"
+    HUMID_SHORT_AIRING = "humid_short_airing"
+    AIRING_RUNNING = "airing_running"
+    TARGET_REACHED = "target_reached"
+    AIRING_TIME_OVER = "airing_time_over"
+    BELOW_THRESHOLD_SAVE_HEAT = "below_threshold_save_heat"
+    OUTSIDE_NOT_DRIER = "outside_not_drier"
+    OUTSIDE_WARMER = "outside_warmer"
+    PAUSE_AFTER_AIRING = "pause_after_airing"
+    LITTLE_EFFECT = "little_effect"
+    COOLING = "cooling"
+    BLOCKED = "blocked"
+    OPTIMAL = "optimal"
+    VACATION = "vacation"
+    UNKNOWN = "unknown"
+
+
+MOULD_RH = 65.0  # always air from here if the reference air is drier
+RECOMMENDATION_HOLD_MIN = 10.0
+AIRING_TOLERANCE_MIN = 2.0
 # Airing time by reference temperature while the exchange rate of the room is not
 # learned yet: cold air exchanges fast and costs heat.
 AIRING_MINUTES = ((0.0, 5), (10.0, 10), (15.0, 15))
 AIRING_MINUTES_WARM = 20
 
-RECOMMENDED_STATES = {VentilationState.VENTILATE_NOW, VentilationState.VENTILATION_USEFUL}
+RECOMMENDED_STATES = {
+    VentilationState.VENTILATE_NOW,
+    VentilationState.VENTILATION_USEFUL,
+    VentilationState.AIRING,
+}
 
 # Domains whose entity blocks the ventilation recommendation while it is "on".
 ON_OFF_DOMAINS = {"binary_sensor", "input_boolean", "switch", "fan", "humidifier", "light"}
@@ -88,8 +97,6 @@ class VentilationSettings:
     cooling_margin: float = 1.0  # heating period: cool only this far above target
     cooling_min_temp: float = 0.0  # cool only from this room temperature on (0 = off)
     min_rh_drop: float = 3.0  # airing must lower the humidity at least this far
-    # heating period: extra humidity above the threshold needed per Kelvin colder air
-    energy_rh_per_k: float = 0.25
     mould_rh: float = MOULD_RH  # from here airing is always recommended
     airing_target_below: float = 5.0  # airing aims this far below the threshold
     airing_time_factor: float = 1.0  # scales the computed airing time
@@ -132,13 +139,22 @@ class VentilationInput:
     season_active: bool = False
     was_rh_high: bool = False  # humidity was high at the last evaluation (hysteresis)
     was_drying: bool = False  # "ventilate now" at the last evaluation (hysteresis)
-    # relative humidity a usual airing reaches according to the learned profile
+    # relative humidity a usual airing reaches immediately, before rebound
     achievable_rh: float | None = None
     # minutes the room needs to reach the airing target (learned exchange rate)
     learned_airing_minutes: float | None = None
     # relative opening area the airing time is meant for (see logic.windows)
     opening: float = 1.0
     minutes_since_airing: float | None = None  # since the own window was last closed
+    window_open_minutes: float = 0.0
+    # Freeze time and target at opening so a falling humidity cannot move the deadline.
+    airing_started_high: bool = False
+    running_airing_minutes: int | None = None
+    airing_target_rh: float | None = None
+    previous_state: VentilationState | None = None
+    previous_reason: VentilationReason = VentilationReason.UNKNOWN
+    minutes_since_change: float | None = None
+    window_changed: bool = False
 
 
 @dataclass(slots=True)
@@ -155,10 +171,10 @@ class VentilationResult:
     cooling_useful: bool = False
     rh_after_exchange: float | None = None
     achievable_rh: float | None = None
-    energy_hold: bool = False  # drying would help but costs too much heat for now
     pause_hold: bool = False  # drying would help but the room settles after airing
-    required_rh: float | None = None  # humidity from which drying is worth its heat
     airing_minutes: int | None = None  # suggested airing time while recommended
+    reason: VentilationReason = VentilationReason.UNKNOWN
+    airing_minutes_left: int | None = None
 
     @property
     def recommended(self) -> bool:
@@ -180,18 +196,20 @@ def recommend(data: VentilationInput, settings: VentilationSettings) -> Ventilat
     reference_excess = data.ref_temp - data.temp
 
     rh_high = data.humidity >= settings.rh_threshold or (
-        data.was_rh_high and data.humidity > settings.rh_threshold - settings.rh_hysteresis
+        (data.was_rh_high or data.was_drying)
+        and data.humidity >= settings.rh_threshold - settings.rh_hysteresis
     )
     # Relative humidity of the room if its air were replaced by reference air
     # (walls and floor keep the room temperature).
     rh_after = 100.0 * ah_ref / absolute_humidity(data.temp, 100.0)
-    drying_useful = (
-        delta_ah >= settings.min_ah_advantage
-        and reference_excess <= settings.max_reference_excess
-        and (
-            data.achievable_rh is None or data.humidity - data.achievable_rh >= settings.min_rh_drop
-        )
+    drier = (
+        delta_ah >= settings.min_ah_advantage and reference_excess <= settings.max_reference_excess
     )
+    immediate_effect = (
+        data.achievable_rh is None or data.humidity - data.achievable_rh >= settings.min_rh_drop
+    )
+    drying_useful = drier and immediate_effect
+    always = data.humidity >= settings.mould_rh
     cooling_useful = (
         delta_t >= settings.min_cooling_advantage
         and not data.heating_active
@@ -204,68 +222,112 @@ def recommend(data: VentilationInput, settings: VentilationSettings) -> Ventilat
         and (settings.cooling_min_temp <= 0 or data.temp >= settings.cooling_min_temp)
         and rh_after <= settings.rh_threshold
     )
-    # Heat lost by airing grows with the temperature difference: in the heating period
-    # a room only slightly humid waits until it is clearly humid (or the air is milder).
-    required_rh = settings.rh_threshold
-    if data.season_active or data.heating_active:
-        extra = settings.energy_rh_per_k * max(0.0, delta_t)
-        required_rh = min(
-            settings.rh_threshold + extra, max(settings.mould_rh, settings.rh_threshold)
-        )
-    # once airing runs it goes on down to the hysteresis below the required humidity
-    start_rh = required_rh - settings.rh_hysteresis if data.was_drying else required_rh
-    energy_hold = (
-        required_rh > settings.rh_threshold
-        and drying_useful
-        and rh_high
-        and data.humidity < start_rh
-    )
     pause_hold = (
-        drying_useful
+        drier
         and rh_high
-        and not energy_hold
+        and not always
         and not data.window_open
         and data.minutes_since_airing is not None
         and data.minutes_since_airing < settings.airing_pause_min
-        and data.humidity < settings.mould_rh
     )
-    worth_drying = drying_useful and not energy_hold and not pause_hold
-    benefit = worth_drying or cooling_useful
+    base = data.learned_airing_minutes
+    if base is None:
+        base = next(
+            (m for limit, m in AIRING_MINUTES if data.ref_temp <= limit), AIRING_MINUTES_WARM
+        ) / max(0.1, data.opening)
+    duration = round(
+        max(
+            settings.airing_min_minutes,
+            min(settings.airing_max_minutes, base * settings.airing_time_factor),
+        )
+    )
+    if data.window_open and data.running_airing_minutes is not None:
+        duration = data.running_airing_minutes
+    target = data.airing_target_rh
+    if target is None:
+        target = (
+            settings.mould_rh if always else settings.rh_threshold
+        ) - settings.airing_target_below
+    heat = data.season_active or data.heating_active
+    time_over = heat and data.window_open_minutes >= duration + AIRING_TOLERANCE_MIN
+    benefit = (
+        drier and (always or (rh_high and immediate_effect and not pause_hold))
+    ) or cooling_useful
+    minutes_left = None
 
     if data.blocked:
-        if data.window_open:
-            state = VentilationState.CLOSE_WINDOW
-        elif benefit:
-            state = VentilationState.BLOCKED
-        else:
-            state = VentilationState.OPTIMAL
-    elif data.window_open and not benefit:
-        state = VentilationState.CLOSE_WINDOW
-    elif rh_high and worth_drying:
-        state = VentilationState.VENTILATE_NOW
-    elif cooling_useful:
-        state = VentilationState.VENTILATION_USEFUL
-    elif rh_high:
-        state = VentilationState.DO_NOT_VENTILATE
-    else:
-        state = VentilationState.OPTIMAL
-
-    airing_minutes = None
-    if state in RECOMMENDED_STATES:
-        base: float | None = None
-        if state == VentilationState.VENTILATE_NOW:
-            base = data.learned_airing_minutes
-        if base is None:
-            # the table holds for a medium window: a larger opening needs less time
-            base = next(
-                (m for limit, m in AIRING_MINUTES if data.ref_temp <= limit), AIRING_MINUTES_WARM
-            ) / max(0.1, data.opening)
-        airing_minutes = round(
-            max(
-                settings.airing_min_minutes,
-                min(settings.airing_max_minutes, base * settings.airing_time_factor),
-            )
+        state = (
+            VentilationState.CLOSE_WINDOW
+            if data.window_open
+            else VentilationState.BLOCKED
+            if benefit
+            else VentilationState.OPTIMAL
         )
+        reason = VentilationReason.BLOCKED
+    elif data.window_open:
+        below_start = data.humidity < settings.rh_threshold and not (
+            data.airing_started_high or data.was_rh_high
+        )
+        if drier and data.humidity > target and not time_over and not below_start:
+            state, reason = VentilationState.AIRING, VentilationReason.AIRING_RUNNING
+            minutes_left = max(0, ceil(duration - data.window_open_minutes)) if heat else None
+        elif cooling_useful:
+            state, reason = VentilationState.VENTILATION_USEFUL, VentilationReason.COOLING
+        elif heat:
+            state = VentilationState.CLOSE_WINDOW
+            if not drier:
+                reason = VentilationReason.OUTSIDE_NOT_DRIER
+            elif data.humidity <= target:
+                reason = VentilationReason.TARGET_REACHED
+            elif below_start:
+                reason = VentilationReason.BELOW_THRESHOLD_SAVE_HEAT
+            else:
+                reason = VentilationReason.AIRING_TIME_OVER
+        elif (
+            delta_ah < 0 and data.humidity >= settings.rh_threshold - settings.rh_hysteresis
+        ) or delta_t < 0:
+            state = VentilationState.CLOSE_WINDOW
+            reason = (
+                VentilationReason.OUTSIDE_WARMER
+                if delta_t < 0
+                else VentilationReason.OUTSIDE_NOT_DRIER
+            )
+        else:
+            state, reason = VentilationState.OPTIMAL, VentilationReason.OPTIMAL
+    elif always and drier:
+        state, reason = VentilationState.VENTILATE_NOW, VentilationReason.MOULD_LIMIT
+    elif rh_high and drier and immediate_effect and not pause_hold:
+        state, reason = VentilationState.VENTILATE_NOW, VentilationReason.HUMID_SHORT_AIRING
+    elif cooling_useful:
+        state, reason = VentilationState.VENTILATION_USEFUL, VentilationReason.COOLING
+    elif rh_high and drier:
+        state = VentilationState.DO_NOT_VENTILATE
+        reason = (
+            VentilationReason.PAUSE_AFTER_AIRING if pause_hold else VentilationReason.LITTLE_EFFECT
+        )
+    elif rh_high:
+        state, reason = VentilationState.DO_NOT_VENTILATE, VentilationReason.OUTSIDE_NOT_DRIER
+    else:
+        state, reason = VentilationState.OPTIMAL, VentilationReason.OPTIMAL
+
+    quiet_states = {VentilationState.OPTIMAL, VentilationState.DO_NOT_VENTILATE}
+    flips = (data.previous_state == VentilationState.VENTILATE_NOW and state in quiet_states) or (
+        state == VentilationState.VENTILATE_NOW and data.previous_state in quiet_states
+    )
+    if (
+        flips
+        and not always
+        and not data.blocked
+        # Losing the drying advantage ends advice immediately; hold its return instead.
+        and (drier or data.previous_state != VentilationState.VENTILATE_NOW)
+        and not data.window_open
+        and not data.window_changed
+        and data.minutes_since_change is not None
+        and data.minutes_since_change < RECOMMENDATION_HOLD_MIN
+    ):
+        state, reason = data.previous_state, data.previous_reason
+
+    airing_minutes = duration if state in RECOMMENDED_STATES else None
     return VentilationResult(
         state=state,
         ah_inside=round(ah_inside, 2),
@@ -277,8 +339,35 @@ def recommend(data: VentilationInput, settings: VentilationSettings) -> Ventilat
         cooling_useful=cooling_useful,
         rh_after_exchange=round(rh_after, 1),
         achievable_rh=None if data.achievable_rh is None else round(data.achievable_rh, 1),
-        energy_hold=energy_hold,
         pause_hold=pause_hold,
-        required_rh=round(required_rh, 1),
         airing_minutes=airing_minutes,
+        reason=reason,
+        airing_minutes_left=minutes_left,
     )
+
+
+def room_limits(
+    configured: dict[str, float],
+    limits: dict[str, dict[str, float]],
+    mould_rh: float | None = None,
+) -> dict[str, dict[str, float]]:
+    """Intersect global AI limits with the room's non-negotiable comfort bounds.
+
+    The room's safety ceiling wins if legacy global limits contradict it.
+    """
+    result = {key: dict(value) for key, value in limits.items()}
+    threshold = configured["rh_threshold"]
+    always = configured["mould_rh"]
+    for key, low, high in (
+        ("mould_rh", 55.0, always),
+        (
+            "rh_threshold",
+            threshold - 5.0,
+            min(threshold + 2.0, always, mould_rh if mould_rh is not None else always),
+        ),
+        ("rh_hysteresis", 2.0, 5.0),
+    ):
+        bound = result[key]
+        bound["max"] = min(high, max(low, bound["max"]))
+        bound["min"] = min(bound["max"], max(low, bound["min"]))
+    return result

@@ -166,8 +166,7 @@ _VALUES: dict[str, dict[str, dict[str, str]]] = {
             "en": "max. reference excess",
         },
         "min_rh_drop": {"de": "Mindest-Feuchteabfall", "en": "minimum humidity drop"},
-        "energy_rh_per_k": {"de": "Energiespar-Zuschlag", "en": "energy saving surcharge"},
-        "mould_rh": {"de": "Schimmelgrenze", "en": "mould limit"},
+        "mould_rh": {"de": "Immer lüften ab", "en": "always air from"},
         "airing_target_below": {
             "de": "Lüftziel unter Schwelle",
             "en": "airing target below threshold",

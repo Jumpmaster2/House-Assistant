@@ -11,6 +11,7 @@ from custom_components.house_assistant.heating.logic.physics import (
 )
 from custom_components.house_assistant.heating.logic.ventilation import (
     VentilationInput,
+    VentilationReason,
     VentilationSettings,
     VentilationState,
     is_blocking,
@@ -217,23 +218,24 @@ def _humid(humidity: float, **kwargs: object) -> VentilationInput:
 
 
 def test_humidity_hysteresis_keeps_the_recommendation() -> None:
-    settings = VentilationSettings(rh_threshold=60.0, rh_hysteresis=3.0, energy_rh_per_k=0.0)
+    settings = VentilationSettings(rh_threshold=60.0, rh_hysteresis=3.0)
     assert recommend(_humid(58.0), settings).state == VentilationState.OPTIMAL
     # still high until 3 % below the threshold once it was high
     assert recommend(_humid(58.0, was_rh_high=True), settings).state == (
         VentilationState.VENTILATE_NOW
     )
-    assert recommend(_humid(57.0, was_rh_high=True), settings).state == VentilationState.OPTIMAL
+    assert recommend(_humid(56.9, was_rh_high=True), settings).state == VentilationState.OPTIMAL
 
 
 def test_airing_that_cannot_lower_the_humidity_is_not_recommended() -> None:
-    settings = VentilationSettings(rh_threshold=60.0, min_rh_drop=3.0, energy_rh_per_k=0.0)
-    assert recommend(_humid(65.0, achievable_rh=55.0), settings).state == (
+    settings = VentilationSettings(rh_threshold=60.0, min_rh_drop=3.0)
+    assert recommend(_humid(62.0, achievable_rh=55.0), settings).state == (
         VentilationState.VENTILATE_NOW
     )
-    result = recommend(_humid(65.0, achievable_rh=63.0), settings)
+    result = recommend(_humid(62.0, achievable_rh=61.0), settings)
     assert result.state == VentilationState.DO_NOT_VENTILATE
-    assert result.achievable_rh == 63.0
+    assert result.achievable_rh == 61.0
+    assert result.reason == VentilationReason.LITTLE_EFFECT
 
 
 def test_ventilation_settings_round_trip() -> None:
@@ -246,36 +248,23 @@ def test_ventilation_settings_round_trip() -> None:
     assert VentilationSettings.from_dict(settings.as_dict()) == settings
 
 
-def test_slightly_humid_room_waits_while_it_is_cold_outside() -> None:
-    """Heating period: 0.25 %/K above the threshold per Kelvin colder air."""
-    settings = VentilationSettings(rh_threshold=60.0, energy_rh_per_k=0.25)
-    # 21 °C inside, 5 °C outside: 16 K -> 4 % more, airing only from 64 %
-    held = recommend(_humid(62.0), settings)
-    assert held.state == VentilationState.DO_NOT_VENTILATE
-    assert held.energy_hold and held.required_rh == 64.0 and held.airing_minutes is None
-    now = recommend(_humid(65.0), settings)
-    assert now.state == VentilationState.VENTILATE_NOW and not now.energy_hold
-    assert now.airing_minutes == 10  # 5 °C outside: short airing
-    # an open window while it does not pay off: close it
-    assert recommend(_humid(62.0, window_open=True), settings).state == (
-        VentilationState.CLOSE_WINDOW
-    )
-    # airing already running goes on down to the hysteresis (3 %) below 64 %
-    assert recommend(_humid(62.0, was_rh_high=True, was_drying=True), settings).state == (
-        VentilationState.VENTILATE_NOW
-    )
-    assert recommend(_humid(60.5, was_rh_high=True, was_drying=True), settings).energy_hold
-    # very cold: the surcharge never goes beyond the mould limit
-    frosty = recommend(_humid(70.0, ref_temp=-25.0, ref_humidity=80.0), settings)
-    assert frosty.required_rh == 70.0 and frosty.state == VentilationState.VENTILATE_NOW
-    assert frosty.airing_minutes == 5
-    # outside the heating period no surcharge
+def test_slightly_humid_room_airs_briefly_even_in_frost() -> None:
+    settings = VentilationSettings(rh_threshold=60.0)
+    now = recommend(_humid(62.0), settings)
+    assert now.state == VentilationState.VENTILATE_NOW
+    assert now.reason == VentilationReason.HUMID_SHORT_AIRING
+    assert now.airing_minutes == 10
+    opened = recommend(_humid(62.0, window_open=True), settings)
+    assert opened.state == VentilationState.AIRING
+    assert recommend(_humid(60.5, was_rh_high=True, was_drying=True), settings).recommended
+    frosty = recommend(_humid(62.0, ref_temp=-25.0), settings)
+    assert frosty.state == VentilationState.VENTILATE_NOW and frosty.airing_minutes == 5
     summer = recommend(_humid(62.0, heating_active=False, ref_temp=15.0), settings)
-    assert summer.required_rh == 60.0 and not summer.energy_hold
+    assert summer.state == VentilationState.VENTILATE_NOW
 
 
 def test_room_settles_after_airing_before_the_next_recommendation() -> None:
-    settings = VentilationSettings(rh_threshold=60.0, energy_rh_per_k=0.0, airing_pause_min=30)
+    settings = VentilationSettings(rh_threshold=60.0, airing_pause_min=30)
     held = recommend(_humid(63.0, minutes_since_airing=10.0), settings)
     assert held.state == VentilationState.DO_NOT_VENTILATE and held.pause_hold
     assert recommend(_humid(63.0, minutes_since_airing=31.0), settings).state == (
@@ -287,30 +276,29 @@ def test_room_settles_after_airing_before_the_next_recommendation() -> None:
     )
 
 
-def test_mould_limit_caps_the_energy_surcharge() -> None:
-    settings = VentilationSettings(rh_threshold=60.0, energy_rh_per_k=1.0, mould_rh=64.0)
-    result = recommend(_humid(64.0), settings)
-    assert result.required_rh == 64.0 and result.state == VentilationState.VENTILATE_NOW
+def test_always_air_limit_bypasses_little_effect_and_pause() -> None:
+    settings = VentilationSettings(rh_threshold=60.0, mould_rh=64.0)
+    result = recommend(_humid(64.0, achievable_rh=63.5, minutes_since_airing=1), settings)
+    assert result.state == VentilationState.VENTILATE_NOW
+    assert result.reason == VentilationReason.MOULD_LIMIT
 
 
 def test_airing_time_from_learned_rate_factor_and_bounds() -> None:
-    settings = VentilationSettings(rh_threshold=60.0, energy_rh_per_k=0.0)
+    settings = VentilationSettings(rh_threshold=60.0)
     learned = recommend(_humid(65.0, learned_airing_minutes=7.4), settings)
     assert learned.airing_minutes == 7
-    longer = VentilationSettings(rh_threshold=60.0, energy_rh_per_k=0.0, airing_time_factor=2.0)
+    longer = VentilationSettings(rh_threshold=60.0, airing_time_factor=2.0)
     assert recommend(_humid(65.0, learned_airing_minutes=7.4), longer).airing_minutes == 15
-    capped = VentilationSettings(
-        rh_threshold=60.0, energy_rh_per_k=0.0, airing_time_factor=3.0, airing_max_minutes=12
-    )
+    capped = VentilationSettings(rh_threshold=60.0, airing_time_factor=3.0, airing_max_minutes=12)
     assert recommend(_humid(65.0, learned_airing_minutes=7.4), capped).airing_minutes == 12
-    short = VentilationSettings(rh_threshold=60.0, energy_rh_per_k=0.0, airing_min_minutes=4)
+    short = VentilationSettings(rh_threshold=60.0, airing_min_minutes=4)
     assert recommend(_humid(65.0, learned_airing_minutes=1.0), short).airing_minutes == 4
     # not learned yet: table by outdoor temperature (5 °C -> 10 minutes)
     assert recommend(_humid(65.0), settings).airing_minutes == 10
 
 
 def test_table_airing_time_follows_the_opening() -> None:
-    settings = VentilationSettings(rh_threshold=60.0, energy_rh_per_k=0.0)
+    settings = VentilationSettings(rh_threshold=60.0)
     # 5 °C outside: 10 minutes for a medium window, 4 for a balcony door
     assert recommend(_humid(65.0, opening=2.5), settings).airing_minutes == 4
     assert recommend(_humid(65.0, opening=0.5), settings).airing_minutes == 20
