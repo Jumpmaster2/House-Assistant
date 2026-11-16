@@ -133,8 +133,8 @@ VENT_PARAMS: dict[str, ParamSpec] = {
             "rh_hysteresis",
             "area",
             3.0,
-            0.0,
-            10.0,
+            2.0,
+            5.0,
             1.0,
             "%",
             "humidity stays high until this far below rh_threshold",
@@ -167,28 +167,17 @@ VENT_PARAMS: dict[str, ParamSpec] = {
             15.0,
             1.0,
             "%",
-            "airing must lower the humidity at least this far (learned effect)",
-        ),
-        ParamSpec(
-            "energy_rh_per_k",
-            "area",
-            0.25,
-            0.0,
-            1.0,
-            0.05,
-            "%/K",
-            "heating period: extra humidity above rh_threshold per K colder reference air "
-            "before drying is worth its heat (capped at 70 %)",
+            "airing must lower the humidity at least this far (immediate learned effect before rebound)",
         ),
         ParamSpec(
             "mould_rh",
             "area",
-            70.0,
+            65.0,
             55.0,
             85.0,
             2.0,
             "%",
-            "mould limit: from here airing is always recommended (lower for cold walls)",
+            "always air from here: airing is always recommended (lower for cold walls)",
         ),
         ParamSpec(
             "airing_target_below",
@@ -406,6 +395,7 @@ def validate_check(
     current: dict[str, dict[str, float]],
     limits: dict[str, dict[str, float]],
     specs: dict[str, ParamSpec] = PARAMS,
+    area_limits: dict[str, dict[str, dict[str, float]]] | None = None,
 ) -> CheckResult:
     """Validate a periodic check and clamp every proposed value.
 
@@ -440,6 +430,9 @@ def validate_check(
             rejected.append(f"value of {key} is not a number")
             continue
         low, high, step = (runtime_limits[key][k] for k in ("min", "max", "step"))
+        if area_limits and key in area_limits.get(area, {}):
+            bound = area_limits[area][key]
+            low, high = bound["min"], bound["max"]
         if step == 0:
             continue
         old = float(current[area][key])

@@ -290,10 +290,10 @@ class HumidityProfile:
         return min(values) if values else None
 
     def achievable_rh(
-        self, temp: float | None, rh: float | None, ah_ref: float | None
+        self, temp: float | None, rh: float | None, ah_ref: float | None, *, immediate: bool = False
     ) -> float | None:
         """Relative humidity a usual airing leaves once the rebound has passed, or None
-        while the effect of airing is not known yet."""
+        while the effect of airing is not known yet. With ``immediate``, ignore rebound."""
         if not self.known_effect or None in (temp, rh, ah_ref):
             return None
         assert temp is not None and rh is not None and ah_ref is not None
@@ -301,7 +301,7 @@ class HumidityProfile:
         gap = ah - ah_ref
         if gap <= 0:
             return rh
-        lasting = self.exchange.value * (1.0 - self.rebound.value)
+        lasting = self.exchange.value * (1.0 if immediate else 1.0 - self.rebound.value)
         return 100.0 * (ah - lasting * gap) / absolute_humidity(temp, 100.0)
 
     def airing_minutes(
@@ -340,12 +340,14 @@ class HumidityProfile:
         typical = self.typical.get(season, {})
         days = typical["rh_mean"].count if typical else 0
         achievable = self.achievable_rh(temp, rh, ah_ref)
+        immediate = self.achievable_rh(temp, rh, ah_ref, immediate=True)
         return {
             "season": season,
             "days": days,
             "typical": {k: round(e.value, 1) for k, e in typical.items()} if days else None,
             "floor_14d": self.floor_rh,
             "achievable_now": None if achievable is None else round(achievable, 1),
+            "achievable_immediate_now": None if immediate is None else round(immediate, 1),
             "load_gph": round(self.load.value, 2) if self.load.count else None,
             "airing": {
                 "judged": self.exchange.count,

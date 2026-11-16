@@ -92,7 +92,6 @@ VENT_START_NAMES = (
     "rh_threshold",
     "min_ah_advantage",
     "max_reference_excess",
-    "energy_rh_per_k",
     "mould_rh",
     "airing_target_below",
     "airing_time_factor",

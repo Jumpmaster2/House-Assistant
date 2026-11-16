@@ -39,7 +39,7 @@ def test_usable_legacy_limits_unchanged():
     for key, item in LEGACY.items():
         for field in item:
             assert normalized[key][field] is stored[key][field]
-    options = {"limits": stored}
+    options = {"limits": stored, "ventilation_mould_rh": 65}
     result = normalize_options(options)
     assert result == options
     assert result["limits"] is stored
@@ -66,7 +66,7 @@ def test_lenient_repair_only_unusable_values(item, expected):
     limits = normalize_limits({"window_delay_min": item})
     assert limits["window_delay_min"] == expected
     assert normalize_limits(limits) == limits
-    assert normalize_options({"limits": limits}) == {"limits": limits}
+    assert normalize_options({"limits": limits}) == {"limits": limits, "ventilation_mould_rh": 65}
 
 
 @pytest.mark.parametrize("old,wanted,expected", [(10, 14, 12), (29, 40, 30), (20, 24, 22)])

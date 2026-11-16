@@ -206,26 +206,21 @@ PROMPTS: dict[str, PromptSpec] = {
         blocks=(
             PromptBlock(
                 "rules",
-                "Per area the recommendation compares the room with its reference air (outdoor, "
-                "or another room if ref is indoor) by absolute humidity (ah, g/m3). Humidity is "
-                "high from rh_threshold on and stays high until it falls below rh_threshold - "
-                "rh_hysteresis. ventilate_now: humidity high, reference air at least "
-                "min_ah_advantage drier, at most max_reference_excess warmer, and the humidity "
-                "an airing reaches (achievable_now, from the learned profile) at least "
-                "min_rh_drop below the current one; in the heating period airing costs heat, so the "
-                "humidity must also exceed rh_threshold by energy_rh_per_k per K the reference "
-                "is colder than the room (capped at mould_rh), otherwise energy_hold; within "
-                "airing_pause_min after an airing it waits (pause_hold) unless at mould_rh. "
-                "While airing is recommended it suggests an airing time: the minutes the "
-                "learned exchange rate needs to reach rh_threshold - airing_target_below "
-                "(before two airings are known a table by outdoor temperature), times "
-                "airing_time_factor, within airing_min_minutes and airing_max_minutes. "
-                "ventilation_useful: cooling, the room is "
-                "min_cooling_advantage warmer than the reference, nobody heats, in the heating "
-                "period only cooling_margin above target and from cooling_min_temp on, and "
-                "only if the humidity after the exchange stays below rh_threshold. "
-                "do_not_ventilate: humidity high but airing does not help. close_window: a "
-                "window is open although airing brings nothing.",
+                "Compare absolute humidity with reference air. From rh_threshold, recommend "
+                "short intense airing if the reference is min_ah_advantage drier and at most "
+                "max_reference_excess warmer. Only the immediate learned exchange effect "
+                "(without rebound) must achieve min_rh_drop. Humidity stays high until below "
+                "rh_threshold - rh_hysteresis. From mould_rh (default 65), always recommend "
+                "airing with drier air, regardless of effect or airing_pause_min. Below that "
+                "limit, respect airing_pause_min after closing. Airing time uses the learned "
+                "exchange rate or a weather table, with airing_time_factor and duration bounds. "
+                "airing means an own window is open: continue to the humidity target or until "
+                "the suggested time plus 2 minutes in the heating period; summer has no time "
+                "limit. close_window explains target reached, time over, harmful reference air "
+                "or saving heat below threshold. Cooling keeps min_cooling_advantage, "
+                "cooling_margin, cooling_min_temp and the humidity safety check. "
+                "Recommendations hold for 10 minutes to avoid flips, except window changes, "
+                "loss of drying advantage, blocking or humidity at mould_rh.",
             ),
             PromptBlock(
                 "profile",
@@ -233,7 +228,8 @@ PROMPTS: dict[str, PromptSpec] = {
                 "minimum, mean, maximum, day and night mean of the relative humidity (and mean "
                 "ah) in this season over days days; floor_14d = lowest humidity of the last 14 "
                 "days, airing included; achievable_now = humidity a usual airing leaves now "
-                "once moisture from walls came back; load_gph = rise of ah per hour with "
+                "once moisture from walls came back; achievable_immediate_now = humidity reached "
+                "immediately before rebound, used for min_rh_drop; load_gph = rise of ah per hour with "
                 "windows closed; airing.share = part of the difference to the reference air "
                 "an airing removes, rebound = part of that coming back within 30 minutes, "
                 "rate_per_sqrt_k = learned air exchange per minute and square root of the "
@@ -251,46 +247,41 @@ PROMPTS: dict[str, PromptSpec] = {
             ),
             PromptBlock(
                 "ranges",
-                "Choose the thresholds of each area from its own profile, not from textbook "
-                "values: a bathroom or a cellar can be humid by nature, and some humidity "
-                "cannot be aired away. Put rh_threshold above the usual level of the room "
-                "where airing really helps, with enough distance to floor_14d and "
-                "achievable_now; an alarm that airing can never clear is useless.",
+                "Use each area's configured values and limits in the payload as hard bounds. "
+                "rh_threshold must stay within configured - 5 to configured + 2 and never above "
+                "mould_rh. mould_rh may only be lowered, never raised above configured, minimum "
+                "55. rh_hysteresis must stay within 2..5. A humid room needs more frequent short "
+                "airings; high usual humidity or rebound must never justify ignoring it.",
             ),
             PromptBlock(
                 "stats",
                 "stats are since the last check: minutes observed, humid_min = minutes with "
-                "high humidity, mould_min = minutes at 70 % or more, rh_mean and rh_max, "
+                "high humidity, mould_min = minutes at mould_rh or more, rh_mean and rh_max, "
                 "rec_min = minutes airing was recommended, window_min = minutes an own window "
                 "was open, window_rec_min = of that while recommended, cross_min = of that "
                 "with windows in other rooms open as well, useless_min = minutes "
                 "the window was open although airing brought nothing, heat_window_min = "
                 "minutes open while the area was heated, blocked_min = minutes a blocking "
-                "entity held back the recommendation, energy_hold_min = minutes drying would help "
-                "but was held back to save heat, pause_hold_min = minutes held back while the room "
+                "entity held back the recommendation, pause_hold_min = minutes held back while the room "
                 "settled after airing, flips = changes of the recommendation "
                 "(many flips annoy the residents).",
             ),
             PromptBlock(
                 "goal",
-                "Protection against mould is the hard limit: humidity of 70 % or more must not "
-                "last, and rooms must not stay humid for long. Within that, avoid "
-                "recommendations that bring little and save heating energy: in the heating period "
-                "a room only slightly above its threshold waits for milder air or clearly "
-                "higher humidity, and airing is short and intense (heat_window_min, "
-                "useless_min). Avoid flipping and keep recommendations few and clear.",
+                "Humidity above rh_threshold must not last long; humidity at mould_rh must "
+                "not last longer than one airing when the reference air is drier. Save energy "
+                "through short intense airings (colder air means shorter) and the band below "
+                "rh_threshold. Keep recommendations few, clear and stable.",
             ),
             PromptBlock(
                 "levers",
                 "Levers: humid for long or mould_min > 0: lower rh_threshold or "
                 "min_ah_advantage, if the profile shows that airing helps; recommendations "
                 "that barely lower the humidity: raise min_rh_drop or min_ah_advantage; many "
-                "flips: raise rh_hysteresis; airing too often in the heating period without "
-                "need: raise rh_threshold towards the usual level or raise energy_rh_per_k; a room "
-                "humid for long while energy_hold_min is high: lower energy_rh_per_k; humidity "
-                "back at the threshold soon after airing (high rebound, rh_after_30 high): raise "
-                "airing_target_below or airing_time_factor, or lengthen airing_pause_min if it "
-                "settles by itself; humidity far below target after airing or heat_window_min "
+                "flips: raise rh_hysteresis within 2..5; humidity "
+                "back at the threshold soon after airing (high rebound, rh_after_30 high): adjust "
+                "airing time or pause only, never suppress the drying recommendation; shorten "
+                "the pause for recurring humidity; humidity far below target after airing or heat_window_min "
                 "high: lower airing_time_factor or airing_max_minutes; residents regularly airing "
                 "shorter or longer than suggested_min: move airing_time_factor towards what "
                 "worked; mould_min > 0 or a room with cold walls: lower mould_rh; summer overheating: lower "

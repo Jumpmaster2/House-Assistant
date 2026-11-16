@@ -321,12 +321,16 @@ def test_loaded_airing_parameters_repaired_idempotently():
 
     area = SimpleNamespace(
         area_id="room",
+        vent_start={k: p.default for k, p in VENT_PARAMS.items()},
         params=SimpleNamespace(**{k: p.default for k, p in PARAMS.items()}),
         vent_params=SimpleNamespace(**{k: p.default for k, p in VENT_PARAMS.items()}),
     )
     area.vent_params.airing_min_minutes = 15
     area.vent_params.airing_max_minutes = 5
     coordinator = SimpleNamespace(areas={"room": area}, limits=default_limits(), theta=16)
+    coordinator._clamp_vent_room = lambda area: HeatingCoordinator._clamp_vent_room(
+        coordinator, area
+    )
     HeatingCoordinator._clamp_to_limits(coordinator)
     assert area.vent_params.airing_min_minutes == 5
     HeatingCoordinator._clamp_to_limits(coordinator)

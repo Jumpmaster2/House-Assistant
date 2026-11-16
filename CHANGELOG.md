@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.0b21 (2026-11-16)
+
+### Added
+
+- An `airing` state, stable `reason`, `airing_minutes_left` and `always_rh` attributes for ventilation advice, with German and English panel texts. The binary recommendation stays on while airing.
+- An offline dashboard backup patcher in `scripts/patch_cards.py`, preserving room humidity sensors and adding airing-aware conditional cards.
+
+### Changed
+
+- Recommend short airing from the configured humidity threshold (default 60 %); always recommend with drier reference air from 65 %, bypassing pause and minimum drop. Only the immediate exchange effect counts for minimum drop; rebound no longer suppresses drying.
+- Replace the energy surcharge with short airing times, a frozen target and duration for open windows, a two-minute heating-period tolerance and an explained close recommendation below threshold. Summer has no airing time limit or close recommendation solely to save heat.
+- Keep humidity hysteresis within 2–5 percentage points and hold advice transitions for ten minutes, except window changes, blocking or the always-air limit.
+- Bound AI, stored and manual ventilation thresholds to configured − 5 through + 2 and never above the always-air value; AI may only lower that value, to at least 55 %. Migrate the legacy 70 % option default to 65 % and discard obsolete energy surcharge values.
+
 ## 1.0.0b20 (2026-10-30)
 
 ### Added

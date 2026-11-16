@@ -21,7 +21,6 @@ def new_vent_stats() -> dict[str, float]:
         "useless_min": 0.0,
         "heat_window_min": 0.0,
         "blocked_min": 0.0,
-        "energy_hold_min": 0.0,
         "pause_hold_min": 0.0,
         "flips": 0.0,
     }
@@ -69,8 +68,6 @@ def count_vent(
             add("heat_window_min")
     if result.state == VentilationState.BLOCKED:
         add("blocked_min")
-    if result.energy_hold:
-        add("energy_hold_min")
     if result.pause_hold:
         add("pause_hold_min")
     if previous not in (None, VentilationState.UNKNOWN) and previous != result.state:
@@ -93,7 +90,6 @@ def stats_payload(stats: dict[str, float]) -> dict[str, Any]:
             "useless_min",
             "heat_window_min",
             "blocked_min",
-            "energy_hold_min",
             "pause_hold_min",
             "flips",
         )
