@@ -361,8 +361,8 @@ async def test_ventilation_advice_rests(hass: HomeAssistant) -> None:
 
 async def test_panel(hass: HomeAssistant, hass_ws_client) -> None:
     entry = _entry()
-    client = await hass_ws_client(hass)
     await _setup(hass, entry)
+    client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "house_assistant/config"})
     assert (await client.receive_json())["result"]["vacation_entity"] == ACTIVE
     await client.send_json({"id": 2, "type": "house_assistant/house/config"})

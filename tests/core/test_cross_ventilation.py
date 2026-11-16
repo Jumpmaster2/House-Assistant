@@ -152,8 +152,8 @@ async def test_combination_switched_off_in_the_panel(
     hass: HomeAssistant, freezer, hass_ws_client
 ) -> None:
     entry = _entry()
-    client = await hass_ws_client(hass)
     await _setup(hass, freezer, entry, move=False)
+    client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "house_assistant/house/config"})
     plan = (await client.receive_json())["result"]["plan"]
     combinations = {c["key"]: c for c in plan["combinations"]["living"]}
