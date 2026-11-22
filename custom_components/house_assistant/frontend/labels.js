@@ -1367,8 +1367,8 @@ export const LABELS = {
         "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause."
        ],
        "short_recovery_percent": [
-        "Wartezeit nach kurzem Lüften",
-        "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
+        "Wartezeit nach dem Lüften",
+        "Anteil der mittleren gelernten Erholungszeit als feste Wartezeit nach kurzem Lüften und als Mindestwartezeit nach langem Lüften. Fest, wird nicht gelernt. 0 = keine Wartezeit."
        ]
       }
      },
@@ -3947,8 +3947,8 @@ export const LABELS = {
         "Airing at least this long but shorter than the window delay counts as brief airing: heating then waits. 0 = every airing counts. From the window delay on, the normal pause applies."
        ],
        "short_recovery_percent": [
-        "Wait after brief airing",
-        "Share of the learned recovery time that heating waits after a brief airing (50 % = half the wait). Fixed, not learned. 0 = no wait."
+        "Wait after airing",
+        "Share of the mean learned recovery time used as a fixed wait after brief airing and a minimum wait after long airing. Fixed, not learned. 0 = no wait."
        ]
       }
      },
@@ -5875,8 +5875,8 @@ export const HEATING = {
     "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause."
    ],
    "short_recovery_percent": [
-    "Wartezeit nach kurzem Lüften",
-    "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
+    "Wartezeit nach dem Lüften",
+    "Anteil der mittleren gelernten Erholungszeit als feste Wartezeit nach kurzem Lüften und als Mindestwartezeit nach langem Lüften. Fest, wird nicht gelernt. 0 = keine Wartezeit."
    ],
    "ventilation_rh_threshold": [
     "Feuchte-Schwelle",
@@ -6422,8 +6422,8 @@ export const HEATING = {
     "Airing at least this long but shorter than the window delay counts as brief airing: heating then waits. 0 = every airing counts. From the window delay on, the normal pause applies."
    ],
    "short_recovery_percent": [
-    "Wait after brief airing",
-    "Share of the learned recovery time that heating waits after a brief airing (50 % = half the wait). Fixed, not learned. 0 = no wait."
+    "Wait after airing",
+    "Share of the mean learned recovery time used as a fixed wait after brief airing and a minimum wait after long airing. Fixed, not learned. 0 = no wait."
    ],
    "ventilation_rh_threshold": [
     "Humidity threshold",

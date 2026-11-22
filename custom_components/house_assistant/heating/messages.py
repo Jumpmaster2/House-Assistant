@@ -28,8 +28,8 @@ _TEXTS: dict[str, dict[str, str]] = {
         "en": "Window open: heating demand paused.",
     },
     "recovery_start": {
-        "de": "Fenster geschlossen: Erholungszeit bis {until}.",
-        "en": "Window closed: recovery until {until}.",
+        "de": "Fenster geschlossen: Erholung bis spätestens {until}.",
+        "en": "Window closed: recovery until {until} at the latest.",
     },
     "recovery_end": {"de": "Erholung beendet.", "en": "Recovery finished."},
     "short_recovery_start": {

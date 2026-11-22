@@ -138,7 +138,7 @@ def test_window_pause_and_recovery() -> None:
     assert d.status == AreaStatus.RECOVERY and not d.want_on
     assert "recovery_start" in rt.events
     # temperature back to the value before airing -> recovery ends early
-    d = step(_input(now=t0 + 30 * 60, temp=20.95, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
+    d = step(_input(now=t0 + 35 * 60, temp=20.95, window_open=False), PARAMS, SETTINGS, LEARNED, rt)
     assert d.status != AreaStatus.RECOVERY
 
 
@@ -260,6 +260,30 @@ def test_short_wait_follows_the_learned_recovery_not_the_airing_length() -> None
     assert rt.recovery_until == 240 + 300  # not scaled by the share of the window delay
 
 
+@pytest.mark.parametrize("mean,wait", [(1000.0, 500.0), (None, 300.0)])
+@pytest.mark.parametrize("long_airing", [False, True])
+def test_airing_wait_uses_mean_recovery_with_fallback(mean, wait, long_airing) -> None:
+    learned = LearnedValues(recovery_s=600, recovery_mean_s=mean)
+    rt = AreaRuntime()
+    step(_input(now=0, temp=21.0, window_open=True), PARAMS, SETTINGS, learned, rt)
+    if long_airing:
+        step(_input(now=300, temp=20.5, window_open=True), PARAMS, SETTINGS, learned, rt)
+    closed = 320 if long_airing else 60
+    step(_input(now=closed, temp=20.5), PARAMS, SETTINGS, learned, rt)
+    if long_airing:
+        assert rt.recovery_min_until == closed + wait
+        assert rt.recovery_until == closed + 600
+    else:
+        assert rt.recovery_until == closed + wait
+    # long airing: the room is back at its old temperature, so only the minimum wait holds;
+    # short airing: the room is below target, so only the fixed wait holds the circuit off
+    temp = 21.0 if long_airing else 20.0
+    before = step(_input(now=closed + wait - 1, temp=temp), PARAMS, SETTINGS, learned, rt)
+    assert before.status == AreaStatus.RECOVERY
+    after = step(_input(now=closed + wait, temp=temp), PARAMS, SETTINGS, learned, rt)
+    assert after.status != AreaStatus.RECOVERY
+
+
 def test_short_recovery_window_reopened_then_closed_again() -> None:
     rt = AreaRuntime()
     step(_input(now=0, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
@@ -353,8 +377,13 @@ def test_vacation_and_preheat_status() -> None:
 
 
 def test_runtime_roundtrip() -> None:
-    rt = AreaRuntime(window_open_since=5.0, window_paused=True, emergency_active=True)
-    assert AreaRuntime.from_dict(rt.as_dict()).as_dict() == rt.as_dict()
+    rt = AreaRuntime(
+        window_open_since=5.0, window_paused=True, emergency_active=True, recovery_min_until=123.0
+    )
+    raw = rt.as_dict()
+    assert AreaRuntime.from_dict(raw).as_dict() == raw
+    del raw["recovery_min_until"]
+    assert AreaRuntime.from_dict(raw).recovery_min_until is None
 
 
 def test_params_from_dict_ignores_garbage() -> None:
@@ -412,7 +441,9 @@ def test_recovery_ends_exactly_one_margin_below_the_reference() -> None:
     step(_input(now=400.0, temp=20.5, window_open=True, **base), PARAMS, SETTINGS, LEARNED, rt)
     step(_input(now=500.0, temp=20.5, window_open=False, **base), PARAMS, SETTINGS, LEARNED, rt)
     # 20.9 >= 21.0 - 0.1 although 21.0 - 0.1 is 20.900000000000002 as a float
-    d = step(_input(now=560.0, temp=20.9, window_open=False, **base), PARAMS, SETTINGS, LEARNED, rt)
+    d = step(
+        _input(now=1400.0, temp=20.9, window_open=False, **base), PARAMS, SETTINGS, LEARNED, rt
+    )
     assert rt.recovery_until is None and d.status == AreaStatus.HEATING
 
 
@@ -475,3 +506,88 @@ def test_force_on_threshold_is_configurable() -> None:
     data = _input(temp=20.4)
     assert not thermostat(data, PARAMS, warming)[0]  # default: forced only from 1 K
     assert thermostat(data, PARAMS, warming, force_on_below=0.5)[0]
+
+
+@pytest.mark.parametrize("percent,bias,end", [(50, 0, 1220), (0, 0, 320), (100, -25, 620)])
+def test_long_airing_minimum_wait(percent, bias, end):
+    rt = AreaRuntime()
+    params = ControlParams(short_recovery_percent=percent, recovery_bias_min=bias)
+    step(_input(now=0, temp=21.5, target=22, window_open=True), params, SETTINGS, LEARNED, rt)
+    step(_input(now=300, temp=21.4, target=22, window_open=True), params, SETTINGS, LEARNED, rt)
+    d = step(_input(now=320, temp=21.4, target=22), params, SETTINGS, LEARNED, rt)
+    if end > 320:
+        assert d.status == AreaStatus.RECOVERY and not d.want_on
+        d = step(_input(now=end - 1, temp=21.4, target=22), params, SETTINGS, LEARNED, rt)
+        assert d.status == AreaStatus.RECOVERY and not d.want_on
+    d = step(_input(now=end, temp=21.4, target=22), params, SETTINGS, LEARNED, rt)
+    assert d.status != AreaStatus.RECOVERY and d.want_on
+
+
+def test_long_airing_waits_for_temperature_after_minimum():
+    rt = AreaRuntime()
+    step(_input(now=0, temp=21.5, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    step(_input(now=300, temp=20.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    step(_input(now=320, temp=20.0), PARAMS, SETTINGS, LEARNED, rt)
+    assert (
+        step(_input(now=1220, temp=20.0), PARAMS, SETTINGS, LEARNED, rt).status
+        == AreaStatus.RECOVERY
+    )
+    assert (
+        step(_input(now=2120, temp=20.0), PARAMS, SETTINGS, LEARNED, rt).status
+        != AreaStatus.RECOVERY
+    )
+
+
+def test_window_pause_clears_minimum_recovery() -> None:
+    rt = AreaRuntime(recovery_until=2000, recovery_min_until=1500, temp_before_open=21.0)
+    step(_input(now=0, temp=20.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    step(_input(now=300, temp=20.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    assert rt.window_paused and rt.recovery_min_until is None
+    assert "window_pause" in rt.events
+
+
+def test_reopening_briefly_preserves_long_recovery_minimum() -> None:
+    rt = AreaRuntime()
+    step(_input(now=0, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    step(_input(now=300, temp=20.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    step(_input(now=320, temp=20.0), PARAMS, SETTINGS, LEARNED, rt)
+    assert rt.recovery_min_until == 1220
+    step(_input(now=400, temp=21.0, window_open=True), PARAMS, SETTINGS, LEARNED, rt)
+    d = step(_input(now=430, temp=21.0), PARAMS, SETTINGS, LEARNED, rt)
+    assert d.status == AreaStatus.RECOVERY and rt.recovery_min_until == 1220
+    assert (
+        step(_input(now=1219, temp=21.0), PARAMS, SETTINGS, LEARNED, rt).status
+        == AreaStatus.RECOVERY
+    )
+    assert (
+        step(_input(now=1220, temp=21.0), PARAMS, SETTINGS, LEARNED, rt).status
+        != AreaStatus.RECOVERY
+    )
+
+
+def test_positive_bias_does_not_extend_minimum() -> None:
+    rt = AreaRuntime()
+    params = ControlParams(recovery_bias_min=10)
+    step(_input(now=0, temp=21.0, window_open=True), params, SETTINGS, LEARNED, rt)
+    step(_input(now=300, temp=20.0, window_open=True), params, SETTINGS, LEARNED, rt)
+    step(_input(now=320, temp=20.0), params, SETTINGS, LEARNED, rt)
+    assert rt.recovery_min_until == 1220
+    assert rt.recovery_until == 2720
+    assert (
+        step(_input(now=1220, temp=21.0), params, SETTINGS, LEARNED, rt).status
+        != AreaStatus.RECOVERY
+    )
+
+
+def test_zero_learned_recovery_has_no_minimum_wait() -> None:
+    rt = AreaRuntime()
+    learned = LearnedValues(recovery_s=0)
+    params = ControlParams(recovery_bias_min=10)
+    step(_input(now=0, temp=21.0, window_open=True), params, SETTINGS, learned, rt)
+    step(_input(now=300, temp=20.0, window_open=True), params, SETTINGS, learned, rt)
+    step(_input(now=320, temp=20.0), params, SETTINGS, learned, rt)
+    assert rt.recovery_min_until == 320 and rt.recovery_until == 920
+    assert (
+        step(_input(now=321, temp=21.0), params, SETTINGS, learned, rt).status
+        != AreaStatus.RECOVERY
+    )

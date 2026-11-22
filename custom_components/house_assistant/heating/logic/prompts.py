@@ -112,7 +112,9 @@ PROMPTS: dict[str, PromptSpec] = {
                 "overshoot_factor reaches target + hysteresis_off. Heating pauses after a window "
                 "(or a draft through windows open in other rooms) was open window_delay_min and "
                 "waits the learned recovery time + recovery_bias_min after closing; the wait "
-                "ends early once the room is back at its temperature before airing. Once "
+                "can end early once the room is back at its temperature before airing, but only "
+                "after a minimum wait of short_recovery_percent of the mean learned recovery time, "
+                "capped by the full recovery time. Once "
                 "learned.recovery_model is present, the recovery time follows the airing: "
                 "base_min + per_k_min * drop_k + per_kh_min * cold_kh, within 0.25 to 3 times "
                 "recovery_min.",
@@ -129,7 +131,7 @@ PROMPTS: dict[str, PromptSpec] = {
                 "in other rooms, cross_min = an own window together with windows in other rooms "
                 "(cross ventilation), airings = number of openings, rec_min = minutes waiting "
                 "for the recovery after closing, rec_cold_min = of that below target - 0.3 K "
-                "(cold_min leaves airing and recovery out). heat (if a "
+                "(both include the minimum wait; cold_min leaves airing and recovery out). heat (if a "
                 "heat meter exists) is the measured heat of all circuits between two meter "
                 "readings since the last check: kwh, hours and kwh_per_kh = kWh per Kelvin hour "
                 "of demand, the best efficiency measure; the meter reports seldom and coarsely, "
@@ -179,7 +181,7 @@ PROMPTS: dict[str, PromptSpec] = {
                 "hysteresis_off; sun_over_kh high: raise sun_factor; cold_min > 0: raise "
                 "lead_factor or lower hysteresis_on; very short avg_run_min with many cycles and "
                 "cold_min 0: raise hysteresis_on a little. rec_cold_min high, airings not_back "
-                "or still cold when heating came on late: lower recovery_bias_min; airings "
+                "or still cold when heating came on late: consider lowering recovery_bias_min, but the minimum wait may still apply; airings "
                 "heated right after wait_min and over_kh after them: raise recovery_bias_min; "
                 "heating paused for short openings that barely cool (drop_k near 0): raise "
                 "window_delay_min; long airings that cool a lot before the pause: lower it.",
