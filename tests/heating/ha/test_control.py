@@ -1402,7 +1402,9 @@ async def test_long_airing_small_drop_waits_and_passes_full_recovery_to_learning
     assert hass.states.get("sensor.living_room_status").state == "window_open"
     hass.states.async_set("sensor.living_room_temperature", "18.9")
     hass.states.async_set("binary_sensor.living_room_window", "off")
-    with patch.object(area.learner, "on_window_closed", wraps=area.learner.on_window_closed) as closed:
+    with patch.object(
+        area.learner, "on_window_closed", wraps=area.learner.on_window_closed
+    ) as closed:
         await _tick(hass, freezer, 20)  # open for 5:20
     ts, _, open_seconds, wait_s = closed.call_args.args
     assert open_seconds == 320
@@ -1417,8 +1419,10 @@ async def test_long_airing_small_drop_waits_and_passes_full_recovery_to_learning
     assert hass.states.get("sensor.living_room_status").state != "recovery"
     assert hass.states.get("input_boolean.heating_circuit_1").state == "on"
     messages = [e.data["message"] for e in events]
-    assert any(m.startswith("Window closed: recovery until ") and m.endswith(" at the latest.")
-               for m in messages)
+    assert any(
+        m.startswith("Window closed: recovery until ") and m.endswith(" at the latest.")
+        for m in messages
+    )
 
 
 async def test_airing_below_the_minimum_is_not_logged(

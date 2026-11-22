@@ -220,7 +220,8 @@ def _update_window(
             rt.recovery_until = data.now + recovery
             wait = (
                 max(0.0, learned.effective_recovery_mean_s)
-                * max(0.0, params.short_recovery_percent) / 100
+                * max(0.0, params.short_recovery_percent)
+                / 100
             )
             rt.recovery_min_until = data.now + min(wait, recovery)
             rt.short_recovery = False
