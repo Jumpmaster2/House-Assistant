@@ -1292,6 +1292,9 @@ async def test_cross_airing_and_recovery_reach_the_ai(
         assert hass.states.get("sensor.living_room_status").state == "recovery"
         hass.states.async_set("sensor.living_room_temperature", "19.0")
         await _advance(hass, freezer, 1)
+        assert hass.states.get("sensor.living_room_status").state == "recovery"
+        # Initial learned recovery is 30 minutes; 50% gives a 15-minute minimum.
+        await _advance(hass, freezer, 10)
         assert hass.states.get("sensor.living_room_status").state != "recovery"
 
         coordinator = heating(hass.config_entries.async_entries(DOMAIN)[0])
@@ -1381,6 +1384,41 @@ async def test_short_airing_waits_a_fixed_time_and_is_logged(
     assert any(m.startswith("Aired briefly: waiting until ") for m in messages)
     assert "Wait after brief airing finished." in messages
     assert not any(m.startswith("Window closed: recovery until") for m in messages)
+
+
+async def test_long_airing_small_drop_waits_and_passes_full_recovery_to_learning(
+    hass: HomeAssistant, base_states, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(IN_SEASON)
+    hass.states.async_set("sensor.living_room_temperature", "19.0")
+    entry = make_entry()
+    await _setup(hass, entry)
+    area = next(iter(heating(entry).areas.values()))
+    events = async_capture_events(hass, EVENT_LOGBOOK)
+    await _advance(hass, freezer, 1)
+    hass.states.async_set("binary_sensor.living_room_window", "on")
+    await _tick(hass, freezer, 60)
+    await _tick(hass, freezer, 300)
+    assert hass.states.get("sensor.living_room_status").state == "window_open"
+    hass.states.async_set("sensor.living_room_temperature", "18.9")
+    hass.states.async_set("binary_sensor.living_room_window", "off")
+    with patch.object(area.learner, "on_window_closed", wraps=area.learner.on_window_closed) as closed:
+        await _tick(hass, freezer, 20)  # open for 5:20
+    ts, _, open_seconds, wait_s = closed.call_args.args
+    assert open_seconds == 320
+    assert wait_s == pytest.approx(area.runtime.recovery_until - ts)
+    assert wait_s == pytest.approx(1800)  # full initial recovery, not the 15-minute minimum
+    assert hass.states.get("sensor.living_room_status").state == "recovery"
+    assert hass.states.get("input_boolean.heating_circuit_1").state == "off"
+    await _advance(hass, freezer, 14)
+    assert hass.states.get("sensor.living_room_status").state == "recovery"
+    assert hass.states.get("input_boolean.heating_circuit_1").state == "off"
+    await _advance(hass, freezer, 2)
+    assert hass.states.get("sensor.living_room_status").state != "recovery"
+    assert hass.states.get("input_boolean.heating_circuit_1").state == "on"
+    messages = [e.data["message"] for e in events]
+    assert any(m.startswith("Window closed: recovery until ") and m.endswith(" at the latest.")
+               for m in messages)
 
 
 async def test_airing_below_the_minimum_is_not_logged(

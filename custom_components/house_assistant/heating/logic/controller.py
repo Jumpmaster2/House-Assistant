@@ -95,6 +95,12 @@ class LearnedValues:
     overshoot_k: float = 0.0  # expected overshoot if switched off now
     pipe_rate_kph: float = 0.0  # gain from the other circuits, already scaled
     pv_plan_kw: float = 0.0  # PV power expected over the lead time (used in cool_rate_kph)
+    recovery_mean_s: float | None = None
+
+    @property
+    def effective_recovery_mean_s(self) -> float:
+        """Return the mean recovery time, falling back to the per-airing value."""
+        return self.recovery_s if self.recovery_mean_s is None else self.recovery_mean_s
 
 
 @dataclass
@@ -105,6 +111,7 @@ class AreaRuntime:
     temp_before_open: float | None = None
     window_paused: bool = False
     recovery_until: float | None = None
+    recovery_min_until: float | None = None
     short_recovery: bool = False  # recovery after airing shorter than the window delay
     last_window_change: float | None = None
     below_emergency_since: float | None = None
@@ -185,7 +192,7 @@ def _update_window(
     """Track window state. Returns True while recovering after airing.
 
     Airing shorter than the window delay but at least ``short_airing_min`` starts a
-    short recovery: a fixed wait of the learned recovery time times
+    short recovery: a fixed wait of the mean learned recovery time times
     ``short_recovery_percent``. It ends only when the time has passed, not when the
     temperature is back.
     """
@@ -201,6 +208,7 @@ def _update_window(
         if not rt.window_paused and data.now - rt.window_open_since >= params.window_delay_min * 60:
             rt.window_paused = True
             rt.recovery_until = None
+            rt.recovery_min_until = None
             rt.short_recovery = False
             rt.events.append("window_pause")
     elif rt.window_open_since is not None:
@@ -210,10 +218,16 @@ def _update_window(
         if rt.window_paused:
             recovery = max(0.0, learned.recovery_s + params.recovery_bias_min * 60)
             rt.recovery_until = data.now + recovery
+            wait = (
+                max(0.0, learned.effective_recovery_mean_s)
+                * max(0.0, params.short_recovery_percent) / 100
+            )
+            rt.recovery_min_until = data.now + min(wait, recovery)
             rt.short_recovery = False
             rt.events.append("recovery_start")
         elif open_s >= params.short_airing_min * 60 and params.window_delay_min > 0:
-            wait = max(0.0, learned.recovery_s) * params.short_recovery_percent / 100
+            rt.recovery_min_until = None
+            wait = max(0.0, learned.effective_recovery_mean_s) * params.short_recovery_percent / 100
             if wait > 0:
                 rt.recovery_until = data.now + wait
                 rt.short_recovery = True
@@ -226,6 +240,7 @@ def _update_window(
     if rt.short_recovery:
         if data.now >= rt.recovery_until:
             rt.recovery_until = None
+            rt.recovery_min_until = None
             rt.short_recovery = False
             rt.events.append("short_recovery_end")
             return False
@@ -235,8 +250,11 @@ def _update_window(
         and rt.temp_before_open is not None
         and data.temp - rt.temp_before_open >= -RECOVERED_MARGIN - EPS
     )
-    if recovered or data.now >= rt.recovery_until:
+    if data.now >= rt.recovery_until or (
+        recovered and (rt.recovery_min_until is None or data.now >= rt.recovery_min_until)
+    ):
         rt.recovery_until = None
+        rt.recovery_min_until = None
         rt.events.append("recovery_end")
         return False
     return True

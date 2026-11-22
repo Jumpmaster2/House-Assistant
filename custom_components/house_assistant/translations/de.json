@@ -934,11 +934,11 @@
               "description": "Kurzes Lüften und die Wartezeit danach. Jederzeit änderbar, auch bei bestehenden Räumen.",
               "data": {
                 "short_airing_min": "Kurz lüften ab",
-                "short_recovery_percent": "Wartezeit nach kurzem Lüften"
+                "short_recovery_percent": "Wartezeit nach dem Lüften"
               },
               "data_description": {
                 "short_airing_min": "Lüften, das mindestens so lange, aber kürzer als die Fensterverzögerung dauert, gilt als kurzes Lüften: danach wartet die Heizung. 0 = jedes Lüften zählt. Ab der Fensterverzögerung gilt die normale Pause.",
-                "short_recovery_percent": "Anteil der gelernten Erholungszeit, den die Heizung nach kurzem Lüften wartet (50 % = halbe Wartezeit). Fest, wird nicht gelernt. 0 = keine Wartezeit."
+                "short_recovery_percent": "Anteil der mittleren gelernten Erholungszeit als feste Wartezeit nach kurzem Lüften und als Mindestwartezeit nach langem Lüften. Fest, wird nicht gelernt. 0 = keine Wartezeit."
               }
             },
             "ventilation": {

@@ -1710,6 +1710,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             dead_time_s=learner.dead_time.value,
             # follows the airing running now once enough airings are known
             recovery_s=learner.recovery_s(area.temp),
+            recovery_mean_s=learner.recovery.value,
             overshoot_k=learner.expected_overshoot(run_hours),
             pv_plan_kw=round(pv_plan, 2),
         )
