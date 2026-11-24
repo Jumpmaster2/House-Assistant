@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0b23 (2026-11-24)
+
+### Added
+
+- A visit of the house: switch, start and end (`datetime`) and a *Visit active* binary sensor, with the time rules of the own vacation, logbook entries, the websocket command `house/visit` and a card in the house panel.
+- Per heating room *During a visit* (`visit_role`): keep the floor warm (target raised by `visit_target_raise`, default 0.5 K, up to the room maximum, and floor runs of `visit_floor_minutes`, default 15 min per hour, also on days without heating; paused at night and above the visit target plus `visit_floor_max_over`), heat a little less (target lowered by `visit_others_lower`, default 0.5 K, not below the room minimum) or unchanged.
+- The floor is warmed ahead of a planned visit by the learned dead time plus the preheat reserve. New room states `visit` and `visit_floor`, thermostat attributes `visit_active` and `visit_role`.
+
+### Changed
+
+- The vacation wins over a visit. Windows, recovery after airing, frost protection, off and out of season come before the floor runs.
+- The AI check and the nightly decision see the visit and a prompt block asks not to counter it; visit days are left out of rule learning and rule errors.
+
 ## 1.0.0b22 (2026-11-22)
 
 ### Changed

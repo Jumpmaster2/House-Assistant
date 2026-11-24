@@ -302,6 +302,7 @@ async def test_vacation_storage_roundtrip(corrupt, tmp_path, caplog):
         "departure": "2026-10-29T12:00:00+00:00",
         "return": "2026-11-03T12:00:00+00:00",
         "since": "2026-10-29T12:00:00+00:00",
+        "visit": {"on": True, "start": None, "end": "2026-10-30T18:00:00+00:00"},
     }
     if corrupt:
         raw["return"] = []

@@ -1,5 +1,5 @@
 """Entities of the house: the vacation switch, departure, return and whether it is
-vacation (switch or an external source)."""
+vacation (switch or an external source); the same for the visit."""
 
 from __future__ import annotations
 
@@ -124,6 +124,58 @@ class VacationActive(HouseEntity, BinarySensorEntity):
         }
 
 
+class VisitSwitch(HouseEntity, SwitchEntity):
+    """The visit of the house (kept across restarts)."""
+
+    def __init__(self, house: HouseModule) -> None:
+        super().__init__(house, "visit")
+
+    @property
+    def is_on(self) -> bool:
+        return self.house.visit.on
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self.house.set_visit_on(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self.house.set_visit_on(False)
+
+
+class VisitTime(HouseEntity, DateTimeEntity):
+    """Start or end of the visit (empty when none is planned)."""
+
+    def __init__(self, house: HouseModule, key: str) -> None:
+        super().__init__(house, key)
+        self._start = key == "visit_start"
+
+    @property
+    def native_value(self) -> datetime | None:
+        visit = self.house.visit
+        return visit.departure if self._start else visit.return_at
+
+    async def async_set_value(self, value: datetime) -> None:
+        if self._start:
+            self.house.set_visit_start(value)
+        else:
+            self.house.set_visit_end(value)
+
+
+class VisitActive(HouseEntity, BinarySensorEntity):
+    """On while the visit runs."""
+
+    def __init__(self, house: HouseModule) -> None:
+        super().__init__(house, "visit_active")
+
+    @property
+    def is_on(self) -> bool:
+        return self.house.visit.on
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        visit = self.house.visit
+        return {"start": _local(visit.departure), "end": _local(visit.return_at)}
+
+
 def _local(value: datetime | None) -> str | None:
     return dt_util.as_local(value).isoformat() if value is not None else None
 
@@ -138,4 +190,14 @@ def vacation_entities(house: HouseModule, platform: Platform) -> list[Entity]:
         ]
     if platform is Platform.BINARY_SENSOR:
         return [VacationActive(house)]
+    return []
+
+
+def visit_entities(house: HouseModule, platform: Platform) -> list[Entity]:
+    if platform is Platform.SWITCH:
+        return [VisitSwitch(house)]
+    if platform is Platform.DATETIME:
+        return [VisitTime(house, "visit_start"), VisitTime(house, "visit_end")]
+    if platform is Platform.BINARY_SENSOR:
+        return [VisitActive(house)]
     return []

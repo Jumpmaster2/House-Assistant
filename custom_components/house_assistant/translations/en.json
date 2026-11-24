@@ -74,15 +74,23 @@
         }
       },
       "heating_vacation": {
-        "title": "Vacation",
-        "description": "Vacation temperature and preheating for the return. The vacation itself, its external sources and the return are set in the house.",
+        "title": "Vacation and visit",
+        "description": "Vacation temperature and preheating for the return, and the heating during a visit. The vacation and the visit themselves, their times and the external sources of the vacation are set in the house.",
         "data": {
           "vacation_temperature": "Vacation temperature",
-          "preheat_reserve": "Preheat reserve"
+          "preheat_reserve": "Preheat reserve",
+          "visit_target_raise": "Visit: raise target by",
+          "visit_others_lower": "Visit: other rooms cooler by",
+          "visit_floor_minutes": "Visit: floor run time per hour",
+          "visit_floor_max_over": "Visit: no floor runs above"
         },
         "data_description": {
           "vacation_temperature": "Target for all rooms during vacation.",
-          "preheat_reserve": "Additional time added to the calculated preheating time."
+          "preheat_reserve": "Additional time added to the calculated preheating time.",
+          "visit_target_raise": "Rooms set to keep the floor warm get this much more during a visit, at most up to the room maximum.",
+          "visit_others_lower": "Rooms set to heat a little less are lowered by this much during a visit, not below the room minimum. The heat of the living area spreads through open doors.",
+          "visit_floor_minutes": "A room set to keep the floor warm runs at least this long per hour, so the floor is not cold. Paused at night (night time of the ventilation). 0 = only the raised target.",
+          "visit_floor_max_over": "No floor runs while the room is this much above its visit target."
         }
       },
       "heating_decision": {
@@ -468,15 +476,23 @@
         }
       },
       "heating_vacation": {
-        "title": "Vacation",
-        "description": "Vacation temperature and preheating for the return. The vacation itself, its external sources and the return are set in the house.",
+        "title": "Vacation and visit",
+        "description": "Vacation temperature and preheating for the return, and the heating during a visit. The vacation and the visit themselves, their times and the external sources of the vacation are set in the house.",
         "data": {
           "vacation_temperature": "Vacation temperature",
-          "preheat_reserve": "Preheat reserve"
+          "preheat_reserve": "Preheat reserve",
+          "visit_target_raise": "Visit: raise target by",
+          "visit_others_lower": "Visit: other rooms cooler by",
+          "visit_floor_minutes": "Visit: floor run time per hour",
+          "visit_floor_max_over": "Visit: no floor runs above"
         },
         "data_description": {
           "vacation_temperature": "Target for all rooms during vacation (e.g. 17 °C).",
-          "preheat_reserve": "Additional time added to the calculated preheating time (e.g. 30 min)."
+          "preheat_reserve": "Additional time added to the calculated preheating time (e.g. 30 min).",
+          "visit_target_raise": "Rooms set to keep the floor warm get this much more during a visit, at most up to the room maximum.",
+          "visit_others_lower": "Rooms set to heat a little less are lowered by this much during a visit, not below the room minimum. The heat of the living area spreads through open doors.",
+          "visit_floor_minutes": "A room set to keep the floor warm runs at least this long per hour, so the floor is not cold. Paused at night (night time of the ventilation). 0 = only the raised target.",
+          "visit_floor_max_over": "No floor runs while the room is this much above its visit target."
         }
       },
       "heating_rules": {
@@ -885,7 +901,8 @@
                 "max_target": "Maximum target",
                 "min_on_time": "Minimum on time",
                 "min_off_time": "Minimum off time",
-                "heating_type": "Heating type"
+                "heating_type": "Heating type",
+                "visit_role": "During a visit"
               },
               "data_description": {
                 "heater_switch": "Switch of the actuator (e.g. a relay). Leave empty for a room with ventilation recommendation only.",
@@ -894,7 +911,8 @@
                 "max_target": "Highest value of the thermostat card.",
                 "min_on_time": "Always respected (protects the actuator). Not learned.",
                 "min_off_time": "Always respected. Not learned.",
-                "heating_type": "How the circuit heats. A floor stores heat for hours, radiators react within minutes; the AI judges the learned values with this in mind."
+                "heating_type": "How the circuit heats. A floor stores heat for hours, radiators react within minutes; the AI judges the learned values with this in mind.",
+                "visit_role": "Keep the floor warm: a raised target and a fixed run time per hour, also without a heating day, so guests do not get cold feet. Heat a little less: a lowered target. The values are in the settings under vacation and visit."
               }
             },
             "learned_values": {
@@ -1799,6 +1817,13 @@
         "large": "Large (e.g. double casement)",
         "door": "Door (e.g. balcony door)"
       }
+    },
+    "visit_role": {
+      "options": {
+        "none": "Unchanged",
+        "warm_floor": "Keep the floor warm (raised target)",
+        "reduce": "Heat a little less"
+      }
     }
   },
   "entity": {
@@ -1862,6 +1887,17 @@
           },
           "open_windows": {
             "name": "Open windows"
+          }
+        }
+      },
+      "visit_active": {
+        "name": "Visit active",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
           }
         }
       }
@@ -2122,6 +2158,8 @@
           "frost_protection": "Frost protection",
           "vacation": "Vacation",
           "preheat": "Preheating for return",
+          "visit": "Visit",
+          "visit_floor": "Visit: warming floor",
           "emergency": "Emergency rule",
           "sensor_error": "Sensor error",
           "actuator_unavailable": "Actuator unavailable",
@@ -2147,6 +2185,9 @@
       },
       "vacation": {
         "name": "Vacation"
+      },
+      "visit": {
+        "name": "Visit"
       }
     },
     "datetime": {
@@ -2155,6 +2196,12 @@
       },
       "vacation_return": {
         "name": "Vacation return"
+      },
+      "visit_start": {
+        "name": "Visit start"
+      },
+      "visit_end": {
+        "name": "Visit end"
       }
     }
   },
@@ -2191,6 +2238,12 @@
     },
     "invalid_reading": {
       "message": "The meter reading must be a finite, nonnegative number."
+    },
+    "visit_end_in_past": {
+      "message": "The end of the visit is in the past."
+    },
+    "visit_start_after_end": {
+      "message": "The start of the visit must be before its end."
     }
   },
   "services": {

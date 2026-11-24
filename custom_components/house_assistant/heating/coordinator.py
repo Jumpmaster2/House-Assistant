@@ -35,7 +35,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import PowerConverter, TemperatureConverter
 
-from ..const import CONF_LANGUAGE, SIGNAL_VACATION
+from ..const import CONF_LANGUAGE, SIGNAL_VACATION, SIGNAL_VISIT
 from ..core.house import (
     CONF_FLOOR_AREA,
     CONF_TILT_SENSORS,
@@ -53,6 +53,7 @@ from ..core.store_validation import boolean, dataclass_schema, number, optional,
 from ..core.store_validation import text as stored_text
 from .ai_client import AiAuthError, AiError, ClaudeClient
 from .const import (
+    AREA_DEFAULTS,
     CONF_AI_CHECK_DAYS,
     CONF_AI_EFFORT,
     CONF_AI_MODEL,
@@ -74,8 +75,10 @@ from .const import (
     CONF_HUMIDITY_SENSOR,
     CONF_LIMITS,
     CONF_MAX_OUTPUT_TOKENS,
+    CONF_MAX_TARGET,
     CONF_MIN_OFF,
     CONF_MIN_ON,
+    CONF_MIN_TARGET,
     CONF_NIGHT_END,
     CONF_NIGHT_START,
     CONF_NIGHTLY_TIME,
@@ -133,6 +136,11 @@ from .const import (
     CONF_VENT_RH,
     CONF_VENT_TARGET_BELOW,
     CONF_VENT_TIME_FACTOR,
+    CONF_VISIT_FLOOR_MAX_OVER,
+    CONF_VISIT_FLOOR_MINUTES,
+    CONF_VISIT_LOWER,
+    CONF_VISIT_RAISE,
+    CONF_VISIT_ROLE,
     CONF_WEATHER,
     CONF_WINDOW_DELAY,
     DEFAULTS,
@@ -144,6 +152,9 @@ from .const import (
     NAME,
     SUBENTRY_ROOM,
     TICK_SECONDS,
+    VISIT_NONE,
+    VISIT_REDUCE,
+    VISIT_WARM_FLOOR,
 )
 from .logic import heating_day as hd
 from .logic.ai_policy import (
@@ -320,6 +331,10 @@ class Area:
     vacation: bool = False
     preheat: bool = False
     preheat_from: float | None = None  # start of preheating for the return
+    visit_role: str = VISIT_NONE
+    visit: bool = False  # the visit changes the target of this area now
+    visit_floor_from: float | None = None  # start of the floor pulses for a planned visit
+    visit_pulses: bool = False  # a floor pulse of the visit runs the circuit now
     decision: ControlDecision | None = None
     ventilation: VentilationResult | None = None
     status: str = AreaStatus.IDLE
@@ -448,6 +463,11 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         self._hourly_ts: float | None = None
         self.season_active = False
         self.vacation = False
+        self._visit_logged: set[str] = set()  # areas whose floor is warmed ahead
+        # the visit of the house (no effect on vacation): on, planned start, end
+        self.visit = False
+        self.visit_start: float | None = None
+        self.visit_end: float | None = None
         self._last_tick: float | None = None
         self._unsubs: list[Callable[[], None]] = []
         self._unsub_check: Callable[[], None] | None = None
@@ -648,6 +668,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                         "decided_at": moment,
                         "heat": boolean,
                         "vacation": boolean,
+                        "visit": boolean,
                         "evaluated": boolean,
                         "confidence": optional(number),
                         "rule": optional({}),
@@ -1065,6 +1086,9 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         self._unsubs.append(
             async_dispatcher_connect(self.hass, SIGNAL_VACATION, self._on_vacation_change)
         )
+        self._unsubs.append(
+            async_dispatcher_connect(self.hass, SIGNAL_VISIT, self._on_vacation_change)
+        )
         if switches:
             self._unsubs.append(
                 async_track_state_change_event(self.hass, sorted(switches), self._on_switch_change)
@@ -1425,6 +1449,13 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         house = self.module.runtime.house
         self.vacation = house.applies() if house is not None else False
         return_ts = self._return_ts() if self.vacation else None
+        visit_on, self.visit_start, self.visit_end = (
+            house.visit_times() if house is not None else (False, None, None)
+        )
+        self.visit = visit_on and not self.vacation
+        if self.visit and (current := self.current_day) is not None and not current.get("visit"):
+            current["visit"] = True  # the day does not count for learning the rule
+            self._save()
         heating_day = self.heating_day
 
         for area in self.areas.values():
@@ -1818,6 +1849,74 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         state = self._state(entity_id)
         return str(state.attributes.get("friendly_name") or entity_id) if state else entity_id
 
+    def _visit(self, area: Area, ts: float, learned: LearnedValues) -> tuple[float, float | None]:
+        """Does the visit change this area now? Sets ``area.visit``; returns the floor
+        pulse minutes per hour (0 at night) and how far above the target pulses stop.
+
+        The floor of a warm-floor area is warmed ahead of a planned visit, by the dead
+        time and the preheat reserve: it should be warm when the guests arrive.
+        """
+        role = str(area.cfg.get(CONF_VISIT_ROLE) or VISIT_NONE)
+        area.visit_role = role
+        area.visit = False
+        area.visit_floor_from = None
+        if self.vacation or role == VISIT_NONE:
+            return 0.0, None
+        if role == VISIT_REDUCE:
+            area.visit = self.visit
+            return 0.0, None
+        if role != VISIT_WARM_FLOOR:
+            return 0.0, None
+        area.visit = self.visit
+        start = self.visit_start
+        if not self.visit and start is not None and start > ts:
+            area.visit_floor_from = start - (
+                learned.dead_time_s + float(self.opt(CONF_PREHEAT_RESERVE)) * 60
+            )
+            area.visit = ts >= area.visit_floor_from
+            if area.visit and area.area_id not in self._visit_logged:
+                self._visit_logged.add(area.area_id)
+                self._log("visit_preheat", area)
+        if not self.visit and area.visit_floor_from is None:
+            self._visit_logged.discard(area.area_id)
+        if not area.visit:
+            return 0.0, None
+        now = dt_util.as_local(dt_util.utc_from_timestamp(ts)).time()
+        night_start = _night_time(self.opt(CONF_NIGHT_START), 20)
+        night_end = _night_time(self.opt(CONF_NIGHT_END), 8)
+        night = (
+            (now >= night_start or now < night_end)
+            if night_start > night_end
+            else (night_start <= now < night_end)
+        )
+        minutes = 0.0 if night else float(self.opt(CONF_VISIT_FLOOR_MINUTES))
+        return minutes, float(self.opt(CONF_VISIT_FLOOR_MAX_OVER))
+
+    def _visit_payload(self) -> dict[str, Any] | None:
+        """The visit for the AI, None without one."""
+        if not self.visit and self.visit_start is None:
+            return None
+
+        def local(ts: float | None) -> str | None:
+            if ts is None:
+                return None
+            return dt_util.as_local(dt_util.utc_from_timestamp(ts)).strftime("%Y-%m-%d %H:%M")
+
+        return {
+            "active": self.visit,
+            "start": local(self.visit_start),
+            "end": local(self.visit_end),
+        }
+
+    def _visit_target(self, area: Area, target: float) -> float:
+        """Target during the visit: raised for a warm floor, lowered for the others, never
+        beyond the limits of the area (and never the other way round)."""
+        low = float(area.cfg.get(CONF_MIN_TARGET, AREA_DEFAULTS[CONF_MIN_TARGET]))
+        high = float(area.cfg.get(CONF_MAX_TARGET, AREA_DEFAULTS[CONF_MAX_TARGET]))
+        if area.visit_role == VISIT_WARM_FLOOR:
+            return round(max(target, min(target + float(self.opt(CONF_VISIT_RAISE)), high)), 2)
+        return round(min(target, max(target - float(self.opt(CONF_VISIT_LOWER)), low)), 2)
+
     async def _control_area(
         self, area: Area, ts: float, minutes: float, heating_day: bool, return_ts: float | None
     ) -> None:
@@ -1848,6 +1947,11 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 area.preheat_from = start
             if not area.preheat:
                 target = float(self.opt(CONF_VACATION_TEMP))
+        floor_minutes, floor_cap = self._visit(area, ts, learned)
+        if area.visit:
+            target = self._visit_target(area, target)
+            if floor_cap is not None:
+                floor_cap = target + floor_cap
         area.effective_target = target
 
         window_open_since = rt.window_open_since
@@ -1859,13 +1963,18 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 target=target,
                 hvac_on=area.hvac_on,
                 season_active=self.heats_now,
-                heating_day=heating_day or area.preheat,
+                heating_day=heating_day
+                or area.preheat
+                or (area.visit and area.visit_role == VISIT_WARM_FLOOR),
                 frost_temp=float(self.opt(CONF_FROST_TEMP)),
                 window_open=area.window_open,
                 switch_on=area.switch_on,
                 last_switch_change=area.last_switch_change,
                 vacation=self.vacation,
                 preheat=area.preheat,
+                visit=area.visit and area.visit_role == VISIT_WARM_FLOOR,
+                floor_minutes=floor_minutes,
+                floor_cap=floor_cap,
             ),
             area.params,
             area.settings,
@@ -1874,6 +1983,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         )
         area.decision = decision
         area.status = decision.status
+        area.visit_pulses = decision.status == AreaStatus.VISIT_FLOOR
         if not area.switch_available:
             area.status = AreaStatus.ACTUATOR_UNAVAILABLE
         self._handle_events(area, ts, window_open_since, temp_before)
@@ -2514,6 +2624,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             phase=str(current.get("phase", self.phase)),
             manual=manual,
             vacation=bool(current.get("vacation")),
+            visit=bool(current.get("visit")),
         )
         record.extra = {
             "on_min": round(sum(s.relay_min for s in stats.values())),
@@ -2525,7 +2636,13 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
         record.err_rule = hd.error_of(record.rule, need)
         record.err_ai = hd.error_of(record.ai, need)
 
-        if rule_data and need != hd.Need.UNCLEAR and not current.get("vacation") and not manual:
+        if (
+            rule_data
+            and need != hd.Need.UNCLEAR
+            and not current.get("vacation")
+            and not current.get("visit")
+            and not manual
+        ):
             rule = hd.RuleResult(
                 **{k: rule_data[k] for k in hd.RuleResult.__dataclass_fields__ if k in rule_data}
             )
@@ -2590,6 +2707,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                 "hourly": _hourly_compact(hourly, 24),
             },
             "pv_kw_now": r(self.pv_kw, 2),
+            **({"visit": visit} if (visit := self._visit_payload()) else {}),
             "areas": [
                 {
                     "id": a.prompt_id,
@@ -2598,6 +2716,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                     "temp": r(a.temp),
                     "target": a.effective_target or a.target,
                     "puffer": a.params.puffer,
+                    **({"visit_role": a.visit_role} if a.visit_role != VISIT_NONE else {}),
                     **({"has_circuit": False} if not a.has_circuit else {}),
                     **(
                         {
@@ -2799,6 +2918,11 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
                     if area.learner and model
                     else {"confidence": 0},
                     "params": values,
+                    **(
+                        {"visit_role": area.visit_role, "visit": area.visit}
+                        if area.visit_role != VISIT_NONE
+                        else {}
+                    ),
                     **self._pipe_payload(area),
                     **self._pipes_through(area),
                     "stats": {
@@ -2845,6 +2969,7 @@ class HeatingCoordinator(DataUpdateCoordinator[int]):
             "pv_kw": r(self.pv_kw, 2),
             "forecast_12h": _hourly_compact(hourly, 12),
             "theta": self.theta,
+            **({"visit": visit} if (visit := self._visit_payload()) else {}),
             "areas": areas_payload,
             "heat": self._heat_payload(),
             "history": self.ai_state.get("check_history", []),

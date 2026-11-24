@@ -16,6 +16,7 @@ PEAK_PASSED_K = 0.15  # K below the highest temperature since switch-off: oversh
 # earlier once the temperature falls again; the peak comes several dead times after
 # the switch-off, so the limit is not tied to the dead time.
 PEAK_CARRY_MAX_S = 4 * 3600.0
+FLOOR_PULSE_PERIOD_S = 3600.0  # the floor pulses of a visit: run time per hour
 EPS = 1e-6  # tolerance for comparing sensor values in 0.1 K steps (21.0 - 0.1 > 20.9)
 
 
@@ -32,6 +33,8 @@ class AreaStatus(StrEnum):
     FROST_PROTECTION = "frost_protection"
     VACATION = "vacation"
     PREHEAT = "preheat"
+    VISIT = "visit"
+    VISIT_FLOOR = "visit_floor"
     EMERGENCY = "emergency"
     SENSOR_ERROR = "sensor_error"
     ACTUATOR_UNAVAILABLE = "actuator_unavailable"
@@ -163,6 +166,10 @@ class ControlInput:
     last_switch_change: float | None
     vacation: bool = False
     preheat: bool = False
+    # visit: the floor of this area is kept warm (raised target already in ``target``)
+    visit: bool = False
+    floor_minutes: float = 0.0  # pulse run time per hour now, 0 = no pulses (e.g. night)
+    floor_cap: float | None = None  # no pulses above this temperature
 
 
 @dataclass(slots=True)
@@ -379,6 +386,29 @@ def thermostat(
     return want, round(predicted, 2), round(peak, 2)
 
 
+def floor_pulse(data: ControlInput) -> bool:
+    """Should the circuit run to keep the floor warm for a visit?
+
+    Within an hour the circuit runs at least ``floor_minutes``: a run is kept on until
+    it has lasted that long, the next one starts once the circuit has been off for the
+    rest of the hour. A run of the thermostat counts the same, so it delays the next
+    pulse. Too warm a room (above ``floor_cap``) gets no pulse.
+    """
+    if not data.visit or data.floor_minutes <= 0 or data.temp is None:
+        return False
+    if data.floor_cap is not None and data.temp > data.floor_cap + EPS:
+        return False
+    run_s = min(data.floor_minutes * 60, FLOOR_PULSE_PERIOD_S)
+    if data.last_switch_change is None:
+        return True
+    elapsed = data.now - data.last_switch_change
+    if elapsed < 0:
+        return True  # clock jumped backwards
+    if data.switch_on:
+        return elapsed < run_s
+    return elapsed >= FLOOR_PULSE_PERIOD_S - run_s
+
+
 def step(
     data: ControlInput,
     params: ControlParams,
@@ -427,6 +457,8 @@ def step(
     want, predicted, peak = thermostat(
         data, params, control_learned, rt.carry_peak, settings.force_on_below
     )
+    pulse = not want and floor_pulse(data)
+    want = want or pulse
     if data.switch_on:
         # Carry only the own circuit's residual heat; external sources are read
         # afresh each tick and must not survive their switch-off in carry_peak.
@@ -440,6 +472,10 @@ def step(
         status = AreaStatus.PREHEAT
     elif data.vacation:
         status = AreaStatus.VACATION
+    elif pulse:
+        status = AreaStatus.VISIT_FLOOR
+    elif data.visit and not want:
+        status = AreaStatus.VISIT
     else:
         status = AreaStatus.HEATING if want else AreaStatus.IDLE
     return ControlDecision(want, status, may_switch, predicted, peak)

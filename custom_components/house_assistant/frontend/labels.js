@@ -121,7 +121,7 @@ export const LABELS = {
     "sections": {}
    },
    "config.heating_vacation": {
-    "title": "Urlaub",
+    "title": "Urlaub und Besuch",
     "fields": {
      "vacation_temperature": [
       "Urlaubstemperatur",
@@ -130,6 +130,22 @@ export const LABELS = {
      "preheat_reserve": [
       "Vorheiz-Reserve",
       "Zusätzliche Zeit zur berechneten Vorheizzeit."
+     ],
+     "visit_target_raise": [
+      "Besuch: Ziel höher um",
+      "Räume mit „Fußboden warm halten“ bekommen bei Besuch dieses Ziel zusätzlich, höchstens bis zum Maximum des Raums."
+     ],
+     "visit_others_lower": [
+      "Besuch: andere Räume kühler um",
+      "Räume mit „etwas weniger heizen“ werden bei Besuch um diesen Wert abgesenkt, nicht unter das Minimum des Raums. Die Wärme aus dem Wohnbereich zieht über offene Türen nach."
+     ],
+     "visit_floor_minutes": [
+      "Besuch: Fußboden-Laufzeit je Stunde",
+      "So lange läuft der Kreis eines Raums mit „Fußboden warm halten“ mindestens je Stunde, damit der Boden nicht kalt ist. Nachts (Nachtzeit der Lüftung) pausiert das. 0 = nur das höhere Ziel."
+     ],
+     "visit_floor_max_over": [
+      "Besuch: Fußboden aus ab",
+      "Liegt der Raum so weit über dem Besuchsziel, läuft kein Fußboden-Takt."
      ]
     },
     "sections": {}
@@ -590,7 +606,7 @@ export const LABELS = {
     "sections": {}
    },
    "options.heating_vacation": {
-    "title": "Urlaub",
+    "title": "Urlaub und Besuch",
     "fields": {
      "vacation_temperature": [
       "Urlaubstemperatur",
@@ -599,6 +615,22 @@ export const LABELS = {
      "preheat_reserve": [
       "Vorheiz-Reserve",
       "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min)."
+     ],
+     "visit_target_raise": [
+      "Besuch: Ziel höher um",
+      "Räume mit „Fußboden warm halten“ bekommen bei Besuch dieses Ziel zusätzlich, höchstens bis zum Maximum des Raums."
+     ],
+     "visit_others_lower": [
+      "Besuch: andere Räume kühler um",
+      "Räume mit „etwas weniger heizen“ werden bei Besuch um diesen Wert abgesenkt, nicht unter das Minimum des Raums. Die Wärme aus dem Wohnbereich zieht über offene Türen nach."
+     ],
+     "visit_floor_minutes": [
+      "Besuch: Fußboden-Laufzeit je Stunde",
+      "So lange läuft der Kreis eines Raums mit „Fußboden warm halten“ mindestens je Stunde, damit der Boden nicht kalt ist. Nachts (Nachtzeit der Lüftung) pausiert das. 0 = nur das höhere Ziel."
+     ],
+     "visit_floor_max_over": [
+      "Besuch: Fußboden aus ab",
+      "Liegt der Raum so weit über dem Besuchsziel, läuft kein Fußboden-Takt."
      ]
     },
     "sections": {}
@@ -1311,6 +1343,10 @@ export const LABELS = {
        "heating_type": [
         "Heizungsart",
         "Wie der Kreis heizt. Ein Fußboden speichert Wärme über Stunden, Heizkörper reagieren in Minuten; die KI beurteilt die gelernten Werte entsprechend."
+       ],
+       "visit_role": [
+        "Bei Besuch",
+        "Fußboden warm halten: höheres Ziel und feste Laufzeit je Stunde, auch ohne Heiztag, damit Gäste keine kalten Füße haben. Etwas weniger heizen: Ziel abgesenkt. Die Werte stehen in den Einstellungen unter Urlaub und Besuch."
        ]
       }
      },
@@ -2480,6 +2516,11 @@ export const LABELS = {
     "ventilation": "Lüftungsposition",
     "position": "Position"
    },
+   "visit_role": {
+    "none": "Unverändert",
+    "warm_floor": "Fußboden warm halten (Ziel höher)",
+    "reduce": "Etwas weniger heizen"
+   },
    "weekday": {
     "mon": "Montag",
     "tue": "Dienstag",
@@ -2573,6 +2614,8 @@ export const LABELS = {
     "frost_protection": "Frostschutz",
     "vacation": "Urlaub",
     "preheat": "Vorheizen zur Rückkehr",
+    "visit": "Besuch",
+    "visit_floor": "Besuch: Fußboden warm",
     "emergency": "Notfallregel",
     "sensor_error": "Sensorfehler",
     "actuator_unavailable": "Aktor nicht erreichbar",
@@ -2701,7 +2744,7 @@ export const LABELS = {
     "sections": {}
    },
    "config.heating_vacation": {
-    "title": "Vacation",
+    "title": "Vacation and visit",
     "fields": {
      "vacation_temperature": [
       "Vacation temperature",
@@ -2710,6 +2753,22 @@ export const LABELS = {
      "preheat_reserve": [
       "Preheat reserve",
       "Additional time added to the calculated preheating time."
+     ],
+     "visit_target_raise": [
+      "Visit: raise target by",
+      "Rooms set to keep the floor warm get this much more during a visit, at most up to the room maximum."
+     ],
+     "visit_others_lower": [
+      "Visit: other rooms cooler by",
+      "Rooms set to heat a little less are lowered by this much during a visit, not below the room minimum. The heat of the living area spreads through open doors."
+     ],
+     "visit_floor_minutes": [
+      "Visit: floor run time per hour",
+      "A room set to keep the floor warm runs at least this long per hour, so the floor is not cold. Paused at night (night time of the ventilation). 0 = only the raised target."
+     ],
+     "visit_floor_max_over": [
+      "Visit: no floor runs above",
+      "No floor runs while the room is this much above its visit target."
      ]
     },
     "sections": {}
@@ -3170,7 +3229,7 @@ export const LABELS = {
     "sections": {}
    },
    "options.heating_vacation": {
-    "title": "Vacation",
+    "title": "Vacation and visit",
     "fields": {
      "vacation_temperature": [
       "Vacation temperature",
@@ -3179,6 +3238,22 @@ export const LABELS = {
      "preheat_reserve": [
       "Preheat reserve",
       "Additional time added to the calculated preheating time (e.g. 30 min)."
+     ],
+     "visit_target_raise": [
+      "Visit: raise target by",
+      "Rooms set to keep the floor warm get this much more during a visit, at most up to the room maximum."
+     ],
+     "visit_others_lower": [
+      "Visit: other rooms cooler by",
+      "Rooms set to heat a little less are lowered by this much during a visit, not below the room minimum. The heat of the living area spreads through open doors."
+     ],
+     "visit_floor_minutes": [
+      "Visit: floor run time per hour",
+      "A room set to keep the floor warm runs at least this long per hour, so the floor is not cold. Paused at night (night time of the ventilation). 0 = only the raised target."
+     ],
+     "visit_floor_max_over": [
+      "Visit: no floor runs above",
+      "No floor runs while the room is this much above its visit target."
      ]
     },
     "sections": {}
@@ -3891,6 +3966,10 @@ export const LABELS = {
        "heating_type": [
         "Heating type",
         "How the circuit heats. A floor stores heat for hours, radiators react within minutes; the AI judges the learned values with this in mind."
+       ],
+       "visit_role": [
+        "During a visit",
+        "Keep the floor warm: a raised target and a fixed run time per hour, also without a heating day, so guests do not get cold feet. Heat a little less: a lowered target. The values are in the settings under vacation and visit."
        ]
       }
      },
@@ -5060,6 +5139,11 @@ export const LABELS = {
     "ventilation": "Ventilation position",
     "position": "Position"
    },
+   "visit_role": {
+    "none": "Unchanged",
+    "warm_floor": "Keep the floor warm (raised target)",
+    "reduce": "Heat a little less"
+   },
    "weekday": {
     "mon": "Monday",
     "tue": "Tuesday",
@@ -5153,6 +5237,8 @@ export const LABELS = {
     "frost_protection": "Frost protection",
     "vacation": "Vacation",
     "preheat": "Preheating for return",
+    "visit": "Visit",
+    "visit_floor": "Visit: warming floor",
     "emergency": "Emergency rule",
     "sensor_error": "Sensor error",
     "actuator_unavailable": "Actuator unavailable",
@@ -5350,7 +5436,9 @@ export const HOUSE = {
    "contact_or_cover_required": "Bitte einen Fensterkontakt oder ein Rollo wählen; ohne beides tut das Fenster nichts.",
    "unknown_room": "Diesen Raum gibt es nicht mehr. Bitte einen anderen wählen.",
    "departure_after_return": "Die Abreise muss vor der Rückkehr liegen.",
-   "return_in_past": "Die Rückkehr liegt in der Vergangenheit."
+   "return_in_past": "Die Rückkehr liegt in der Vergangenheit.",
+   "visit_start_after_end": "Der Beginn des Besuchs muss vor dem Ende liegen.",
+   "visit_end_in_past": "Das Ende des Besuchs liegt in der Vergangenheit."
   },
   "sizes": {
    "small": "Klein (z. B. Dachfenster)",
@@ -5547,7 +5635,9 @@ export const HOUSE = {
    "contact_or_cover_required": "Choose a window contact or a cover; without either the window does nothing.",
    "unknown_room": "This room does not exist any more. Choose another one.",
    "departure_after_return": "The departure must be before the return.",
-   "return_in_past": "The return is in the past."
+   "return_in_past": "The return is in the past.",
+   "visit_start_after_end": "The start of the visit must be before its end.",
+   "visit_end_in_past": "The end of the visit is in the past."
   },
   "sizes": {
    "small": "Small (e.g. skylight)",
@@ -5633,6 +5723,22 @@ export const HEATING = {
    "preheat_reserve": [
     "Vorheiz-Reserve",
     "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min)."
+   ],
+   "visit_target_raise": [
+    "Besuch: Ziel höher um",
+    "Räume mit „Fußboden warm halten“ bekommen bei Besuch dieses Ziel zusätzlich, höchstens bis zum Maximum des Raums."
+   ],
+   "visit_others_lower": [
+    "Besuch: andere Räume kühler um",
+    "Räume mit „etwas weniger heizen“ werden bei Besuch um diesen Wert abgesenkt, nicht unter das Minimum des Raums. Die Wärme aus dem Wohnbereich zieht über offene Türen nach."
+   ],
+   "visit_floor_minutes": [
+    "Besuch: Fußboden-Laufzeit je Stunde",
+    "So lange läuft der Kreis eines Raums mit „Fußboden warm halten“ mindestens je Stunde, damit der Boden nicht kalt ist. Nachts (Nachtzeit der Lüftung) pausiert das. 0 = nur das höhere Ziel."
+   ],
+   "visit_floor_max_over": [
+    "Besuch: Fußboden aus ab",
+    "Liegt der Raum so weit über dem Besuchsziel, läuft kein Fußboden-Takt."
    ],
    "emergency_enabled": [
     "Notfallregel",
@@ -5854,6 +5960,10 @@ export const HEATING = {
     "Heizungsart",
     "Wie der Kreis heizt. Ein Fußboden speichert Wärme über Stunden, Heizkörper reagieren in Minuten; die KI beurteilt die gelernten Werte entsprechend."
    ],
+   "visit_role": [
+    "Bei Besuch",
+    "Fußboden warm halten: höheres Ziel und feste Laufzeit je Stunde, auch ohne Heiztag, damit Gäste keine kalten Füße haben. Etwas weniger heizen: Ziel abgesenkt. Die Werte stehen in den Einstellungen unter Urlaub und Besuch."
+   ],
    "window_delay": [
     "Fensterverzögerung",
     "So lange offen pausiert die Heizung. Die KI darf den Wert anpassen."
@@ -6049,6 +6159,8 @@ export const HEATING = {
     "frost_protection": "Frostschutz",
     "vacation": "Urlaub",
     "preheat": "Vorheizen zur Rückkehr",
+    "visit": "Besuch",
+    "visit_floor": "Besuch: Fußboden warm",
     "emergency": "Notfallregel",
     "sensor_error": "Sensorfehler",
     "actuator_unavailable": "Aktor nicht erreichbar",
@@ -6180,6 +6292,22 @@ export const HEATING = {
    "preheat_reserve": [
     "Preheat reserve",
     "Additional time added to the calculated preheating time (e.g. 30 min)."
+   ],
+   "visit_target_raise": [
+    "Visit: raise target by",
+    "Rooms set to keep the floor warm get this much more during a visit, at most up to the room maximum."
+   ],
+   "visit_others_lower": [
+    "Visit: other rooms cooler by",
+    "Rooms set to heat a little less are lowered by this much during a visit, not below the room minimum. The heat of the living area spreads through open doors."
+   ],
+   "visit_floor_minutes": [
+    "Visit: floor run time per hour",
+    "A room set to keep the floor warm runs at least this long per hour, so the floor is not cold. Paused at night (night time of the ventilation). 0 = only the raised target."
+   ],
+   "visit_floor_max_over": [
+    "Visit: no floor runs above",
+    "No floor runs while the room is this much above its visit target."
    ],
    "emergency_enabled": [
     "Emergency rule",
@@ -6401,6 +6529,10 @@ export const HEATING = {
     "Heating type",
     "How the circuit heats. A floor stores heat for hours, radiators react within minutes; the AI judges the learned values with this in mind."
    ],
+   "visit_role": [
+    "During a visit",
+    "Keep the floor warm: a raised target and a fixed run time per hour, also without a heating day, so guests do not get cold feet. Heat a little less: a lowered target. The values are in the settings under vacation and visit."
+   ],
    "window_delay": [
     "Window delay",
     "Window open this long pauses heating. The AI may adjust it."
@@ -6596,6 +6728,8 @@ export const HEATING = {
     "frost_protection": "Frost protection",
     "vacation": "Vacation",
     "preheat": "Preheating for return",
+    "visit": "Visit",
+    "visit_floor": "Visit: warming floor",
     "emergency": "Emergency rule",
     "sensor_error": "Sensor error",
     "actuator_unavailable": "Actuator unavailable",

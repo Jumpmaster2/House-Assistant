@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 from homeassistant.config_entries import SOURCE_USER, FlowType
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from homeassistant.helpers import area_registry as ar
 from pytest_homeassistant_custom_component.common import async_capture_events
 
@@ -245,6 +245,39 @@ async def test_reconfigure_target_of_area_without_circuit(hass: HomeAssistant, b
     assert heating(entry).areas[sub.subentry_id].target == 18.0
     data = entry.subentries[sub.subentry_id].data
     assert data["draft_group_1"] == ["binary_sensor.living_room_window", "binary_sensor.x"]
+
+
+async def test_reconfigure_visit_role(hass: HomeAssistant, base_states) -> None:
+    """The room stores what it does during a visit; unknown roles are refused."""
+    entry = make_entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    sub = next(s for s in entry.subentries.values() if s.title == "Storage room")
+    assert "visit_role" not in sub.data
+
+    user_input = {
+        "heating": {
+            "default_target": 21.0,
+            "min_target": 16.0,
+            "max_target": 24.0,
+            "min_on_time": 10,
+            "min_off_time": 10,
+            "visit_role": "party",
+        },
+        "learned_values": {"window_delay": 5, "puffer": 0.7},
+        "airing": {},
+        "ventilation": {"ventilation_rh_threshold": 65},
+        "draft": {},
+    }
+    result = await entry.start_subentry_reconfigure_flow(hass, sub.subentry_id)
+    with pytest.raises(InvalidData):
+        await hass.config_entries.subentries.async_configure(result["flow_id"], user_input)
+    user_input["heating"]["visit_role"] = "reduce"
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], user_input)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.subentries[sub.subentry_id].data["visit_role"] == "reduce"
 
 
 async def test_existing_area_edits_learned_values(hass: HomeAssistant, base_states) -> None:

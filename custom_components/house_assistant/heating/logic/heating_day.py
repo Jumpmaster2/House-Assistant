@@ -200,6 +200,7 @@ class DayRecord:
     learned: bool = False
     manual: bool = False  # the day ran under a manual override
     vacation: bool = False  # the day ran with the vacation target
+    visit: bool = False  # the day ran with the targets and floor pulses of a visit
     extra: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
@@ -394,8 +395,13 @@ def agreement(history: list[DayRecord], days: int) -> float | None:
 
 
 def rule_errors(history: list[DayRecord], days: int) -> int:
-    """Number of rule errors within the last days (manual override and vacation days do not count)."""
-    return sum(1 for r in _window(history, days) if r.err_rule and not r.manual and not r.vacation)
+    """Number of rule errors within the last days (manual override, vacation and visit
+    days do not count)."""
+    return sum(
+        1
+        for r in _window(history, days)
+        if r.err_rule and not r.manual and not r.vacation and not r.visit
+    )
 
 
 def next_phase(

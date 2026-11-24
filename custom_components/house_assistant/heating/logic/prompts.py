@@ -90,6 +90,12 @@ PROMPTS: dict[str, PromptSpec] = {
                 "lasting the whole day. pipes_through names the targets warmed by a source.",
             ),
             PromptBlock("learn", "Learn from recent errors."),
+            PromptBlock(
+                "visit",
+                "visit in the data: guests are expected or present. While a visit runs the user "
+                "wants the floor of some areas warm and the others a little cooler; such a day "
+                "is no error of the rule.",
+            ),
         ),
         tail=(
             "Answer with: heating_day, confidence 0-100, reason (max 3 short sentences, no "
@@ -196,6 +202,14 @@ PROMPTS: dict[str, PromptSpec] = {
                 "changes",
                 "At most two changes per area; prefer no change when data is thin. Values "
                 "outside the limits are clamped.",
+            ),
+            PromptBlock(
+                "visit",
+                "visit in the data: while it is active, areas with visit_role warm_floor get a "
+                "raised target and fixed floor runs each hour, areas with visit_role reduce a "
+                "lowered target. The user wants this: do not counter it with targets or "
+                "parameters, and do not count its extra run time or heat above target as a "
+                "mistake.",
             ),
         ),
         tail="Reasons: one short sentence each, no dashes.",
