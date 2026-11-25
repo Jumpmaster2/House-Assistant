@@ -10,6 +10,10 @@ here and look again on ``SIGNAL_VACATION``:
 * covers: presence simulation, sun protection without waiting for the room;
 * meters: a warning when water runs on vacation.
 
+The visit works like the own vacation, with start and end instead of departure and
+return and without external sources. The heating keeps the floor of chosen rooms warm
+and heats the others a little less (``SIGNAL_VISIT``).
+
 The house itself reports open windows at the departure and windows opened during the
 vacation.
 """
@@ -47,10 +51,11 @@ from ..const import (
     LOGGER,
     OPT_CORE,
     SIGNAL_VACATION,
+    SIGNAL_VISIT,
     SUBENTRY_WINDOW,
 )
 from ..runtime import HouseRuntime, Module, module_options, register_house
-from .entities import vacation_entities
+from .entities import vacation_entities, visit_entities
 from .house import CONF_TILT_SENSORS, CONF_WINDOW_SENSORS, windows
 from .links import SIGNAL_HEATING
 from .logic import vacation as vac
@@ -84,6 +89,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "de": "{name} wurde im Urlaub gekippt.",
         "en": "{name} was tilted on vacation.",
     },
+    "visit_title": {"de": "Besuch", "en": "Visit"},
+    "visit_started": {"de": "Besuch beginnt.", "en": "Visit starts."},
+    "visit_ended": {"de": "Besuch endet.", "en": "Visit ends."},
+}
+ERROR_VISIT_END_PAST = "visit_end_in_past"
+ERROR_VISIT_START_AFTER_END = "visit_start_after_end"
+# errors of the vacation rules -> the same error of the visit
+_VISIT_ERRORS = {
+    vac.ERROR_RETURN_PAST: ERROR_VISIT_END_PAST,
+    vac.ERROR_DEPARTURE_AFTER_RETURN: ERROR_VISIT_START_AFTER_END,
 }
 
 
@@ -129,6 +144,9 @@ class HouseModule(Module):
         self._window_states: dict[str, str] = {}
         self._pending: dict[str, Callable[[], None]] = {}
         self._timer: Callable[[], None] | None = None
+        # the visit: the same time rules, start as departure and end as return
+        self.visit = vac.Times()
+        self._visit_timer: Callable[[], None] | None = None
         self._listeners: list[Callable[[], None]] = []
 
     @property
@@ -169,6 +187,15 @@ class HouseModule(Module):
         """Return of the own vacation while it runs (it wins over an external one)."""
         return self.times.return_at if self.times.on else None
 
+    def visit_times(self) -> tuple[bool, float | None, float | None]:
+        """The visit for the heating: on, planned start and end (timestamps)."""
+        start, end = self.visit.departure, self.visit.return_at
+        return (
+            self.visit.on,
+            start.timestamp() if start is not None else None,
+            end.timestamp() if end is not None else None,
+        )
+
     def _value(self, entity_id: str | None) -> str | None:
         state = self.hass.states.get(entity_id) if entity_id else None
         return state.state if state is not None else None
@@ -177,9 +204,10 @@ class HouseModule(Module):
 
     async def async_setup(self) -> None:
         recovery = StoreRecovery(self.hass, self.entry, HOUSE)
+        loaded = await recovery.load(self._store)
         stored = recovery.record(
             "vacation",
-            await recovery.load(self._store),
+            loaded,
             {
                 "on": boolean,
                 "active": boolean,
@@ -190,9 +218,23 @@ class HouseModule(Module):
                 },
             },
         )
+        visit = recovery.record(
+            "visit",
+            loaded.get("visit") or {},
+            {
+                "on": boolean,
+                **{
+                    key: optional(lambda v: isinstance(v, str) and _dt(v) is not None)
+                    for key in ("start", "end")
+                },
+            },
+        )
         await recovery.finish()
         self.times = vac.Times(
             bool(stored.get("on")), _dt(stored.get("departure")), _dt(stored.get("return"))
+        )
+        self.visit = vac.Times(
+            bool(visit.get("on")), _dt(visit.get("start")), _dt(visit.get("end"))
         )
         self.active = bool(stored.get("active"))
         self.source = stored.get("source")
@@ -221,19 +263,23 @@ class HouseModule(Module):
         if self._timer is not None:
             self._timer()
             self._timer = None
+        if self._visit_timer is not None:
+            self._visit_timer()
+            self._visit_timer = None
         for cancel in self._pending.values():
             cancel()
         self._pending.clear()
 
     async def _on_started(self, _hass: HomeAssistant) -> None:
         self._apply(vac.due(self.times, dt_util.utcnow()))
+        self._apply_visit(vac.due(self.visit, dt_util.utcnow()), announce=False)
 
     @classmethod
     async def async_remove_entry(cls, hass: HomeAssistant, entry: ConfigEntry) -> None:
         await remove_module_store(hass, entry, HOUSE)
 
     def entities(self, platform: Platform) -> list[tuple[str | None, list[Entity]]]:
-        return [(None, vacation_entities(self, platform))]
+        return [(None, vacation_entities(self, platform) + visit_entities(self, platform))]
 
     def add_listener(self, update: Callable[[], None]) -> Callable[[], None]:
         """An entity of the vacation writes its state on every change."""
@@ -253,6 +299,11 @@ class HouseModule(Module):
             "active": self.active,
             "source": self.source,
             "since": _iso(self.since),
+            "visit": {
+                "on": self.visit.on,
+                "start": _iso(self.visit.departure),
+                "end": _iso(self.visit.return_at),
+            },
         }
 
     def diagnostics(self) -> dict[str, Any]:
@@ -362,6 +413,73 @@ class HouseModule(Module):
     def clear(self) -> None:
         """Switch off, no departure and no return."""
         self._apply(vac.Times())
+
+    # ------------------------------------------------------------------ visit
+
+    @callback
+    def _apply_visit(self, times: vac.Times, announce: bool = True) -> None:
+        """New times of the visit: keep them, plan the next change, tell the heating."""
+        was_on, self.visit = self.visit.on, times
+        if self._visit_timer is not None:
+            self._visit_timer()
+            self._visit_timer = None
+        if (when := vac.next_change(times)) is not None:
+            self._visit_timer = async_track_point_in_utc_time(self.hass, self._on_visit_due, when)
+        self._store.async_delay_save(self._data, 1)
+        if announce and times.on != was_on:
+            self.hass.bus.async_fire(
+                EVENT_LOGBOOK,
+                {
+                    "name": self._text("visit_title"),
+                    "message": self._text("visit_started" if times.on else "visit_ended"),
+                    ATTR_ENTITY_ID: self.entity_id("binary_sensor", "visit_active"),
+                },
+            )
+        async_dispatcher_send(self.hass, SIGNAL_VISIT)
+        self._write()
+
+    @callback
+    def _on_visit_due(self, now: datetime) -> None:
+        self._visit_timer = None
+        self._apply_visit(vac.due(self.visit, now))
+
+    @callback
+    def set_visit_on(self, on: bool) -> None:
+        self._apply_visit(vac.switched(self.visit, on, dt_util.utcnow()))
+
+    @callback
+    def set_visit_times(
+        self, start: datetime | None, end: datetime | None, strict: bool = False
+    ) -> None:
+        """New start and end of the visit, the same rules as departure and return."""
+        now = dt_util.utcnow()
+        start = dt_util.as_utc(start) if start else None
+        end = dt_util.as_utc(end) if end else None
+        if end is not None and end <= now:
+            if strict:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key=ERROR_VISIT_END_PAST
+                )
+            LOGGER.info("The end of the visit %s is in the past, ignored", end)
+            end = self.visit.return_at
+        if (error := vac.check(start, end, now)) is not None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key=_VISIT_ERRORS[error]
+            )
+        self._apply_visit(vac.planned(self.visit, start, end, now))
+
+    @callback
+    def set_visit_start(self, start: datetime | None) -> None:
+        self.set_visit_times(start, self.visit.return_at)
+
+    @callback
+    def set_visit_end(self, end: datetime | None) -> None:
+        self.set_visit_times(self.visit.departure, end)
+
+    @callback
+    def clear_visit(self) -> None:
+        """Switch the visit off, no start and no end."""
+        self._apply_visit(vac.Times())
 
     # ------------------------------------------------------------------ windows
 

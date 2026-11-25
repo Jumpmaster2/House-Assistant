@@ -51,6 +51,12 @@ CONF_PREHEAT_RESERVE = "preheat_reserve"
 # the ventilation advice rests on vacation (nobody airs, nobody makes the air humid)
 CONF_VACATION_VENT_PAUSE = "vacation_ventilation_pause"
 
+# visit of the house: floor kept warm in some areas, the others a little cooler
+CONF_VISIT_RAISE = "visit_target_raise"
+CONF_VISIT_LOWER = "visit_others_lower"
+CONF_VISIT_FLOOR_MINUTES = "visit_floor_minutes"
+CONF_VISIT_FLOOR_MAX_OVER = "visit_floor_max_over"
+
 CONF_EMERGENCY_ENABLED = "emergency_enabled"
 CONF_EMERGENCY_DELTA = "emergency_delta"
 CONF_EMERGENCY_DURATION = "emergency_duration"
@@ -109,6 +115,12 @@ CONF_AREA_NAME = "name"
 CONF_SWITCH = "heater_switch"
 CONF_HEATING_TYPE = "heating_type"
 HEATING_TYPES: Final = ("underfloor", "radiator", "other")
+# what the area does during a visit
+CONF_VISIT_ROLE = "visit_role"
+VISIT_WARM_FLOOR = "warm_floor"
+VISIT_REDUCE = "reduce"
+VISIT_NONE = "none"
+VISIT_ROLES: Final = (VISIT_NONE, VISIT_WARM_FLOOR, VISIT_REDUCE)
 CONF_TEMP_SENSOR = "temperature_sensor"
 CONF_HUMIDITY_SENSOR = "humidity_sensor"
 # combinations of windows in other rooms whose draft cools this area too
@@ -171,6 +183,10 @@ DEFAULTS: Final[dict[str, object]] = {
     CONF_VACATION_TEMP: 18.0,
     CONF_PREHEAT_RESERVE: 30,
     CONF_VACATION_VENT_PAUSE: True,
+    CONF_VISIT_RAISE: 0.5,
+    CONF_VISIT_LOWER: 0.5,
+    CONF_VISIT_FLOOR_MINUTES: 15,
+    CONF_VISIT_FLOOR_MAX_OVER: 0.5,
     CONF_EMERGENCY_ENABLED: True,
     CONF_EMERGENCY_DELTA: 1.0,
     CONF_EMERGENCY_DURATION: 45,
@@ -226,6 +242,7 @@ AREA_DEFAULTS: Final[dict[str, object]] = {
     CONF_MIN_ON: 10,
     CONF_MIN_OFF: 10,
     CONF_HEATING_TYPE: "underfloor",
+    CONF_VISIT_ROLE: VISIT_NONE,
     CONF_WINDOW_DELAY: 5,
     CONF_SHORT_AIRING: 1,
     CONF_SHORT_RECOVERY: 50,

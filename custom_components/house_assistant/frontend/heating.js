@@ -414,7 +414,7 @@ const SETTINGS = {
   general: [
     { id: "sensors", icon: "mdi:thermometer", fields: ["pv_power", "pv_forecast", "forecast_trust", "heat_meter"] },
     { id: "season", icon: "mdi:calendar-range", fields: ["season_start", "season_end", "frost_temperature"] },
-    { id: "vacation", icon: "mdi:bag-suitcase-outline", fields: ["vacation_temperature", "preheat_reserve"] },
+    { id: "vacation", icon: "mdi:bag-suitcase-outline", fields: ["vacation_temperature", "preheat_reserve", "visit_target_raise", "visit_others_lower", "visit_floor_minutes", "visit_floor_max_over"] },
   ],
   rules: [
     { id: "emergency", icon: "mdi:alert-outline", fields: ["emergency_enabled", "emergency_delta", "emergency_duration", "emergency_window_quiet", "force_on_below", "sensor_stale_hours"] },
@@ -472,7 +472,7 @@ const SETTINGS = {
 // Groups of the room editor as in the dialog: [section, fields, collapsed].
 // The start values only when an area is created; an existing one shows its learned values.
 const AREA_GROUPS = [
-  ["heating", ["heater_switch", "default_target", "min_target", "max_target", "min_on_time", "min_off_time", "heating_type"], false],
+  ["heating", ["heater_switch", "default_target", "min_target", "max_target", "min_on_time", "min_off_time", "heating_type", "visit_role"], false],
   ["start_values", ["window_delay", "recovery_time", "dead_time", "puffer"], true],
   ["pipe_heat", ["pipe_sources", "pipe_gain", "pipe_source_weights"], true],
   ["airing", ["short_airing_min", "short_recovery_percent"], true],
@@ -495,6 +495,8 @@ const LEARNED = [
 const STATUS_PILL = {
   heating: "warn",
   preheat: "warn",
+  visit_floor: "warn",
+  visit: "ok",
   emergency: "warn",
   window_open: "muted",
   recovery: "muted",

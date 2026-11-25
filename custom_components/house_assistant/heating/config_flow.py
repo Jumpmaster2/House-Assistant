@@ -125,6 +125,11 @@ from .const import (
     CONF_VENT_RH,
     CONF_VENT_TARGET_BELOW,
     CONF_VENT_TIME_FACTOR,
+    CONF_VISIT_FLOOR_MAX_OVER,
+    CONF_VISIT_FLOOR_MINUTES,
+    CONF_VISIT_LOWER,
+    CONF_VISIT_RAISE,
+    CONF_VISIT_ROLE,
     CONF_WEATHER,
     CONF_WINDOW_DELAY,
     DEFAULTS,
@@ -146,6 +151,7 @@ from .const import (
     SECTION_VENTILATION,
     SOUTHERN_SEASON,
     SUBENTRY_ROOM,
+    VISIT_ROLES,
 )
 from .logic.ai_schema import ALL_PARAMS, default_limits, normalize_limits, validate_limit
 from .logic.draft import draft_groups
@@ -284,6 +290,10 @@ def vacation_schema(v: dict[str, Any]) -> vol.Schema:
         {
             _req(CONF_VACATION_TEMP, v): _number(5, 25, 0.5, "°C"),
             _req(CONF_PREHEAT_RESERVE, v): _number(0, 720, 5, "min"),
+            _req(CONF_VISIT_RAISE, v): _number(0, 2, 0.1, "K"),
+            _req(CONF_VISIT_LOWER, v): _number(0, 2, 0.1, "K"),
+            _req(CONF_VISIT_FLOOR_MINUTES, v): _number(0, 45, 1, "min"),
+            _req(CONF_VISIT_FLOOR_MAX_OVER, v): _number(0, 2, 0.1, "K"),
         }
     )
 
@@ -871,6 +881,13 @@ def area_schema(
                                 SelectSelectorConfig(
                                     options=list(HEATING_TYPES),
                                     translation_key="heating_type",
+                                    mode=SelectSelectorMode.DROPDOWN,
+                                )
+                            ),
+                            req(CONF_VISIT_ROLE): SelectSelector(
+                                SelectSelectorConfig(
+                                    options=list(VISIT_ROLES),
+                                    translation_key="visit_role",
                                     mode=SelectSelectorMode.DROPDOWN,
                                 )
                             ),

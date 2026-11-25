@@ -112,6 +112,9 @@ class AreaClimate(AreaEntity, ClimateEntity):
             "effective_target": area.effective_target,
             # vacation temperature in force (not while preheating for the return)
             "vacation_active": bool(area.vacation and not area.preheat),
+            # the visit changes the target (warm floor or a little cooler)
+            "visit_active": area.visit,
+            "visit_role": area.visit_role,
             "heating_day": self.coordinator.heating_day,
             "predicted_temperature": _tenth(decision.predicted_temp) if decision else None,
             "expected_peak": _tenth(decision.expected_peak) if decision else None,

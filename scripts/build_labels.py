@@ -261,7 +261,12 @@ def house_labels(translation: dict[str, Any]) -> dict[str, Any]:
             **window["error"],
             **{
                 key: exceptions[key]["message"]
-                for key in ("departure_after_return", "return_in_past")
+                for key in (
+                    "departure_after_return",
+                    "return_in_past",
+                    "visit_start_after_end",
+                    "visit_end_in_past",
+                )
             },
         },
         "sizes": translation["selector"]["window_size"]["options"],

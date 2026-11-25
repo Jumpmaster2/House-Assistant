@@ -62,6 +62,13 @@ const UI = {
     statusActive: "Urlaub aktiv",
     statusPlanned: "Urlaub geplant",
     statusOff: "Kein Urlaub",
+    visit: ["Besuch", "Bei Besuch hält die Heizung den Fußboden der gewählten Räume warm (höheres Ziel und feste Laufzeit je Stunde, nachts nicht) und heizt die anderen etwas weniger. Welcher Raum was tut, steht in der Heizung beim Raum, die Werte in den Einstellungen der Heizung. Zum Beginn schaltet sich der Besuch ein, zum Ende aus; der Fußboden wird vorher schon angewärmt."],
+    visitSwitch: ["Besuch", "Bleibt an, bis er ausgeschaltet wird oder das Ende erreicht ist."],
+    visitStart: ["Von", "Leer: ab sofort, wenn ein Ende gesetzt ist."],
+    visitEnd: ["Bis", "Danach heizt alles wieder normal."],
+    visitActive: "Besuch aktiv",
+    visitPlanned: "Besuch geplant",
+    visitOff: "Kein Besuch",
     bySwitch: "Schalter",
     since: "Seit",
     preheat: "Vorheizen ab",
@@ -126,6 +133,13 @@ const UI = {
     statusActive: "Vacation active",
     statusPlanned: "Vacation planned",
     statusOff: "No vacation",
+    visit: ["Visit", "During a visit the heating keeps the floor of the chosen rooms warm (raised target and a fixed run time per hour, not at night) and heats the others a little less. What each room does is set in the heating per room, the values in the heating settings. The visit switches on at its start and off at its end; the floor is warmed ahead."],
+    visitSwitch: ["Visit", "Stays on until it is switched off or the end is reached."],
+    visitStart: ["Start", "Empty: from now on when an end is set."],
+    visitEnd: ["End", "Afterwards everything heats as usual."],
+    visitActive: "Visit active",
+    visitPlanned: "Visit planned",
+    visitOff: "No visit",
     bySwitch: "switch",
     since: "Since",
     preheat: "Preheating from",
@@ -210,6 +224,7 @@ class HouseAssistantHouseView extends HTMLElement {
       if (key === this._vacationShown) return;
       this._vacationShown = key;
       if (!this._timesDirty) this._times = null;
+      if (!this._visitDirty) this._visitTimes = null;
     }
     this._renderContent();
   }
@@ -323,10 +338,14 @@ class HouseAssistantHouseView extends HTMLElement {
 
   _vacationKey() {
     const ent = this._vacationEntities();
-    return JSON.stringify(["switch", "departure", "return", "active"].map((k) => {
-      const st = this._state(ent[k]);
-      return st ? [st.state, k === "active" ? st.attributes : null] : null;
-    }));
+    const visit = this._cfg?.visit?.entities || {};
+    return JSON.stringify([
+      ...["switch", "departure", "return", "active"].map((k) => {
+        const st = this._state(ent[k]);
+        return st ? [st.state, k === "active" ? st.attributes : null] : null;
+      }),
+      ...["switch", "start", "end"].map((k) => this._state(visit[k])?.state ?? null),
+    ]);
   }
 
   // switch, times and the vacation as a whole: from the entities, else as loaded
@@ -391,11 +410,61 @@ class HouseAssistantHouseView extends HTMLElement {
         <button class="btn danger" data-action="vacation-clear">${esc(ui.clear)}</button>
         <button class="btn primary" data-action="vacation-times">${esc(ui.saveTimes)}</button></div>
     </div>
+    ${this._visitCard()}
     <div class="card" data-card="vacation-settings">
       <h2>${esc(ui.vacationSettings[0])}</h2><p class="desc">${esc(ui.vacationSettings[1])}</p>
       <div class="fields">${fields}${options}</div>
       <div class="actions"><span class="msg"></span><button class="btn primary" data-action="save-vacation">${esc(ui.save)}</button></div>
     </div>`;
+  }
+
+  // switch and times of the visit: from the entities, else as loaded
+  _visitLive() {
+    const visit = this._cfg.visit || {};
+    const ent = visit.entities || {};
+    const time = (id, loaded) => {
+      const st = this._state(id);
+      if (!st) return loaded || null;
+      return ["unknown", "unavailable"].includes(st.state) ? null : st.state;
+    };
+    const sw = this._state(ent.switch);
+    return { on: sw ? sw.state === "on" : !!visit.on, start: time(ent.start, visit.start), end: time(ent.end, visit.end) };
+  }
+
+  _visitCard() {
+    const ui = this.ui;
+    if (!this._cfg.visit?.entities) return "";
+    const live = this._visitLive();
+    if (!this._visitTimes) this._visitTimes = { start: toInput(live.start), end: toInput(live.end) };
+    const status = live.on ? ui.visitActive : live.start ? ui.visitPlanned : ui.visitOff;
+    const facts = [];
+    if (live.start) facts.push([ui.visitStart[0], this._when(live.start)]);
+    if (live.end) facts.push([ui.visitEnd[0], this._when(live.end)]);
+    const timeField = (key, [name, help]) => `<label class="field"><span class="lbl">${esc(name)}</span>
+      <input type="datetime-local" data-visit-time="${key}" value="${esc(this._visitTimes[key])}"><small>${esc(help)}</small></label>`;
+    return `<div class="card" data-card="visit">
+      <h2><ha-icon icon="mdi:account-group-outline"></ha-icon>${esc(ui.visit[0])}</h2><p class="desc">${esc(ui.visit[1])}</p>
+      <p><span class="pill ${live.on ? "warn" : live.start ? "ok" : ""}">${esc(status)}</span></p>
+      ${facts.length ? `<div class="facts">${facts.map(([k, v]) => `<span class="muted">${esc(k)}</span><span>${esc(v)}</span>`).join("")}</div>` : ""}
+      <label class="field toggle-row"><span><span class="lbl">${esc(ui.visitSwitch[0])}</span><small>${esc(ui.visitSwitch[1])}</small></span>
+        <input type="checkbox" class="switch-input" data-visit-switch="1" ${live.on ? "checked" : ""}><span class="switch ${live.on ? "on" : ""}"></span></label>
+      <div class="fields">${timeField("start", ui.visitStart)}${timeField("end", ui.visitEnd)}</div>
+      <div class="actions"><span class="msg"></span>
+        <button class="btn danger" data-action="visit-clear">${esc(ui.clear)}</button>
+        <button class="btn primary" data-action="visit-times">${esc(ui.saveTimes)}</button></div>
+    </div>`;
+  }
+
+  async _visitCall(payload) {
+    try {
+      this._cfg = await this._hass.callWS({ type: `${WS}/visit`, ...payload });
+      this._visitTimes = null;
+      this._visitDirty = false;
+      this._renderContent();
+      this._message(this.ui.saved, false, "visit");
+    } catch (err) {
+      this._message(this._errorText(err), true, "visit");
+    }
   }
 
   async _vacationCall(payload) {
@@ -697,6 +766,15 @@ class HouseAssistantHouseView extends HTMLElement {
       if (isChange) this._vacationCall({ on: el.checked });
       return;
     }
+    if (el.dataset?.visitSwitch) {
+      if (isChange) this._visitCall({ on: el.checked });
+      return;
+    }
+    if (el.dataset?.visitTime) {
+      this._visitTimes[el.dataset.visitTime] = el.value;
+      this._visitDirty = true;
+      return;
+    }
     if (el.dataset?.vacTime) {
       this._times[el.dataset.vacTime] = el.value;
       this._timesDirty = true;
@@ -750,6 +828,8 @@ class HouseAssistantHouseView extends HTMLElement {
       this._vacation = null;
       this._times = null;
       this._timesDirty = false;
+      this._visitTimes = null;
+      this._visitDirty = false;
       this._render();
     } else if (el.dataset.new) {
       this._edit = { type: el.dataset.new, id: null, title: "", data: el.dataset.new === "window" ? { size: "medium" } : {} };
@@ -782,6 +862,10 @@ class HouseAssistantHouseView extends HTMLElement {
       this._saveSettings();
     } else if (el.dataset.action === "vacation-times") {
       this._vacationCall({ departure: fromInput(this._times.departure), return: fromInput(this._times.return) });
+    } else if (el.dataset.action === "visit-times") {
+      this._visitCall({ start: fromInput(this._visitTimes.start), end: fromInput(this._visitTimes.end) });
+    } else if (el.dataset.action === "visit-clear") {
+      this._visitCall({ clear: true });
     } else if (el.dataset.action === "vacation-clear") {
       this._vacationCall({ clear: true });
     } else if (el.dataset.action === "save-vacation") {

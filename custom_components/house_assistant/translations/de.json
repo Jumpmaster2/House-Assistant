@@ -74,15 +74,23 @@
         }
       },
       "heating_vacation": {
-        "title": "Urlaub",
-        "description": "Urlaubstemperatur und Vorheizen zur Rückkehr. Der Urlaub selbst, seine externen Quellen und die Rückkehr werden im Haus eingestellt.",
+        "title": "Urlaub und Besuch",
+        "description": "Urlaubstemperatur und Vorheizen zur Rückkehr, dazu die Heizung bei Besuch. Urlaub und Besuch selbst, ihre Zeiten und die externen Quellen des Urlaubs werden im Haus eingestellt.",
         "data": {
           "vacation_temperature": "Urlaubstemperatur",
-          "preheat_reserve": "Vorheiz-Reserve"
+          "preheat_reserve": "Vorheiz-Reserve",
+          "visit_target_raise": "Besuch: Ziel höher um",
+          "visit_others_lower": "Besuch: andere Räume kühler um",
+          "visit_floor_minutes": "Besuch: Fußboden-Laufzeit je Stunde",
+          "visit_floor_max_over": "Besuch: Fußboden aus ab"
         },
         "data_description": {
           "vacation_temperature": "Sollwert für alle Räume im Urlaub.",
-          "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit."
+          "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit.",
+          "visit_target_raise": "Räume mit „Fußboden warm halten“ bekommen bei Besuch dieses Ziel zusätzlich, höchstens bis zum Maximum des Raums.",
+          "visit_others_lower": "Räume mit „etwas weniger heizen“ werden bei Besuch um diesen Wert abgesenkt, nicht unter das Minimum des Raums. Die Wärme aus dem Wohnbereich zieht über offene Türen nach.",
+          "visit_floor_minutes": "So lange läuft der Kreis eines Raums mit „Fußboden warm halten“ mindestens je Stunde, damit der Boden nicht kalt ist. Nachts (Nachtzeit der Lüftung) pausiert das. 0 = nur das höhere Ziel.",
+          "visit_floor_max_over": "Liegt der Raum so weit über dem Besuchsziel, läuft kein Fußboden-Takt."
         }
       },
       "heating_decision": {
@@ -468,15 +476,23 @@
         }
       },
       "heating_vacation": {
-        "title": "Urlaub",
-        "description": "Urlaubstemperatur und Vorheizen zur Rückkehr. Der Urlaub selbst, seine externen Quellen und die Rückkehr werden im Haus eingestellt.",
+        "title": "Urlaub und Besuch",
+        "description": "Urlaubstemperatur und Vorheizen zur Rückkehr, dazu die Heizung bei Besuch. Urlaub und Besuch selbst, ihre Zeiten und die externen Quellen des Urlaubs werden im Haus eingestellt.",
         "data": {
           "vacation_temperature": "Urlaubstemperatur",
-          "preheat_reserve": "Vorheiz-Reserve"
+          "preheat_reserve": "Vorheiz-Reserve",
+          "visit_target_raise": "Besuch: Ziel höher um",
+          "visit_others_lower": "Besuch: andere Räume kühler um",
+          "visit_floor_minutes": "Besuch: Fußboden-Laufzeit je Stunde",
+          "visit_floor_max_over": "Besuch: Fußboden aus ab"
         },
         "data_description": {
           "vacation_temperature": "Sollwert für alle Räume im Urlaub (z. B. 17 °C).",
-          "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min)."
+          "preheat_reserve": "Zusätzliche Zeit zur berechneten Vorheizzeit (z. B. 30 min).",
+          "visit_target_raise": "Räume mit „Fußboden warm halten“ bekommen bei Besuch dieses Ziel zusätzlich, höchstens bis zum Maximum des Raums.",
+          "visit_others_lower": "Räume mit „etwas weniger heizen“ werden bei Besuch um diesen Wert abgesenkt, nicht unter das Minimum des Raums. Die Wärme aus dem Wohnbereich zieht über offene Türen nach.",
+          "visit_floor_minutes": "So lange läuft der Kreis eines Raums mit „Fußboden warm halten“ mindestens je Stunde, damit der Boden nicht kalt ist. Nachts (Nachtzeit der Lüftung) pausiert das. 0 = nur das höhere Ziel.",
+          "visit_floor_max_over": "Liegt der Raum so weit über dem Besuchsziel, läuft kein Fußboden-Takt."
         }
       },
       "heating_rules": {
@@ -885,7 +901,8 @@
                 "max_target": "Größter Sollwert",
                 "min_on_time": "Mindest-Einschaltzeit",
                 "min_off_time": "Mindest-Ausschaltzeit",
-                "heating_type": "Heizungsart"
+                "heating_type": "Heizungsart",
+                "visit_role": "Bei Besuch"
               },
               "data_description": {
                 "heater_switch": "Schalter des Stellantriebs (z. B. ein Relais). Leer lassen für einen Raum nur mit Lüftungsempfehlung.",
@@ -894,7 +911,8 @@
                 "max_target": "Größter Wert der Thermostatkarte.",
                 "min_on_time": "Wird immer eingehalten (schont den Stellantrieb). Wird nicht gelernt.",
                 "min_off_time": "Wird immer eingehalten. Wird nicht gelernt.",
-                "heating_type": "Wie der Kreis heizt. Ein Fußboden speichert Wärme über Stunden, Heizkörper reagieren in Minuten; die KI beurteilt die gelernten Werte entsprechend."
+                "heating_type": "Wie der Kreis heizt. Ein Fußboden speichert Wärme über Stunden, Heizkörper reagieren in Minuten; die KI beurteilt die gelernten Werte entsprechend.",
+                "visit_role": "Fußboden warm halten: höheres Ziel und feste Laufzeit je Stunde, auch ohne Heiztag, damit Gäste keine kalten Füße haben. Etwas weniger heizen: Ziel abgesenkt. Die Werte stehen in den Einstellungen unter Urlaub und Besuch."
               }
             },
             "learned_values": {
@@ -1799,6 +1817,13 @@
         "large": "Groß (z. B. zweiflügelig)",
         "door": "Tür (z. B. Balkontür)"
       }
+    },
+    "visit_role": {
+      "options": {
+        "none": "Unverändert",
+        "warm_floor": "Fußboden warm halten (Ziel höher)",
+        "reduce": "Etwas weniger heizen"
+      }
     }
   },
   "entity": {
@@ -1862,6 +1887,17 @@
           },
           "open_windows": {
             "name": "Offene Fenster"
+          }
+        }
+      },
+      "visit_active": {
+        "name": "Besuch aktiv",
+        "state_attributes": {
+          "start": {
+            "name": "Von"
+          },
+          "end": {
+            "name": "Bis"
           }
         }
       }
@@ -2122,6 +2158,8 @@
           "frost_protection": "Frostschutz",
           "vacation": "Urlaub",
           "preheat": "Vorheizen zur Rückkehr",
+          "visit": "Besuch",
+          "visit_floor": "Besuch: Fußboden warm",
           "emergency": "Notfallregel",
           "sensor_error": "Sensorfehler",
           "actuator_unavailable": "Aktor nicht erreichbar",
@@ -2147,6 +2185,9 @@
       },
       "vacation": {
         "name": "Urlaub"
+      },
+      "visit": {
+        "name": "Besuch"
       }
     },
     "datetime": {
@@ -2155,6 +2196,12 @@
       },
       "vacation_return": {
         "name": "Urlaub: Rückkehr"
+      },
+      "visit_start": {
+        "name": "Besuch: von"
+      },
+      "visit_end": {
+        "name": "Besuch: bis"
       }
     }
   },
@@ -2191,6 +2238,12 @@
     },
     "invalid_reading": {
       "message": "Der Zählerstand muss eine endliche, nichtnegative Zahl sein."
+    },
+    "visit_end_in_past": {
+      "message": "Das Ende des Besuchs liegt in der Vergangenheit."
+    },
+    "visit_start_after_end": {
+      "message": "Der Beginn des Besuchs muss vor dem Ende liegen."
     }
   },
   "services": {

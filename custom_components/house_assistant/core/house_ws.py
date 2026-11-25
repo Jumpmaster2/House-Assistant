@@ -173,6 +173,7 @@ def config_payload(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
             "vacation": _specs(vacation_schema(core).schema),
         },
         "vacation": vacation_payload(entry),
+        "visit": visit_payload(entry),
     }
 
 
@@ -219,6 +220,24 @@ def vacation_payload(entry: ConfigEntry) -> dict[str, Any]:
             **{key: core[key] for key in VACATION_FORM if key in core},
         },
         "options": options,
+    }
+
+
+def visit_payload(entry: ConfigEntry) -> dict[str, Any]:
+    """The visit of the house: switch, start, end and its entities."""
+    house = _house(entry)
+    if house is None:
+        return {}
+    return {
+        "on": house.visit.on,
+        "start": _local(house.visit.departure),
+        "end": _local(house.visit.return_at),
+        "entities": {
+            "switch": house.entity_id("switch", "visit"),
+            "start": house.entity_id("datetime", "visit_start"),
+            "end": house.entity_id("datetime", "visit_end"),
+            "active": house.entity_id("binary_sensor", "visit_active"),
+        },
     }
 
 
@@ -470,6 +489,42 @@ def ws_vacation(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): f"{PREFIX}/visit",
+        vol.Optional("on"): bool,
+        vol.Optional("start"): vol.Any(str, None),
+        vol.Optional("end"): vol.Any(str, None),
+        vol.Optional("clear"): bool,
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_visit(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Switch the visit, plan start and end, or clear everything."""
+    entry = house_entry(hass)
+    house = _house(entry) if entry is not None else None
+    if entry is None or house is None:
+        connection.send_error(msg["id"], "not_found", "House Assistant is not running")
+        return
+    try:
+        if msg.get("clear"):
+            house.clear_visit()
+        if "start" in msg or "end" in msg:
+            start = _time(msg["start"]) if "start" in msg else house.visit.departure
+            end = _time(msg["end"]) if "end" in msg else house.visit.return_at
+            house.set_visit_times(start, end, strict=True)
+        if "on" in msg:
+            house.set_visit_on(msg["on"])
+    except PanelError as err:
+        _error(connection, msg["id"], err)
+        return
+    except ServiceValidationError as err:
+        _error(connection, msg["id"], PanelError(err.translation_key or "invalid_value"))
+        return
+    connection.send_result(msg["id"], config_payload(hass, entry))
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): f"{PREFIX}/vacation_settings",
         vol.Required("settings"): dict,
         vol.Optional("options"): {str: bool},
@@ -510,4 +565,5 @@ COMMANDS = (
     ws_combination,
     ws_vacation,
     ws_vacation_settings,
+    ws_visit,
 )

@@ -109,6 +109,15 @@ Effect:
 
 Messages go to the notification services of the house, without any as a notification in Home Assistant.
 
+## Visit
+
+So guests in the living area do not get cold feet, even when its underfloor heating hardly ever runs:
+
+* **Switch Visit** on the device "House Assistant" with **Visit start** and **Visit end** (`datetime`, both optional), the same rules as departure and return: on at the start, off at the end, then empty. **Binary sensor Visit active**, logbook entry at start and end. In the panel under *House > Vacation*.
+* Per room in the heating **During a visit**: *keep the floor warm* (target + 0.5 K up to the maximum, and at least 15 min run time per hour, also on days without heating; no runs at night by the night time of the ventilation or while the room is more than 0.5 K above its visit target), *heat a little less* (target − 0.5 K, not below the minimum) or *unchanged*. Values in the heating settings under *Vacation and visit*.
+* Ahead of a planned visit the floor is warmed earlier by the dead time and the preheat reserve, the other rooms lower only at the start. Windows, recovery after airing, frost protection and off come first; on vacation the visit has no effect.
+* Status "Visit" or "Visit: warming floor", attributes `visit_active` and `visit_role` on the thermostat. The AI knows about the visit and does not counter it; visit days do not count as errors of the heating day rule.
+
 ## Dashboard cards
 
 The cards are loaded automatically for every user and every dashboard, without an entry by hand: as an extra module of the frontend as soon as the integration starts (also in a page already open or the companion app), and in addition as a dashboard resource at an address of its own. All files are below a folder with the version, so after an update no page mixes old and new files.

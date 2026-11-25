@@ -32,6 +32,10 @@ _TEXTS: dict[str, dict[str, str]] = {
         "en": "Window closed: recovery until {until} at the latest.",
     },
     "recovery_end": {"de": "Erholung beendet.", "en": "Recovery finished."},
+    "visit_preheat": {
+        "de": "Fußboden wird für den Besuch vorgewärmt.",
+        "en": "Warming the floor ahead of the visit.",
+    },
     "short_recovery_start": {
         "de": "Kurz gelüftet: Wartezeit bis {until}.",
         "en": "Aired briefly: waiting until {until}.",

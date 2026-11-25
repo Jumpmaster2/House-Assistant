@@ -88,5 +88,7 @@ EVENT_VACATION: Final = f"{DOMAIN}_vacation"
 EVENT_VACATION_ALERT: Final = f"{DOMAIN}_vacation_alert"
 # the vacation changed (switch, times, an external source): the modules look again
 SIGNAL_VACATION: Final = f"{DOMAIN}_vacation_changed"
+# the visit of the house changed (switch, start or end)
+SIGNAL_VISIT: Final = f"{DOMAIN}_visit_changed"
 
 STORAGE_VERSION: Final = 1

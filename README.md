@@ -109,6 +109,15 @@ Wirkung:
 
 Meldungen gehen an die Benachrichtigungsdienste des Hauses, ohne sie als Benachrichtigung in Home Assistant.
 
+## Besuch
+
+Damit Gäste im Wohnbereich keine kalten Füße haben, auch wenn dessen Fußbodenheizung sonst kaum läuft:
+
+* **Schalter Besuch** am Gerät „House Assistant“ mit **Besuch: von** und **Besuch: bis** (`datetime`, beide optional), dieselben Regeln wie Abreise und Rückkehr: zum Beginn an, zum Ende aus, danach leer. **Binärsensor Besuch aktiv**, Logbuch bei Beginn und Ende. Im Panel unter *Haus > Urlaub*.
+* Je Raum in der Heizung **Bei Besuch**: *Fußboden warm halten* (Ziel + 0,5 K bis höchstens zum Maximum, dazu mindestens 15 min Laufzeit je Stunde, auch an Tagen ohne Heizbedarf; kein Takt nachts laut Nachtzeit der Lüftung oder wenn der Raum mehr als 0,5 K über dem Besuchsziel liegt), *etwas weniger heizen* (Ziel − 0,5 K, nicht unter das Minimum) oder *unverändert*. Werte in den Einstellungen der Heizung unter *Urlaub und Besuch*.
+* Der Fußboden wird vor einem geplanten Besuch um Totzeit und Vorheiz-Reserve früher angewärmt, die anderen Räume senken erst zum Beginn ab. Fenster, Erholung nach dem Lüften, Frostschutz und Aus haben Vorrang; im Urlaub wirkt der Besuch nicht.
+* Status „Besuch“ bzw. „Besuch: Fußboden warm“, Attribute `visit_active` und `visit_role` am Thermostat. Die KI kennt den Besuch und regelt nicht dagegen; Besuchstage zählen nicht als Fehler der Heiztag-Regel.
+
 ## Dashboard-Karten
 
 Die Karten werden für alle Benutzer und alle Dashboards automatisch geladen, ohne Eintrag von Hand: als Zusatzmodul des Frontends, sobald die Integration startet (auch in einer schon offenen Seite oder der Companion-App), und zusätzlich als Dashboard-Ressource unter eigener Adresse. Alle Dateien liegen unter einem Ordner mit der Version, nach einem Update mischt keine Seite alte und neue Dateien.

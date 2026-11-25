@@ -45,6 +45,9 @@ class PipeCoordinator(HeatingCoordinator):
         self._schedule_check = Mock()
         self._log = Mock()
         self.meter = Mock()
+        self.visit = False
+        self.visit_start = None
+        self.visit_end = None
 
     @property
     def opts(self):
